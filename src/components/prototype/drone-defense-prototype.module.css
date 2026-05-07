@@ -42,6 +42,26 @@
   text-transform: uppercase;
 }
 
+.backButton {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 6px;
+  border: 1px solid rgba(139, 166, 178, 0.18);
+  color: #bec9cf;
+  font-size: 0.95rem;
+  background: rgba(13, 22, 27, 0.66);
+  transition: color 160ms ease, border-color 160ms ease;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.backButton:hover {
+  color: #69dbff;
+  border-color: rgba(68, 211, 255, 0.5);
+}
+
 .brand strong {
   display: block;
   font-family: var(--font-syne), sans-serif;

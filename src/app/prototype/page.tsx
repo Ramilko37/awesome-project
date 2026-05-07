@@ -1,5 +1,5 @@
 import { DroneDefensePrototype } from "@/components/prototype/drone-defense-prototype";
 
-export default function PrototypePage() {
+export default function Page() {
   return <DroneDefensePrototype />;
 }
