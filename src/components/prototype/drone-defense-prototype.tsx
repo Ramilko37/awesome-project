@@ -9,7 +9,7 @@ import {
 } from "@ant-design/icons";
 import { message } from "antd";
 import { cloneScenario, kindLabel, type ObjectKind, type ScenarioId, type SceneObject } from "./types";
-import { defaultPlantConnections, defaultPlantMapObjects, type PlantMapObject } from "./plant-map";
+import { defaultPlantConnections, defaultPlantMapObjects, type PlantMapConnection, type PlantMapObject } from "./plant-map";
 import { PrototypeScene } from "./scene";
 import { Topbar } from "./topbar";
 import { AssetsPanel } from "./assets-panel";
@@ -20,17 +20,13 @@ import styles from "./drone-defense-prototype.module.css";
 export function DroneDefensePrototype() {
   const [objects, setObjects] = useState<SceneObject[]>(() => cloneScenario("baseline"));
   const [plantObjects] = useState<PlantMapObject[]>(() =>
-    defaultPlantMapObjects.map((item) => ({ ...item, selectable: false })),
+    defaultPlantMapObjects.map((item) => ({ ...item, selectable: item.layer === "protection" })),
   );
-  const [plantConnections, setPlantConnections] = useState(defaultPlantConnections);
+  const [plantConnections, setPlantConnections] = useState<PlantMapConnection[]>(() => defaultPlantConnections);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof window === "undefined") return "light";
-    const storedTheme = window.localStorage.getItem("prototype-theme");
-    return storedTheme === "dark" ? "dark" : "light";
-  });
+  const theme = "dark" as const;
   const [scenario, setScenario] = useState<ScenarioId>("baseline");
-  const [demoMode, setDemoMode] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
   const [isPropertiesOpen, setIsPropertiesOpen] = useState(true);
   const [idCounter, setIdCounter] = useState(100);
   const [placingKind, setPlacingKind] = useState<ObjectKind | null>(null);
@@ -38,6 +34,10 @@ export function DroneDefensePrototype() {
   const [messageApi, contextHolder] = message.useMessage();
 
   const selectedObject = useMemo(() => objects.find((item) => item.id === selectedId) ?? null, [objects, selectedId]);
+  const selectedPlantObject = useMemo(
+    () => plantObjects.find((item) => item.id === selectedId && item.selectable) ?? null,
+    [plantObjects, selectedId],
+  );
 
   const stats = useMemo(() => {
     const sensorCount = objects.filter((item) => item.kind === "operator_substation").length;
@@ -88,7 +88,7 @@ export function DroneDefensePrototype() {
                 ? 8
                 : 10,
       zones: kind === "perimeter_barrier" || kind === "operator_substation" ? 2 : 1,
-      assignment: "Grid Alpha",
+      assignment: "Сетка Альфа",
     };
   };
 
@@ -99,13 +99,13 @@ export function DroneDefensePrototype() {
     setIdCounter(nextCounter);
     setSelectedId(next.id);
     setIsPropertiesOpen(true);
-    messageApi.success(`${kindLabel[kind]} added to map`);
+    messageApi.success(`${kindLabel[kind]} добавлен на карту`);
   };
 
   const startPlacing = (kind: ObjectKind) => {
     setPlacingKind(kind);
     setSelectedId(null);
-    messageApi.info(`Placement mode: ${kindLabel[kind]}`);
+    messageApi.info(`Режим размещения: ${kindLabel[kind]}`);
   };
 
   const placePendingObject = () => {
@@ -124,7 +124,7 @@ export function DroneDefensePrototype() {
     );
     setSelectedId(null);
     const removedLabel = objectToDelete.label;
-    messageApi.info(`${removedLabel} removed`);
+    messageApi.info(`${removedLabel} удален`);
   }, [messageApi, objects, selectedId]);
 
   const duplicateSelected = () => {
@@ -133,7 +133,7 @@ export function DroneDefensePrototype() {
     const copy: SceneObject = {
       ...selectedObject,
       id: `${selectedObject.kind}-${nextCounter}`,
-      label: `${selectedObject.label} Copy`,
+      label: `${selectedObject.label} (копия)`,
       position: [selectedObject.position[0] + 1.4, 0, selectedObject.position[2] + 1.2],
     };
     setObjects((prev) => [...prev, copy]);
@@ -159,10 +159,6 @@ export function DroneDefensePrototype() {
   }, [deleteSelected, selectedId]);
 
   useEffect(() => {
-    window.localStorage.setItem("prototype-theme", theme);
-  }, [theme]);
-
-  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setPlacingKind(null);
@@ -173,14 +169,12 @@ export function DroneDefensePrototype() {
   }, []);
 
   return (
-    <main className={`${styles.page} ${theme === "dark" ? styles.pageDark : ""}`.trim()}>
+    <main className={`${styles.page} ${styles.pageDark}`.trim()}>
       {contextHolder}
 
       <Topbar
         scenario={scenario}
         onScenarioChange={applyScenario}
-        theme={theme}
-        onToggleTheme={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))}
       />
 
       <section className={`${styles.workspace} ${!isPropertiesOpen ? styles.workspaceNoProperties : ""}`.trim()}>
@@ -190,7 +184,7 @@ export function DroneDefensePrototype() {
           onCancelPlacement={() => setPlacingKind(null)}
         />
 
-        <section className={styles.sceneShell} aria-label="Industrial site map">
+        <section className={styles.sceneShell} aria-label="Карта промышленной площадки">
           <PrototypeScene
             objects={objects}
             plantObjects={plantObjects}
@@ -208,16 +202,17 @@ export function DroneDefensePrototype() {
           />
           <div className={styles.sceneVignette} />
           <div className={styles.controlLegend}>
-            <span><CompassOutlined /> Orbit</span>
-            <span><DragOutlined /> Pan</span>
-            <span><SearchOutlined /> Zoom</span>
-            <span><ControlOutlined /> Move Objects</span>
+            <span><CompassOutlined /> Орбита</span>
+            <span><DragOutlined /> Панорама</span>
+            <span><SearchOutlined /> Масштаб</span>
+            <span><ControlOutlined /> Перемещение объектов</span>
           </div>
         </section>
 
         {isPropertiesOpen ? (
           <PropertiesPanel
             selectedObject={selectedObject}
+            selectedPlantObject={selectedPlantObject}
             scenario={scenario}
             onDuplicate={duplicateSelected}
             onDelete={deleteSelected}

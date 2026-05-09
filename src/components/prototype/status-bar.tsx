@@ -35,38 +35,38 @@ export function StatusBar({
   return (
     <footer className={styles.statusBar}>
       <button className={styles.scenarioCrumb} type="button" onClick={onScenarioReset}>
-        <span>Scenario:</span>
+        <span>Сценарий:</span>
         <strong>{scenarioLabels[scenario]}</strong>
         <span>›</span>
       </button>
       <div className={styles.metric}>
         <RadarChartOutlined />
         <strong>{stats.sensorCount}</strong>
-        <span>Sensors</span>
+        <span>Сенсоры</span>
       </div>
       <div className={styles.metric}>
         <CameraOutlined />
         <strong>{stats.cameraCount}</strong>
-        <span>Cameras</span>
+        <span>Камеры</span>
       </div>
       <div className={styles.metric}>
         <GatewayOutlined />
         <strong>{stats.postCount}</strong>
-        <span>Control Posts</span>
+        <span>Посты управления</span>
       </div>
       <div className={styles.metric}>
         <SafetyCertificateOutlined />
         <strong>{stats.perimeter}</strong>
-        <span>Perimeter</span>
+        <span>Периметр</span>
       </div>
       <div className={styles.metric}>
         <AimOutlined />
         <strong>{stats.coverage}%</strong>
-        <span>Coverage</span>
+        <span>Покрытие</span>
       </div>
       <button className={styles.simulationButton} type="button" onClick={onToggleDemo}>
         <PlayCircleOutlined />
-        {demoMode ? "Pause Simulation" : "Run Simulation"}
+        {demoMode ? "Пауза симуляции" : "Запустить симуляцию"}
       </button>
     </footer>
   );

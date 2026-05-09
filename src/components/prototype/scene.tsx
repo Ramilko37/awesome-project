@@ -4,6 +4,8 @@ import { Suspense, useMemo, useRef, useState, type RefObject } from "react";
 import { Canvas, ThreeEvent, useFrame } from "@react-three/fiber";
 import { Grid, Line, OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import { ScaledGlbModel } from "@/components/FactoryMap/ScaledGlbModel";
+import { isAssetType, type AssetType } from "@/config/assetDimensions";
 import {
   plantSite,
   plantZones,
@@ -14,6 +16,107 @@ import { kindColor, snapToGrid, type ObjectKind, type SceneObject } from "./type
 import styles from "./drone-defense-prototype.module.css";
 
 const levelPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const scaledAssetByModelKey: Record<
+  string,
+  {
+    url: string;
+    assetType: AssetType;
+    upAxis?: "Y" | "Z";
+    scaleMode?: "exact" | "uniformByHeight";
+    modelRotation?: [number, number, number];
+  }
+> = {
+  protected_column: {
+    url: "/models/kolonnyy-apparat-s-zashchitoy.glb",
+    assetType: "protected_column_apparatus",
+    upAxis: "Z",
+    scaleMode: "uniformByHeight",
+  },
+  operator_station_protected: {
+    url: "/models/protective/operator_substation_protected.glb",
+    assetType: "operator_substation_protected",
+    upAxis: "Z",
+  },
+  scaffold_protection: {
+    url: "/models/protection/05_protective_scaffolding_with_equipment_textured.glb",
+    assetType: "protective_scaffolding_with_equipment",
+    upAxis: "Z",
+    scaleMode: "uniformByHeight",
+  },
+  fbs_barrier_segment: {
+    url: "/models/protection/04_perimeter_fbs_cable_barrier_textured.glb",
+    assetType: "perimeter_fbs_cable_barrier_module",
+    upAxis: "Z",
+  },
+  mesh_screen: {
+    url: "/models/protection/02_cable_mesh_curtain_textured.glb",
+    assetType: "cable_mesh_curtain_module",
+    upAxis: "Z",
+  },
+  tank_protected: {
+    url: "/models/protection/03_fbs_protection_enclosure_textured.glb",
+    assetType: "fbs_protection_enclosure",
+    upAxis: "Z",
+  },
+};
+
+const scaledAssetByKind: Record<
+  SceneObject["kind"],
+  {
+    url: string;
+    assetType: AssetType;
+    upAxis?: "Y" | "Z";
+    scaleMode?: "exact" | "uniformByHeight";
+    modelRotation?: [number, number, number];
+  }
+> = {
+  operator_substation: {
+    url: "/models/protective/operator_substation_protected.glb",
+    assetType: "operator_substation_protected",
+    upAxis: "Z",
+  },
+  scaffolding: {
+    url: "/models/protection/05_protective_scaffolding_with_equipment_textured.glb",
+    assetType: "protective_scaffolding_with_equipment",
+    upAxis: "Z",
+    scaleMode: "uniformByHeight",
+  },
+  fbs_enclosure: {
+    url: "/models/protection/03_fbs_protection_enclosure_textured.glb",
+    assetType: "fbs_protection_enclosure",
+    upAxis: "Z",
+  },
+  perimeter_barrier: {
+    url: "/models/protection/04_perimeter_fbs_cable_barrier_textured.glb",
+    assetType: "perimeter_fbs_cable_barrier_module",
+    upAxis: "Z",
+  },
+  cable_mesh: {
+    url: "/models/protection/02_cable_mesh_curtain_textured.glb",
+    assetType: "cable_mesh_curtain_module",
+    upAxis: "Z",
+  },
+  sensor: {
+    url: "/models/protective/operator_substation_protected.glb",
+    assetType: "operator_substation_protected",
+  },
+  camera: {
+    url: "/models/protection/02_cable_mesh_curtain_textured.glb",
+    assetType: "cable_mesh_curtain_module",
+  },
+  shield: {
+    url: "/models/protection/03_fbs_protection_enclosure_textured.glb",
+    assetType: "fbs_protection_enclosure",
+  },
+  post: {
+    url: "/models/protection/04_perimeter_fbs_cable_barrier_textured.glb",
+    assetType: "perimeter_fbs_cable_barrier_module",
+  },
+  barrier: {
+    url: "/models/protection/04_perimeter_fbs_cable_barrier_textured.glb",
+    assetType: "perimeter_fbs_cable_barrier_module",
+  },
+};
 
 function zoneShape(points: [number, number][]) {
   const shape = new THREE.Shape();
@@ -131,6 +234,44 @@ function PipeRackUnit({ length, width, height }: { length: number; width: number
 }
 
 function PlantObjectMesh({ item }: { item: PlantMapObject }) {
+  if (item.modelUrl && item.assetType && isAssetType(item.assetType)) {
+    const target = dimensionsFor(item);
+    const useTargetDimensions =
+      item.assetType !== "perimeter_fbs_cable_barrier_module" &&
+      item.assetType !== "cable_mesh_curtain_module";
+    return (
+      <Suspense fallback={null}>
+        <ScaledGlbModel
+          url={item.modelUrl}
+          assetType={item.assetType}
+          upAxis={item.upAxis}
+          targetDimensions={
+            useTargetDimensions ? { width: target.width, depth: target.depth, height: target.height } : undefined
+          }
+          rotation={[0, 0, 0]}
+          scaleMode={item.scaleMode ?? "exact"}
+          modelRotation={item.modelRotation ?? [0, 0, 0]}
+        />
+      </Suspense>
+    );
+  }
+
+  const scaledConfig = scaledAssetByModelKey[item.modelKey];
+  if (scaledConfig) {
+    return (
+      <Suspense fallback={null}>
+        <ScaledGlbModel
+          url={scaledConfig.url}
+          assetType={scaledConfig.assetType}
+          upAxis={scaledConfig.upAxis}
+          rotation={[0, 0, 0]}
+          scaleMode={scaledConfig.scaleMode ?? "exact"}
+          modelRotation={scaledConfig.modelRotation ?? [0, 0, 0]}
+        />
+      </Suspense>
+    );
+  }
+
   const { width, depth, height, length, diameter } = dimensionsFor(item);
 
   if (item.type === "road") {
@@ -152,6 +293,50 @@ function PlantObjectMesh({ item }: { item: PlantMapObject }) {
         <boxGeometry args={[width, 0.03, depth]} />
         <meshStandardMaterial color="#bbc3cf" roughness={0.95} />
       </mesh>
+    );
+  }
+
+  if (item.type === "canopy") {
+    return (
+      <group>
+        <mesh castShadow position={[0, height - 0.25, 0]}>
+          <boxGeometry args={[width, 0.5, depth]} />
+          <meshStandardMaterial color="#8f99a7" metalness={0.12} roughness={0.7} />
+        </mesh>
+        {[-1, 1].flatMap((x) => [-1, 1].map((z) => [x, z] as const)).map(([sx, sz], idx) => (
+          <mesh key={idx} castShadow position={[sx * (width / 2 - 0.8), height / 2 - 0.2, sz * (depth / 2 - 0.8)]}>
+            <boxGeometry args={[0.45, height - 0.4, 0.45]} />
+            <meshStandardMaterial color="#7d8794" metalness={0.18} roughness={0.62} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+
+  if (item.type === "auto_overpass") {
+    const rampLength = Math.max(18, length * 0.28);
+    const deckLength = Math.max(28, length - rampLength * 2);
+    return (
+      <group>
+        <mesh castShadow position={[0, height, 0]}>
+          <boxGeometry args={[deckLength, 0.7, width]} />
+          <meshStandardMaterial color="#9099a6" roughness={0.86} metalness={0.08} />
+        </mesh>
+        <mesh castShadow position={[-deckLength / 2 - rampLength / 2, height / 2, 0]} rotation={[0, 0, -0.22]}>
+          <boxGeometry args={[rampLength, 0.65, width]} />
+          <meshStandardMaterial color="#9aa2ae" roughness={0.88} />
+        </mesh>
+        <mesh castShadow position={[deckLength / 2 + rampLength / 2, height / 2, 0]} rotation={[0, 0, 0.22]}>
+          <boxGeometry args={[rampLength, 0.65, width]} />
+          <meshStandardMaterial color="#9aa2ae" roughness={0.88} />
+        </mesh>
+        {[-1, 1].flatMap((x) => [-1, 1].map((z) => [x, z] as const)).map(([sx, sz], idx) => (
+          <mesh key={idx} castShadow position={[sx * (deckLength * 0.35), height / 2 - 0.2, sz * (width / 2 - 0.8)]}>
+            <boxGeometry args={[0.65, height - 0.4, 0.65]} />
+            <meshStandardMaterial color="#76808d" roughness={0.74} />
+          </mesh>
+        ))}
+      </group>
     );
   }
 
@@ -390,73 +575,8 @@ function ProtectiveAssetModel({
   selected: boolean;
   ghost?: boolean;
 }) {
-  const operatorSubstation = useGLTF("/models/protective/operator_substation_protected.glb");
-  const scaffolding = useGLTF("/models/protective/protective_scaffolding_with_equipment.glb");
-  const fbsEnclosure = useGLTF("/models/protective/fbs_protection_enclosure.glb");
-  const perimeterBarrier = useGLTF("/models/protective/perimeter_fbs_cable_barrier.glb");
-  const cableMesh = useGLTF("/models/protective/cable_mesh_curtain_module.glb");
-
-  const config = useMemo(() => {
-    const legacy = {
-      scene: null,
-      scale: 2.2,
-      y: 0.8,
-    };
-
-    if (kind === "operator_substation") {
-      return { scene: operatorSubstation.scene, scale: 1.55 };
-    }
-    if (kind === "scaffolding") {
-      return { scene: scaffolding.scene, scale: 1.65 };
-    }
-    if (kind === "fbs_enclosure") {
-      return { scene: fbsEnclosure.scene, scale: 1.48 };
-    }
-    if (kind === "perimeter_barrier") {
-      return { scene: perimeterBarrier.scene, scale: 1.6 };
-    }
-    if (kind === "cable_mesh") {
-      return { scene: cableMesh.scene, scale: 1.52 };
-    }
-
-    return legacy;
-  }, [cableMesh.scene, fbsEnclosure.scene, kind, operatorSubstation.scene, perimeterBarrier.scene, scaffolding.scene]);
-
-  const rotatedModel = useMemo(() => {
-    if (!config.scene) return null;
-    const model = config.scene.clone(true);
-    // All supplied GLB assets are Z-up, rotate once to Y-up for three.js scenes.
-    model.rotation.set(-Math.PI / 2, 0, 0);
-    if (ghost) {
-      model.traverse((obj) => {
-        const mesh = obj as THREE.Mesh;
-        if (!mesh.isMesh) return;
-        if (!mesh.material) return;
-        const material = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        const tuned = material.map((mat) => {
-          const next = mat.clone() as THREE.Material & {
-            transparent?: boolean;
-            opacity?: number;
-            depthWrite?: boolean;
-            emissive?: THREE.Color;
-            emissiveIntensity?: number;
-          };
-          next.transparent = true;
-          next.opacity = 0.35;
-          next.depthWrite = false;
-          if ("emissive" in next && next.emissive) {
-            next.emissive = new THREE.Color("#00b6ff");
-            next.emissiveIntensity = 0.45;
-          }
-          return next;
-        });
-        mesh.material = Array.isArray(mesh.material) ? tuned : tuned[0];
-      });
-    }
-    return model;
-  }, [config.scene, ghost]);
-
-  if (!config.scene) {
+  const config = scaledAssetByKind[kind];
+  if (!config) {
     return (
       <mesh castShadow position={[0, 1.2, 0]}>
         <cylinderGeometry args={[0.35, 0.42, 2.4, 10]} />
@@ -471,16 +591,17 @@ function ProtectiveAssetModel({
     );
   }
 
-  if (!rotatedModel) {
-    return null;
-  }
-
   return (
-    <primitive
-      object={rotatedModel}
-      scale={config.scale}
-      position={[0, 0, 0]}
-    />
+    <Suspense fallback={null}>
+      <ScaledGlbModel
+        url={config.url}
+        assetType={config.assetType}
+        upAxis={config.upAxis}
+        scaleMode={config.scaleMode ?? "exact"}
+        modelRotation={config.modelRotation ?? [0, 0, 0]}
+        ghost={ghost}
+      />
+    </Suspense>
   );
 }
 
@@ -870,6 +991,10 @@ export function PrototypeScene({
 }
 
 useGLTF.preload("/models/chaklun-v2-drone.glb");
+useGLTF.preload("/models/protection/02_cable_mesh_curtain_textured.glb");
+useGLTF.preload("/models/protection/03_fbs_protection_enclosure_textured.glb");
+useGLTF.preload("/models/protection/04_perimeter_fbs_cable_barrier_textured.glb");
+useGLTF.preload("/models/protection/05_protective_scaffolding_with_equipment_textured.glb");
 useGLTF.preload("/models/protective/operator_substation_protected.glb");
 useGLTF.preload("/models/protective/protective_scaffolding_with_equipment.glb");
 useGLTF.preload("/models/protective/fbs_protection_enclosure.glb");

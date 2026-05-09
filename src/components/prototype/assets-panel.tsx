@@ -32,13 +32,13 @@ export function AssetsPanel({
   onCancelPlacement: () => void;
 }) {
   return (
-    <aside className={styles.assetsPanel} aria-label="Assets">
+    <aside className={styles.assetsPanel} aria-label="Ассеты">
       <div className={styles.panelHeader}>
-        <h2>Assets</h2>
+        <h2>Ассеты</h2>
       </div>
       <div className={styles.searchRow}>
         <SearchOutlined />
-        <input aria-label="Search assets" placeholder="Search assets..." />
+        <input aria-label="Поиск ассетов" placeholder="Поиск ассетов..." />
         <FilterOutlined />
       </div>
       <div className={styles.assetList}>
@@ -60,12 +60,12 @@ export function AssetsPanel({
       <div className={styles.dragHint}>
         <span className={styles.mouseGlyph} />
         <p>
-          {placingKind ? "Click on map to place asset" : "Pick asset, then click map"}
+          {placingKind ? "Кликните по карте, чтобы разместить ассет" : "Выберите ассет и кликните по карте"}
         </p>
       </div>
       {placingKind ? (
         <button className={styles.performanceButton} type="button" onClick={onCancelPlacement}>
-          Cancel Placement
+          Отменить размещение
         </button>
       ) : null}
     </aside>

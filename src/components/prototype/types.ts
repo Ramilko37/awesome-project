@@ -27,24 +27,24 @@ export type AssetCatalogItem = {
 };
 
 export const scenarioLabels: Record<ScenarioId, string> = {
-  baseline: "Baseline",
-  perimeter: "Reinforced Perimeter",
-  assets: "Critical Assets",
-  night: "Night Mode",
+  baseline: "Базовый",
+  perimeter: "Усиленный периметр",
+  assets: "Критические объекты",
+  night: "Ночной режим",
 };
 
 export const kindLabel: Record<ObjectKind, string> = {
-  operator_substation: "Operator Substation",
-  scaffolding: "Protective Scaffolding",
-  fbs_enclosure: "FBS Protection Enclosure",
-  perimeter_barrier: "Perimeter FBS Cable Barrier",
-  cable_mesh: "Cable Mesh Curtain Module",
+  operator_substation: "Операторная / подстанция",
+  scaffolding: "Защитные строительные леса",
+  fbs_enclosure: "ФБС-защита",
+  perimeter_barrier: "Периметральная ФБС-линия",
+  cable_mesh: "Сеточная тросовая завеса",
 
-  sensor: "Sensor Mast",
-  camera: "Camera",
-  shield: "Signal Shield",
-  post: "Control Post",
-  barrier: "Barrier",
+  sensor: "Сенсорная мачта",
+  camera: "Камера",
+  shield: "Защитный купол",
+  post: "Пост управления",
+  barrier: "Барьер",
 };
 
 export const kindColor: Record<ObjectKind, string> = {
@@ -62,44 +62,18 @@ export const kindColor: Record<ObjectKind, string> = {
 };
 
 export const assetCatalog: AssetCatalogItem[] = [
-  { kind: "operator_substation", label: "Operator Substation", tone: "cyan" },
-  { kind: "scaffolding", label: "Protective Scaffolding", tone: "green" },
-  { kind: "fbs_enclosure", label: "FBS Enclosure", tone: "amber" },
-  { kind: "perimeter_barrier", label: "Perimeter Barrier", tone: "orange" },
-  { kind: "cable_mesh", label: "Cable Mesh Curtain", tone: "steel" },
+  { kind: "operator_substation", label: "Операторная / подстанция", tone: "cyan" },
+  { kind: "scaffolding", label: "Защитные леса", tone: "green" },
+  { kind: "fbs_enclosure", label: "ФБС-защита", tone: "amber" },
+  { kind: "perimeter_barrier", label: "Периметральный барьер", tone: "orange" },
+  { kind: "cable_mesh", label: "Сеточная завеса", tone: "steel" },
 ];
 
 export const scenarioPresets: Record<ScenarioId, SceneObject[]> = {
-  baseline: [
-    {
-      id: "operator-substation-01",
-      kind: "operator_substation",
-      label: "Operator Substation 01",
-      position: [0, 0, 0],
-      radius: 5.2,
-      elevation: 12,
-      zones: 1,
-      assignment: "Central Grid",
-    },
-  ],
-  perimeter: [
-    { id: "perimeter-barrier-01", kind: "perimeter_barrier", label: "Perimeter Barrier 01", position: [-11, 0, -7], radius: 6.2, elevation: 8, zones: 2, assignment: "West Fence" },
-    { id: "perimeter-barrier-02", kind: "perimeter_barrier", label: "Perimeter Barrier 02", position: [11, 0, -7], radius: 6.2, elevation: 8, zones: 2, assignment: "East Fence" },
-    { id: "perimeter-barrier-03", kind: "perimeter_barrier", label: "Perimeter Barrier 03", position: [-11, 0, 7], radius: 6.2, elevation: 8, zones: 2, assignment: "West Fence" },
-    { id: "perimeter-barrier-04", kind: "perimeter_barrier", label: "Perimeter Barrier 04", position: [11, 0, 7], radius: 6.2, elevation: 8, zones: 2, assignment: "East Fence" },
-    { id: "cable-mesh-01", kind: "cable_mesh", label: "Cable Mesh Curtain 01", position: [-1, 0, 8], radius: 4.6, elevation: 10, zones: 1, assignment: "South Fence" },
-  ],
-  assets: [
-    { id: "operator-substation-core", kind: "operator_substation", label: "Operator Substation Core", position: [-3, 0, -2], radius: 5.8, elevation: 12, zones: 2, assignment: "Control Core" },
-    { id: "scaffolding-core", kind: "scaffolding", label: "Scaffolding Core", position: [3, 0, -2.5], radius: 5.4, elevation: 11, zones: 2, assignment: "Process Core" },
-    { id: "fbs-enclosure-core", kind: "fbs_enclosure", label: "FBS Enclosure Core", position: [0, 0, 3], radius: 5.2, elevation: 9, zones: 1, assignment: "Critical Bay" },
-  ],
-  night: [
-    { id: "operator-substation-night", kind: "operator_substation", label: "Operator Substation Night", position: [-7, 0, -4], radius: 5.4, elevation: 12, zones: 1, assignment: "North Post" },
-    { id: "scaffolding-night", kind: "scaffolding", label: "Scaffolding Night", position: [6.5, 0, -1.8], radius: 5.1, elevation: 10, zones: 1, assignment: "East Post" },
-    { id: "fbs-enclosure-night", kind: "fbs_enclosure", label: "FBS Enclosure Night", position: [1.5, 0, 6], radius: 5.3, elevation: 9, zones: 1, assignment: "South Post" },
-    { id: "cable-mesh-night", kind: "cable_mesh", label: "Cable Mesh Night", position: [-8.5, 0, 2], radius: 4.8, elevation: 10, zones: 1, assignment: "West Gate" },
-  ],
+  baseline: [],
+  perimeter: [],
+  assets: [],
+  night: [],
 };
 
 export function cloneScenario(id: ScenarioId) {

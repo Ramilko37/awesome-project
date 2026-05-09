@@ -12,8 +12,34 @@ import {
   RadarChartOutlined,
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
+import {
+  DEFAULT_ASSET_DIMENSIONS,
+  REALISTIC_ASSET_SIZE_RANGES,
+  type AssetType,
+} from "@/config/assetDimensions";
+import type { PlantMapObject } from "./plant-map";
 import { kindLabel, scenarioLabels, type AssetCatalogItem, type ObjectKind, type ScenarioId, type SceneObject } from "./types";
 import styles from "./drone-defense-prototype.module.css";
+
+function assetTypeFromObjectKind(kind: ObjectKind): AssetType | null {
+  if (kind === "operator_substation") return "operator_substation_protected";
+  if (kind === "scaffolding") return "protective_scaffolding_with_equipment";
+  if (kind === "fbs_enclosure") return "fbs_protection_enclosure";
+  if (kind === "perimeter_barrier") return "perimeter_fbs_cable_barrier_module";
+  if (kind === "cable_mesh") return "cable_mesh_curtain_module";
+  return null;
+}
+
+function statusLabel(status: string) {
+  const labels: Record<string, string> = {
+    ready: "Готово",
+    in_progress: "В работе",
+    needs_review: "Нужна проверка",
+    risk: "Риск",
+    planned: "Планируется",
+  };
+  return labels[status] ?? status;
+}
 
 function AssetIcon({ kind }: { kind: AssetCatalogItem["kind"] | ObjectKind }) {
   if (kind === "facility") return <BuildOutlined />;
@@ -56,22 +82,28 @@ function PropertyRow({ label, value }: { label: string; value: ReactNode }) {
 
 export function PropertiesPanel({
   selectedObject,
+  selectedPlantObject,
   scenario,
   onDuplicate,
   onDelete,
   onClose,
 }: {
   selectedObject: SceneObject | null;
+  selectedPlantObject: PlantMapObject | null;
   scenario: ScenarioId;
   onDuplicate: () => void;
   onDelete: () => void;
   onClose: () => void;
 }) {
+  const selectedAssetType = selectedObject ? assetTypeFromObjectKind(selectedObject.kind) : null;
+  const selectedDimensions = selectedAssetType ? DEFAULT_ASSET_DIMENSIONS[selectedAssetType] : null;
+  const selectedRange = selectedAssetType ? REALISTIC_ASSET_SIZE_RANGES[selectedAssetType] : null;
+
   return (
-    <aside className={styles.propertiesPanel} aria-label="Properties">
+    <aside className={styles.propertiesPanel} aria-label="Свойства">
       <div className={styles.panelHeader}>
-        <h2>Properties</h2>
-        <button type="button" aria-label="Close properties" onClick={onClose}>
+        <h2>Свойства</h2>
+        <button type="button" aria-label="Закрыть свойства" onClick={onClose}>
           ×
         </button>
       </div>
@@ -85,81 +117,140 @@ export function PropertiesPanel({
             <div>
               <strong>{selectedObject.label.toUpperCase()}</strong>
               <span>
-                <i /> Active
+                <i /> Активен
               </span>
             </div>
           </div>
 
           <div className={styles.actionStrip}>
-            <IconButton label="Edit asset">
+            <IconButton label="Редактировать ассет">
               <EditOutlined />
             </IconButton>
-            <IconButton label="Duplicate asset" onClick={onDuplicate}>
+            <IconButton label="Дублировать ассет" onClick={onDuplicate}>
               <CopyOutlined />
             </IconButton>
-            <IconButton label="Delete asset" onClick={onDelete}>
+            <IconButton label="Удалить ассет" onClick={onDelete}>
               <DeleteOutlined />
             </IconButton>
           </div>
 
           <div className={styles.propertyGroup}>
-            <h3>Overview</h3>
-            <PropertyRow label="Type" value={kindLabel[selectedObject.kind]} />
+            <h3>Обзор</h3>
+            <PropertyRow label="Тип" value={kindLabel[selectedObject.kind]} />
             <PropertyRow
-              label="Status"
+              label="Статус"
               value={
                 <span className={styles.online}>
-                  <i /> Active
+                  <i /> Активен
                 </span>
               }
             />
-            <PropertyRow label="Scenario" value={scenarioLabels[scenario]} />
+            <PropertyRow label="Сценарий" value={scenarioLabels[scenario]} />
           </div>
 
           <div className={styles.propertyGroup}>
-            <h3>Coverage</h3>
-            <PropertyRow label="Coverage Radius" value={`${Math.round(selectedObject.radius * 22)} m`} />
-            <PropertyRow label="Detection Zones" value={selectedObject.zones} />
+            <h3>Покрытие</h3>
+            <PropertyRow label="Радиус покрытия" value={`${Math.round(selectedObject.radius * 22)} м`} />
+            <PropertyRow label="Зоны обнаружения" value={selectedObject.zones} />
           </div>
 
           <div className={styles.propertyGroup}>
-            <h3>Position</h3>
-            <PropertyRow label="Elevation" value={`${selectedObject.elevation} m`} />
-            <PropertyRow label="Relative Height" value={selectedObject.elevation > 16 ? "Medium" : "Low"} />
+            <h3>Позиция</h3>
+            <PropertyRow label="Высота" value={`${selectedObject.elevation} м`} />
+            <PropertyRow label="Относительная высота" value={selectedObject.elevation > 16 ? "Средняя" : "Низкая"} />
+          </div>
+
+          {selectedDimensions ? (
+            <div className={styles.propertyGroup}>
+              <h3>Габариты</h3>
+              <PropertyRow label="Ширина" value={`${selectedDimensions.width} м`} />
+              <PropertyRow label="Глубина" value={`${selectedDimensions.depth} м`} />
+              <PropertyRow label="Высота" value={`${selectedDimensions.height} м`} />
+              {selectedRange ? <p className={styles.emptyState}>{selectedRange.note}</p> : null}
+            </div>
+          ) : null}
+
+          <div className={styles.propertyGroup}>
+            <h3>Назначение</h3>
+            <PropertyRow label="Пост управления" value={selectedObject.assignment} />
+            <PropertyRow label="Сеть" value="Сетка Альфа" />
           </div>
 
           <div className={styles.propertyGroup}>
-            <h3>Assignment</h3>
-            <PropertyRow label="Control Post" value={selectedObject.assignment} />
-            <PropertyRow label="Network" value="Grid Alpha" />
-          </div>
-
-          <div className={styles.propertyGroup}>
-            <h3>System</h3>
+            <h3>Система</h3>
             <PropertyRow
-              label="Power"
+              label="Питание"
               value={
                 <span className={styles.online}>
-                  <i /> Normal
+                  <i /> Норма
                 </span>
               }
             />
             <PropertyRow
-              label="Link Status"
+              label="Состояние связи"
               value={
                 <span className={styles.online}>
-                  <i /> Stable
+                  <i /> Стабильно
                 </span>
               }
             />
           </div>
 
           <button className={styles.performanceButton} type="button">
-            <RadarChartOutlined /> View Performance
+            <RadarChartOutlined /> Показать производительность
           </button>
         </>
+      ) : selectedPlantObject ? (
+        <>
+          <div className={styles.selectedSummary}>
+            <span className={styles.summaryIcon}>
+              <AssetIcon kind="facility" />
+            </span>
+            <div>
+              <strong>{selectedPlantObject.name.toUpperCase()}</strong>
+              <span>
+                <i /> {statusLabel(selectedPlantObject.status)}
+              </span>
+            </div>
+          </div>
+
+          <div className={styles.propertyGroup}>
+            <h3>Обзор</h3>
+            <PropertyRow label="Тип" value={selectedPlantObject.type} />
+            <PropertyRow label="Слой" value={selectedPlantObject.layer} />
+            <PropertyRow label="Сценарий" value={scenarioLabels[scenario]} />
+          </div>
+
+          <div className={styles.propertyGroup}>
+            <h3>Габариты</h3>
+            <PropertyRow
+              label="Ширина"
+              value={`${Math.round((selectedPlantObject.dimensions.width ?? selectedPlantObject.dimensions.length ?? 0) * 10) / 10} м`}
+            />
+            <PropertyRow
+              label="Глубина"
+              value={`${Math.round((selectedPlantObject.dimensions.depth ?? selectedPlantObject.dimensions.width ?? 0) * 10) / 10} м`}
+            />
+            <PropertyRow
+              label="Высота"
+              value={`${Math.round((selectedPlantObject.dimensions.height ?? 0) * 10) / 10} м`}
+            />
+          </div>
+
+          {selectedPlantObject.assetType ? (
+            <div className={styles.propertyGroup}>
+              <h3>Справка</h3>
+              <PropertyRow label="Тип ассета" value={selectedPlantObject.assetType} />
+              <PropertyRow
+                label="Размер по умолчанию"
+                value={`${DEFAULT_ASSET_DIMENSIONS[selectedPlantObject.assetType].width} x ${DEFAULT_ASSET_DIMENSIONS[selectedPlantObject.assetType].depth} x ${DEFAULT_ASSET_DIMENSIONS[selectedPlantObject.assetType].height} м`}
+              />
+              <p className={styles.emptyState}>{REALISTIC_ASSET_SIZE_RANGES[selectedPlantObject.assetType].note}</p>
+            </div>
+          ) : null}
+        </>
       ) : (
-        <p className={styles.emptyState}>Select an object on the map to inspect its configuration.</p>
+        <p className={styles.emptyState}>Выберите объект на карте, чтобы посмотреть его параметры.</p>
       )}
     </aside>
   );

@@ -6,10 +6,8 @@ import {
   BellOutlined,
   CloudOutlined,
   CompassOutlined,
-  MoonOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
-  SunOutlined,
 } from "@ant-design/icons";
 import { scenarioLabels, type ScenarioId } from "./types";
 import styles from "./drone-defense-prototype.module.css";
@@ -33,20 +31,16 @@ function IconButton({
 export function Topbar({
   scenario,
   onScenarioChange,
-  theme,
-  onToggleTheme,
 }: {
   scenario: ScenarioId;
   onScenarioChange: (id: ScenarioId) => void;
-  theme: "light" | "dark";
-  onToggleTheme: () => void;
 }) {
   const visibleScenarios: ScenarioId[] = ["baseline"];
 
   return (
     <header className={styles.topbar}>
       <div className={styles.brand}>
-        <Link href="/dashboard" className={styles.backButton} aria-label="Back to dashboard">
+        <Link href="/dashboard" className={styles.backButton} aria-label="Назад к панели">
           <ArrowLeftOutlined />
         </Link>
         <div className={styles.shieldMark}>
@@ -54,11 +48,11 @@ export function Topbar({
         </div>
         <div>
           <strong>FORTIS</strong>
-          <span>Site Protection Configurator</span>
+          <span>Конфигуратор защиты объекта</span>
         </div>
       </div>
 
-      <nav className={styles.scenarioTabs} aria-label="Scenario">
+      <nav className={styles.scenarioTabs} aria-label="Сценарий">
         {visibleScenarios.map((id) => (
           <button
             key={id}
@@ -73,22 +67,16 @@ export function Topbar({
       </nav>
 
       <div className={styles.topActions}>
-        <IconButton
-          label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
-          onClick={onToggleTheme}
-        >
-          {theme === "light" ? <MoonOutlined /> : <SunOutlined />}
-        </IconButton>
-        <IconButton label="Sync to cloud">
+        <IconButton label="Синхронизация с облаком">
           <CloudOutlined />
         </IconButton>
-        <IconButton label="Settings">
+        <IconButton label="Настройки">
           <SettingOutlined />
         </IconButton>
-        <IconButton label="Notifications">
+        <IconButton label="Уведомления">
           <BellOutlined />
         </IconButton>
-        <button className={styles.profileButton} type="button" aria-label="Account">
+        <button className={styles.profileButton} type="button" aria-label="Профиль">
           AD
         </button>
       </div>

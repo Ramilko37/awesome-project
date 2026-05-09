@@ -1,4 +1,5 @@
 import mapJson from "./data/typical-chemical-plant-map.json";
+import type { AssetType } from "@/config/assetDimensions";
 
 type Tuple2 = [number, number];
 type Tuple3 = [number, number, number];
@@ -13,6 +14,11 @@ type RawObject = {
   position: number[];
   rotation: number[];
   scale: number[];
+  modelUrl?: string;
+  assetType?: string;
+  upAxis?: "Y" | "Z";
+  scaleMode?: "exact" | "uniformByHeight";
+  modelRotation?: number[];
   dimensions?: Record<string, number>;
   status?: string;
   selectable?: boolean;
@@ -68,6 +74,11 @@ export type PlantMapObject = {
   position: Tuple3;
   rotation: Tuple3;
   scale: Tuple3;
+  modelUrl?: string;
+  assetType?: AssetType;
+  upAxis?: "Y" | "Z";
+  scaleMode?: "exact" | "uniformByHeight";
+  modelRotation?: Tuple3;
   dimensions: Record<string, number>;
   status: string;
   selectable: boolean;
@@ -150,6 +161,11 @@ export const defaultPlantMapObjects: PlantMapObject[] = typedMap.objects.map((it
   position: toTuple3(item.position),
   rotation: toTuple3(item.rotation),
   scale: toTuple3(item.scale),
+  modelUrl: item.modelUrl,
+  assetType: item.assetType as AssetType | undefined,
+  upAxis: item.upAxis,
+  scaleMode: item.scaleMode,
+  modelRotation: item.modelRotation ? toTuple3(item.modelRotation) : undefined,
   dimensions: item.dimensions ?? {},
   status: item.status ?? "ready",
   selectable: item.selectable ?? true,

@@ -821,6 +821,10 @@
       "name": "Колонный аппарат с защитой",
       "type": "protected_column",
       "modelKey": "protected_column",
+      "modelUrl": "/models/kolonnyy-apparat-s-zashchitoy.glb",
+      "assetType": "protected_column_apparatus",
+      "upAxis": "Z",
+      "scaleMode": "uniformByHeight",
       "layer": "protection",
       "zoneId": "zone-production-main",
       "position": [
@@ -926,6 +930,10 @@
       "name": "Оборудование под защитой строительных лесов",
       "type": "scaffold_protection",
       "modelKey": "scaffold_protection",
+      "modelUrl": "/models/protection/05_protective_scaffolding_with_equipment_textured.glb",
+      "assetType": "protective_scaffolding_with_equipment",
+      "upAxis": "Z",
+      "scaleMode": "uniformByHeight",
       "layer": "protection",
       "zoneId": "zone-production-main",
       "position": [
@@ -978,6 +986,9 @@
       "name": "Операторная подстанция с защитой",
       "type": "operator_station",
       "modelKey": "operator_station_protected",
+      "modelUrl": "/models/protective/operator_substation_protected.glb",
+      "assetType": "operator_substation_protected",
+      "upAxis": "Z",
       "layer": "protection",
       "zoneId": "zone-production-main",
       "position": [
@@ -1277,6 +1288,9 @@
       "name": "Защищённый резервуар",
       "type": "tank_protected",
       "modelKey": "tank_protected",
+      "modelUrl": "/models/protection/03_fbs_protection_enclosure_textured.glb",
+      "assetType": "fbs_protection_enclosure",
+      "upAxis": "Z",
       "layer": "protection",
       "zoneId": "zone-storage",
       "position": [
@@ -1365,6 +1379,161 @@
       "metadata": {
         "description": "Складская зона для материалов и комплектующих."
       }
+    },
+    {
+      "id": "warehouse-finished-01",
+      "name": "Склад готовой продукции",
+      "type": "warehouse",
+      "modelKey": "warehouse",
+      "layer": "storage",
+      "zoneId": "zone-storage",
+      "position": [
+        174,
+        0,
+        102
+      ],
+      "rotation": [
+        0,
+        0.02,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 46,
+        "height": 12,
+        "depth": 34
+      },
+      "status": "planned",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 15
+      },
+      "tags": [
+        "storage",
+        "warehouse",
+        "finished-products"
+      ]
+    },
+    {
+      "id": "canopy-storage-01",
+      "name": "Навес сырьевой площадки",
+      "type": "canopy",
+      "modelKey": "warehouse",
+      "layer": "storage",
+      "zoneId": "zone-storage",
+      "position": [
+        161,
+        0,
+        -116
+      ],
+      "rotation": [
+        0,
+        0.06,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 34,
+        "height": 8,
+        "depth": 22
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": false,
+        "offsetY": 10
+      },
+      "tags": [
+        "storage",
+        "canopy"
+      ]
+    },
+    {
+      "id": "canopy-finished-01",
+      "name": "Навес отгрузки готовой продукции",
+      "type": "canopy",
+      "modelKey": "warehouse",
+      "layer": "storage",
+      "zoneId": "zone-storage",
+      "position": [
+        188,
+        0,
+        126
+      ],
+      "rotation": [
+        0,
+        -0.08,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 30,
+        "height": 8,
+        "depth": 20
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": false,
+        "offsetY": 10
+      },
+      "tags": [
+        "storage",
+        "canopy",
+        "finished-products"
+      ]
+    },
+    {
+      "id": "auto-overpass-01",
+      "name": "Автоэстакада",
+      "type": "auto_overpass",
+      "modelKey": "road_segment",
+      "layer": "railway",
+      "zoneId": "zone-logistics",
+      "position": [
+        26,
+        0,
+        104
+      ],
+      "rotation": [
+        0,
+        1.5708,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "length": 92,
+        "height": 6,
+        "width": 12
+      },
+      "status": "in_progress",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 8
+      },
+      "tags": [
+        "logistics",
+        "auto",
+        "overpass"
+      ]
     },
     {
       "id": "loading-station-01",
@@ -1494,6 +1663,9 @@
       "name": "ФБС-защита южного периметра производства",
       "type": "fbs_barrier",
       "modelKey": "fbs_barrier_segment",
+      "modelUrl": "/models/protection/04_perimeter_fbs_cable_barrier_textured.glb",
+      "assetType": "perimeter_fbs_cable_barrier_module",
+      "upAxis": "Z",
       "layer": "protection",
       "zoneId": "zone-production-main",
       "position": [
@@ -1536,6 +1708,9 @@
       "name": "ФБС-защита складской зоны",
       "type": "fbs_barrier",
       "modelKey": "fbs_barrier_segment",
+      "modelUrl": "/models/protection/04_perimeter_fbs_cable_barrier_textured.glb",
+      "assetType": "perimeter_fbs_cable_barrier_module",
+      "upAxis": "Z",
       "layer": "protection",
       "zoneId": "zone-storage",
       "position": [
@@ -1575,6 +1750,9 @@
       "name": "Защитная тросовая завеса",
       "type": "mesh_screen",
       "modelKey": "mesh_screen",
+      "modelUrl": "/models/protection/02_cable_mesh_curtain_textured.glb",
+      "assetType": "cable_mesh_curtain_module",
+      "upAxis": "Z",
       "layer": "protection",
       "zoneId": "zone-production-main",
       "position": [
@@ -1627,6 +1805,9 @@
       "name": "Защитная сетка у инженерной зоны",
       "type": "mesh_screen",
       "modelKey": "mesh_screen",
+      "modelUrl": "/models/protection/02_cable_mesh_curtain_textured.glb",
+      "assetType": "cable_mesh_curtain_module",
+      "upAxis": "Z",
       "layer": "protection",
       "zoneId": "zone-utilities",
       "position": [
