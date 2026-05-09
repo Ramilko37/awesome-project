@@ -1,29 +1,36 @@
 "use client";
 
 import {
-  BuildOutlined,
-  CameraOutlined,
-  ColumnHeightOutlined,
   DragOutlined,
   FilterOutlined,
-  GatewayOutlined,
-  RadarChartOutlined,
-  SafetyCertificateOutlined,
   SearchOutlined,
+  BuildOutlined,
+  BorderOuterOutlined,
+  ApartmentOutlined,
+  DeploymentUnitOutlined,
+  GatewayOutlined,
 } from "@ant-design/icons";
-import { assetCatalog, type AssetCatalogItem, type ObjectKind } from "./types";
+import { assetCatalog, type AssetCatalogItem, type ObjectKind, type ProtectiveObjectKind } from "./types";
 import styles from "./drone-defense-prototype.module.css";
 
 function AssetIcon({ kind }: { kind: AssetCatalogItem["kind"] }) {
   if (kind === "facility") return <BuildOutlined />;
-  if (kind === "sensor") return <ColumnHeightOutlined />;
-  if (kind === "camera") return <CameraOutlined />;
-  if (kind === "shield") return <RadarChartOutlined />;
-  if (kind === "post") return <GatewayOutlined />;
-  return <SafetyCertificateOutlined />;
+  if (kind === "operator_substation") return <ApartmentOutlined />;
+  if (kind === "scaffolding") return <DeploymentUnitOutlined />;
+  if (kind === "fbs_enclosure") return <GatewayOutlined />;
+  if (kind === "perimeter_barrier") return <BorderOuterOutlined />;
+  return <BuildOutlined />;
 }
 
-export function AssetsPanel({ onAddObject }: { onAddObject: (kind: ObjectKind) => void }) {
+export function AssetsPanel({
+  onSelectAsset,
+  placingKind,
+  onCancelPlacement,
+}: {
+  onSelectAsset: (kind: ObjectKind) => void;
+  placingKind: ObjectKind | null;
+  onCancelPlacement: () => void;
+}) {
   return (
     <aside className={styles.assetsPanel} aria-label="Assets">
       <div className={styles.panelHeader}>
@@ -40,8 +47,7 @@ export function AssetsPanel({ onAddObject }: { onAddObject: (kind: ObjectKind) =
             key={item.kind}
             className={`${styles.assetItem} ${styles[item.tone]}`}
             type="button"
-            disabled={item.kind === "facility"}
-            onClick={() => item.kind !== "facility" && onAddObject(item.kind)}
+            onClick={() => onSelectAsset(item.kind as ProtectiveObjectKind)}
           >
             <span className={styles.assetGlyph}>
               <AssetIcon kind={item.kind} />
@@ -53,8 +59,15 @@ export function AssetsPanel({ onAddObject }: { onAddObject: (kind: ObjectKind) =
       </div>
       <div className={styles.dragHint}>
         <span className={styles.mouseGlyph} />
-        <p>Drag &amp; drop assets onto the map</p>
+        <p>
+          {placingKind ? "Click on map to place asset" : "Pick asset, then click map"}
+        </p>
       </div>
+      {placingKind ? (
+        <button className={styles.performanceButton} type="button" onClick={onCancelPlacement}>
+          Cancel Placement
+        </button>
+      ) : null}
     </aside>
   );
 }

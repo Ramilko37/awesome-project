@@ -1,4 +1,12 @@
-export type ObjectKind = "sensor" | "camera" | "shield" | "post" | "barrier";
+export type LegacyObjectKind = "sensor" | "camera" | "shield" | "post" | "barrier";
+export type ProtectiveObjectKind =
+  | "operator_substation"
+  | "scaffolding"
+  | "fbs_enclosure"
+  | "perimeter_barrier"
+  | "cable_mesh";
+
+export type ObjectKind = LegacyObjectKind | ProtectiveObjectKind;
 export type ScenarioId = "baseline" | "perimeter" | "assets" | "night";
 
 export type SceneObject = {
@@ -13,7 +21,7 @@ export type SceneObject = {
 };
 
 export type AssetCatalogItem = {
-  kind: ObjectKind | "facility";
+  kind: ProtectiveObjectKind | "facility";
   label: string;
   tone: string;
 };
@@ -26,6 +34,12 @@ export const scenarioLabels: Record<ScenarioId, string> = {
 };
 
 export const kindLabel: Record<ObjectKind, string> = {
+  operator_substation: "Operator Substation",
+  scaffolding: "Protective Scaffolding",
+  fbs_enclosure: "FBS Protection Enclosure",
+  perimeter_barrier: "Perimeter FBS Cable Barrier",
+  cable_mesh: "Cable Mesh Curtain Module",
+
   sensor: "Sensor Mast",
   camera: "Camera",
   shield: "Signal Shield",
@@ -34,6 +48,12 @@ export const kindLabel: Record<ObjectKind, string> = {
 };
 
 export const kindColor: Record<ObjectKind, string> = {
+  operator_substation: "#5fb3ff",
+  scaffolding: "#4fc78f",
+  fbs_enclosure: "#f3b14a",
+  perimeter_barrier: "#ff8d5f",
+  cable_mesh: "#8f9eb5",
+
   sensor: "#4cc8ff",
   camera: "#5cc7f5",
   shield: "#f4c24e",
@@ -42,48 +62,43 @@ export const kindColor: Record<ObjectKind, string> = {
 };
 
 export const assetCatalog: AssetCatalogItem[] = [
-  { kind: "facility", label: "Industrial Facility", tone: "facility" },
-  { kind: "sensor", label: "Sensor", tone: "cyan" },
-  { kind: "camera", label: "Camera", tone: "cyan" },
-  { kind: "shield", label: "Signal Shield", tone: "amber" },
-  { kind: "post", label: "Control Post", tone: "steel" },
-  { kind: "barrier", label: "Barrier", tone: "amber" },
+  { kind: "operator_substation", label: "Operator Substation", tone: "cyan" },
+  { kind: "scaffolding", label: "Protective Scaffolding", tone: "green" },
+  { kind: "fbs_enclosure", label: "FBS Enclosure", tone: "amber" },
+  { kind: "perimeter_barrier", label: "Perimeter Barrier", tone: "orange" },
+  { kind: "cable_mesh", label: "Cable Mesh Curtain", tone: "steel" },
 ];
 
 export const scenarioPresets: Record<ScenarioId, SceneObject[]> = {
   baseline: [
-    { id: "sensor-07", kind: "sensor", label: "Sensor Mast 07", position: [-7.4, 0, -3.8], radius: 4.8, elevation: 18, zones: 2, assignment: "North Post" },
-    { id: "sensor-02", kind: "sensor", label: "Sensor Mast 02", position: [7.8, 0, -3.2], radius: 4.5, elevation: 17, zones: 2, assignment: "East Post" },
-    { id: "sensor-11", kind: "sensor", label: "Sensor Mast 11", position: [1.2, 0, 6.3], radius: 5.2, elevation: 20, zones: 3, assignment: "South Post" },
-    { id: "camera-04", kind: "camera", label: "Camera 04", position: [-9.6, 0, 2.5], radius: 4.2, elevation: 10, zones: 1, assignment: "Gate Alpha" },
-    { id: "camera-09", kind: "camera", label: "Camera 09", position: [5.1, 0, 1.4], radius: 4.6, elevation: 12, zones: 1, assignment: "Inner Yard" },
-    { id: "shield-03", kind: "shield", label: "Signal Shield 03", position: [-2.1, 0, -2.2], radius: 5.6, elevation: 6, zones: 2, assignment: "Process Core" },
-    { id: "post-01", kind: "post", label: "Control Post 01", position: [-10.2, 0, -6.5], radius: 2.2, elevation: 14, zones: 1, assignment: "North Post" },
-    { id: "post-04", kind: "post", label: "Control Post 04", position: [9.8, 0, 5.9], radius: 2.2, elevation: 14, zones: 1, assignment: "Grid Alpha" },
+    {
+      id: "operator-substation-01",
+      kind: "operator_substation",
+      label: "Operator Substation 01",
+      position: [0, 0, 0],
+      radius: 5.2,
+      elevation: 12,
+      zones: 1,
+      assignment: "Central Grid",
+    },
   ],
   perimeter: [
-    { id: "sensor-01", kind: "sensor", label: "Sensor Mast 01", position: [-9.6, 0, -5.2], radius: 5.3, elevation: 19, zones: 2, assignment: "West Fence" },
-    { id: "sensor-02", kind: "sensor", label: "Sensor Mast 02", position: [9.2, 0, -5.4], radius: 5.3, elevation: 19, zones: 2, assignment: "East Fence" },
-    { id: "sensor-03", kind: "sensor", label: "Sensor Mast 03", position: [-9.2, 0, 5.5], radius: 5.3, elevation: 19, zones: 2, assignment: "West Fence" },
-    { id: "sensor-04", kind: "sensor", label: "Sensor Mast 04", position: [9.4, 0, 5.3], radius: 5.3, elevation: 19, zones: 2, assignment: "East Fence" },
-    { id: "camera-01", kind: "camera", label: "Camera 01", position: [-5.4, 0, 1.1], radius: 4.2, elevation: 11, zones: 1, assignment: "Inner Yard" },
-    { id: "camera-02", kind: "camera", label: "Camera 02", position: [4.8, 0, -0.3], radius: 4.2, elevation: 11, zones: 1, assignment: "Inner Yard" },
-    { id: "shield-01", kind: "shield", label: "Signal Shield 01", position: [0, 0, 5.8], radius: 5.8, elevation: 7, zones: 2, assignment: "South Yard" },
+    { id: "perimeter-barrier-01", kind: "perimeter_barrier", label: "Perimeter Barrier 01", position: [-11, 0, -7], radius: 6.2, elevation: 8, zones: 2, assignment: "West Fence" },
+    { id: "perimeter-barrier-02", kind: "perimeter_barrier", label: "Perimeter Barrier 02", position: [11, 0, -7], radius: 6.2, elevation: 8, zones: 2, assignment: "East Fence" },
+    { id: "perimeter-barrier-03", kind: "perimeter_barrier", label: "Perimeter Barrier 03", position: [-11, 0, 7], radius: 6.2, elevation: 8, zones: 2, assignment: "West Fence" },
+    { id: "perimeter-barrier-04", kind: "perimeter_barrier", label: "Perimeter Barrier 04", position: [11, 0, 7], radius: 6.2, elevation: 8, zones: 2, assignment: "East Fence" },
+    { id: "cable-mesh-01", kind: "cable_mesh", label: "Cable Mesh Curtain 01", position: [-1, 0, 8], radius: 4.6, elevation: 10, zones: 1, assignment: "South Fence" },
   ],
   assets: [
-    { id: "sensor-core", kind: "sensor", label: "Sensor Mast Core", position: [-2.4, 0, -2.5], radius: 6.2, elevation: 21, zones: 3, assignment: "Process Core" },
-    { id: "sensor-tank", kind: "sensor", label: "Sensor Mast Tank", position: [4.8, 0, -3.8], radius: 5.6, elevation: 20, zones: 3, assignment: "Tank Farm" },
-    { id: "camera-core", kind: "camera", label: "Camera Core", position: [-5, 0, 1.5], radius: 4.4, elevation: 12, zones: 1, assignment: "Critical Bay" },
-    { id: "shield-core", kind: "shield", label: "Signal Shield Core", position: [0.8, 0, -0.6], radius: 6.2, elevation: 7, zones: 3, assignment: "Critical Bay" },
-    { id: "post-core", kind: "post", label: "Control Post Core", position: [7.7, 0, 4.1], radius: 2.2, elevation: 14, zones: 1, assignment: "Grid Alpha" },
+    { id: "operator-substation-core", kind: "operator_substation", label: "Operator Substation Core", position: [-3, 0, -2], radius: 5.8, elevation: 12, zones: 2, assignment: "Control Core" },
+    { id: "scaffolding-core", kind: "scaffolding", label: "Scaffolding Core", position: [3, 0, -2.5], radius: 5.4, elevation: 11, zones: 2, assignment: "Process Core" },
+    { id: "fbs-enclosure-core", kind: "fbs_enclosure", label: "FBS Enclosure Core", position: [0, 0, 3], radius: 5.2, elevation: 9, zones: 1, assignment: "Critical Bay" },
   ],
   night: [
-    { id: "sensor-night-n", kind: "sensor", label: "Sensor Mast Night N", position: [-6.8, 0, -4.2], radius: 5.5, elevation: 19, zones: 3, assignment: "North Post" },
-    { id: "sensor-night-e", kind: "sensor", label: "Sensor Mast Night E", position: [8.3, 0, -1.8], radius: 5.4, elevation: 18, zones: 2, assignment: "East Post" },
-    { id: "sensor-night-s", kind: "sensor", label: "Sensor Mast Night S", position: [1.1, 0, 6.1], radius: 5.8, elevation: 20, zones: 3, assignment: "South Post" },
-    { id: "camera-night-1", kind: "camera", label: "Camera Night 01", position: [-9.4, 0, 1.9], radius: 4.5, elevation: 12, zones: 1, assignment: "West Gate" },
-    { id: "camera-night-2", kind: "camera", label: "Camera Night 02", position: [5.5, 0, 2.2], radius: 4.5, elevation: 12, zones: 1, assignment: "Truck Bay" },
-    { id: "shield-night", kind: "shield", label: "Signal Shield Night", position: [-1, 0, -1], radius: 6.1, elevation: 8, zones: 3, assignment: "Process Core" },
+    { id: "operator-substation-night", kind: "operator_substation", label: "Operator Substation Night", position: [-7, 0, -4], radius: 5.4, elevation: 12, zones: 1, assignment: "North Post" },
+    { id: "scaffolding-night", kind: "scaffolding", label: "Scaffolding Night", position: [6.5, 0, -1.8], radius: 5.1, elevation: 10, zones: 1, assignment: "East Post" },
+    { id: "fbs-enclosure-night", kind: "fbs_enclosure", label: "FBS Enclosure Night", position: [1.5, 0, 6], radius: 5.3, elevation: 9, zones: 1, assignment: "South Post" },
+    { id: "cable-mesh-night", kind: "cable_mesh", label: "Cable Mesh Night", position: [-8.5, 0, 2], radius: 4.8, elevation: 10, zones: 1, assignment: "West Gate" },
   ],
 };
 

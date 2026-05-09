@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CompassOutlined,
   ControlOutlined,
@@ -9,6 +9,7 @@ import {
 } from "@ant-design/icons";
 import { message } from "antd";
 import { cloneScenario, kindLabel, type ObjectKind, type ScenarioId, type SceneObject } from "./types";
+import { defaultPlantConnections, defaultPlantMapObjects, type PlantMapObject } from "./plant-map";
 import { PrototypeScene } from "./scene";
 import { Topbar } from "./topbar";
 import { AssetsPanel } from "./assets-panel";
@@ -18,21 +19,30 @@ import styles from "./drone-defense-prototype.module.css";
 
 export function DroneDefensePrototype() {
   const [objects, setObjects] = useState<SceneObject[]>(() => cloneScenario("baseline"));
-  const [selectedId, setSelectedId] = useState<string | null>("sensor-07");
+  const [plantObjects] = useState<PlantMapObject[]>(() =>
+    defaultPlantMapObjects.map((item) => ({ ...item, selectable: false })),
+  );
+  const [plantConnections, setPlantConnections] = useState(defaultPlantConnections);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window === "undefined") return "light";
+    const storedTheme = window.localStorage.getItem("prototype-theme");
+    return storedTheme === "dark" ? "dark" : "light";
+  });
   const [scenario, setScenario] = useState<ScenarioId>("baseline");
   const [demoMode, setDemoMode] = useState(true);
+  const [isPropertiesOpen, setIsPropertiesOpen] = useState(true);
   const [idCounter, setIdCounter] = useState(100);
+  const [placingKind, setPlacingKind] = useState<ObjectKind | null>(null);
+  const [placementPoint, setPlacementPoint] = useState<[number, number, number]>([0, 0, 0]);
   const [messageApi, contextHolder] = message.useMessage();
 
-  const selectedObject = useMemo(
-    () => objects.find((item) => item.id === selectedId) ?? objects[0] ?? null,
-    [objects, selectedId],
-  );
+  const selectedObject = useMemo(() => objects.find((item) => item.id === selectedId) ?? null, [objects, selectedId]);
 
   const stats = useMemo(() => {
-    const sensorCount = objects.filter((item) => item.kind === "sensor").length;
-    const cameraCount = objects.filter((item) => item.kind === "camera").length;
-    const postCount = objects.filter((item) => item.kind === "post").length;
+    const sensorCount = objects.filter((item) => item.kind === "operator_substation").length;
+    const cameraCount = objects.filter((item) => item.kind === "scaffolding").length;
+    const postCount = objects.filter((item) => item.kind === "fbs_enclosure").length;
     const coverage = Math.min(98, Math.round(objects.reduce((sum, item) => sum + item.radius, 0) * 1.6));
     return { sensorCount, cameraCount, postCount, coverage, perimeter: scenario === "perimeter" ? "3.1 km" : "2.4 km" };
   }, [objects, scenario]);
@@ -47,35 +57,75 @@ export function DroneDefensePrototype() {
     const next = cloneScenario(id);
     setScenario(id);
     setObjects(next);
-    setSelectedId(next[0]?.id ?? null);
+    setSelectedId(null);
   };
 
-  const addObject = (kind: ObjectKind) => {
+  const buildObject = (kind: ObjectKind, position: [number, number, number], nextCounter: number): SceneObject => {
     const count = objects.filter((item) => item.kind === kind).length + 1;
-    const nextCounter = idCounter + 1;
-    const id = `${kind}-${nextCounter}`;
-    const next: SceneObject = {
-      id,
+    return {
+      id: `${kind}-${nextCounter}`,
       kind,
       label: `${kindLabel[kind]} ${String(count).padStart(2, "0")}`,
-      position: [-6 + (objects.length % 7) * 1.8, 0, 5.8],
-      radius: kind === "sensor" ? 4.8 : kind === "camera" ? 4.2 : kind === "shield" ? 5.3 : 2.1,
-      elevation: kind === "sensor" ? 18 : kind === "camera" ? 11 : kind === "post" ? 14 : 4,
-      zones: kind === "shield" || kind === "sensor" ? 2 : 1,
+      position,
+      radius:
+        kind === "operator_substation"
+          ? 5.6
+          : kind === "scaffolding"
+            ? 5.2
+            : kind === "fbs_enclosure"
+              ? 5
+              : kind === "perimeter_barrier"
+                ? 6
+                : 4.8,
+      elevation:
+        kind === "operator_substation"
+          ? 12
+          : kind === "scaffolding"
+            ? 10
+            : kind === "fbs_enclosure"
+              ? 9
+              : kind === "perimeter_barrier"
+                ? 8
+                : 10,
+      zones: kind === "perimeter_barrier" || kind === "operator_substation" ? 2 : 1,
       assignment: "Grid Alpha",
     };
+  };
+
+  const addObjectAtPosition = (kind: ObjectKind, position: [number, number, number]) => {
+    const nextCounter = idCounter + 1;
+    const next = buildObject(kind, position, nextCounter);
     setObjects((prev) => [...prev, next]);
     setIdCounter(nextCounter);
-    setSelectedId(id);
+    setSelectedId(next.id);
+    setIsPropertiesOpen(true);
     messageApi.success(`${kindLabel[kind]} added to map`);
   };
 
-  const deleteSelected = () => {
-    if (!selectedObject) return;
-    setObjects((prev) => prev.filter((item) => item.id !== selectedObject.id));
+  const startPlacing = (kind: ObjectKind) => {
+    setPlacingKind(kind);
     setSelectedId(null);
-    messageApi.info(`${selectedObject.label} removed`);
+    messageApi.info(`Placement mode: ${kindLabel[kind]}`);
   };
+
+  const placePendingObject = () => {
+    if (!placingKind) return;
+    addObjectAtPosition(placingKind, placementPoint);
+    setPlacingKind(null);
+  };
+
+  const deleteSelected = useCallback(() => {
+    if (!selectedId) return;
+    const objectToDelete = objects.find((item) => item.id === selectedId);
+    if (!objectToDelete) return;
+    setObjects((prev) => prev.filter((item) => item.id !== selectedId));
+    setPlantConnections((prev) =>
+      prev.filter((item) => item.fromObjectId !== selectedId && item.toObjectId !== selectedId),
+    );
+    setSelectedId(null);
+    const removedLabel = objectToDelete.label;
+    messageApi.info(`${removedLabel} removed`);
+  }, [messageApi, objects, selectedId]);
 
   const duplicateSelected = () => {
     if (!selectedObject) return;
@@ -89,24 +139,72 @@ export function DroneDefensePrototype() {
     setObjects((prev) => [...prev, copy]);
     setIdCounter(nextCounter);
     setSelectedId(copy.id);
+    setIsPropertiesOpen(true);
   };
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Delete" && event.key !== "Backspace") return;
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
+      const isTypingTarget = tagName === "input" || tagName === "textarea" || target?.isContentEditable;
+      if (isTypingTarget) return;
+      if (!selectedId) return;
+      event.preventDefault();
+      deleteSelected();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [deleteSelected, selectedId]);
+
+  useEffect(() => {
+    window.localStorage.setItem("prototype-theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPlacingKind(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${theme === "dark" ? styles.pageDark : ""}`.trim()}>
       {contextHolder}
 
-      <Topbar scenario={scenario} onScenarioChange={applyScenario} />
+      <Topbar
+        scenario={scenario}
+        onScenarioChange={applyScenario}
+        theme={theme}
+        onToggleTheme={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))}
+      />
 
-      <section className={styles.workspace}>
-        <AssetsPanel onAddObject={addObject} />
+      <section className={`${styles.workspace} ${!isPropertiesOpen ? styles.workspaceNoProperties : ""}`.trim()}>
+        <AssetsPanel
+          onSelectAsset={startPlacing}
+          placingKind={placingKind}
+          onCancelPlacement={() => setPlacingKind(null)}
+        />
 
         <section className={styles.sceneShell} aria-label="Industrial site map">
           <PrototypeScene
             objects={objects}
-            selectedId={selectedObject?.id ?? null}
+            plantObjects={plantObjects}
+            plantConnections={plantConnections}
+            selectedId={selectedId}
             setSelectedId={setSelectedId}
             updateObjectPosition={updateObjectPosition}
             demoMode={demoMode}
+            theme={theme}
+            placingKind={placingKind}
+            placementPoint={placementPoint}
+            onPlacementMove={(x, z) => setPlacementPoint([x, 0, z])}
+            onPlacePending={placePendingObject}
+            onCancelPlacement={() => setPlacingKind(null)}
           />
           <div className={styles.sceneVignette} />
           <div className={styles.controlLegend}>
@@ -117,12 +215,15 @@ export function DroneDefensePrototype() {
           </div>
         </section>
 
-        <PropertiesPanel
-          selectedObject={selectedObject}
-          scenario={scenario}
-          onDuplicate={duplicateSelected}
-          onDelete={deleteSelected}
-        />
+        {isPropertiesOpen ? (
+          <PropertiesPanel
+            selectedObject={selectedObject}
+            scenario={scenario}
+            onDuplicate={duplicateSelected}
+            onDelete={deleteSelected}
+            onClose={() => setIsPropertiesOpen(false)}
+          />
+        ) : null}
       </section>
 
       <StatusBar

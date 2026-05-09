@@ -26,6 +26,11 @@ const statusVariant: Record<SiteStatus, "default" | "secondary" | "outline"> = {
 };
 
 const kindIcon: Record<ObjectKind, LucideIcon> = {
+  operator_substation: Monitor,
+  scaffolding: Shield,
+  fbs_enclosure: Minus,
+  perimeter_barrier: Minus,
+  cable_mesh: Video,
   sensor:  Radio,
   camera:  Video,
   shield:  Shield,

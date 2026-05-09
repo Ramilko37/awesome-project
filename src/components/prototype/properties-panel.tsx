@@ -12,11 +12,16 @@ import {
   RadarChartOutlined,
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
-import { kindLabel, scenarioLabels, type AssetCatalogItem, type ScenarioId, type SceneObject } from "./types";
+import { kindLabel, scenarioLabels, type AssetCatalogItem, type ObjectKind, type ScenarioId, type SceneObject } from "./types";
 import styles from "./drone-defense-prototype.module.css";
 
-function AssetIcon({ kind }: { kind: AssetCatalogItem["kind"] }) {
+function AssetIcon({ kind }: { kind: AssetCatalogItem["kind"] | ObjectKind }) {
   if (kind === "facility") return <BuildOutlined />;
+  if (kind === "operator_substation") return <BuildOutlined />;
+  if (kind === "scaffolding") return <ColumnHeightOutlined />;
+  if (kind === "fbs_enclosure") return <SafetyCertificateOutlined />;
+  if (kind === "perimeter_barrier") return <GatewayOutlined />;
+  if (kind === "cable_mesh") return <CameraOutlined />;
   if (kind === "sensor") return <ColumnHeightOutlined />;
   if (kind === "camera") return <CameraOutlined />;
   if (kind === "shield") return <RadarChartOutlined />;
@@ -54,17 +59,21 @@ export function PropertiesPanel({
   scenario,
   onDuplicate,
   onDelete,
+  onClose,
 }: {
   selectedObject: SceneObject | null;
   scenario: ScenarioId;
   onDuplicate: () => void;
   onDelete: () => void;
+  onClose: () => void;
 }) {
   return (
     <aside className={styles.propertiesPanel} aria-label="Properties">
       <div className={styles.panelHeader}>
         <h2>Properties</h2>
-        <button type="button" aria-label="Close properties">×</button>
+        <button type="button" aria-label="Close properties" onClick={onClose}>
+          ×
+        </button>
       </div>
 
       {selectedObject ? (

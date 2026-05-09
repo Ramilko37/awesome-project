@@ -1,0 +1,1892 @@
+{
+  "schemaVersion": "1.0.0",
+  "mapType": "typical_chemical_industrial_facility",
+  "sourcePolicy": {
+    "isRealFacilityPlan": false,
+    "description": "Условная типовая схема химико-промышленной площадки для MVP 3D-карты. Не является планом реального предприятия и не содержит точных координат действующих объектов."
+  },
+  "units": "meters",
+  "coordinateSystem": {
+    "origin": "center_of_site",
+    "axes": {
+      "x": "east-west horizontal axis",
+      "y": "vertical height axis",
+      "z": "north-south horizontal axis"
+    },
+    "groundPlane": "x-z",
+    "rotationOrder": "XYZ",
+    "angleUnits": "radians"
+  },
+  "appDefaults": {
+    "camera": {
+      "type": "orthographic",
+      "position": [
+        180,
+        140,
+        180
+      ],
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "zoom": 0.75,
+      "minZoom": 0.25,
+      "maxZoom": 4
+    },
+    "lighting": {
+      "ambientIntensity": 0.65,
+      "directionalIntensity": 1.2,
+      "directionalPosition": [
+        80,
+        120,
+        60
+      ]
+    },
+    "interaction": {
+      "selectableObjects": true,
+      "hoverHighlight": true,
+      "clickOpensInfoPanel": true,
+      "showLabelsByDefault": true,
+      "labelMinZoom": 0.55
+    }
+  },
+  "statusCatalog": {
+    "ready": {
+      "label": "Готово",
+      "color": "#2E7D32",
+      "priority": 1
+    },
+    "in_progress": {
+      "label": "В работе",
+      "color": "#F9A825",
+      "priority": 2
+    },
+    "needs_review": {
+      "label": "Нужна проверка",
+      "color": "#EF6C00",
+      "priority": 3
+    },
+    "risk": {
+      "label": "Риск",
+      "color": "#C62828",
+      "priority": 4
+    },
+    "planned": {
+      "label": "Планируется",
+      "color": "#607D8B",
+      "priority": 0
+    }
+  },
+  "layers": [
+    {
+      "id": "base",
+      "name": "Основание и территория",
+      "visible": true,
+      "locked": true
+    },
+    {
+      "id": "roads",
+      "name": "Дороги и проезды",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "railway",
+      "name": "Ж/д инфраструктура",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "admin",
+      "name": "Административная зона",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "production",
+      "name": "Производственная зона",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "storage",
+      "name": "Складская зона",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "utilities",
+      "name": "Инженерная инфраструктура",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "protection",
+      "name": "Защитные конструкции",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "pipelines",
+      "name": "Трубопроводы и эстакады",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "labels",
+      "name": "Подписи",
+      "visible": true,
+      "locked": false
+    }
+  ],
+  "modelCatalog": {
+    "ground": {
+      "name": "Площадка предприятия",
+      "path": "/models/base/ground-plane.glb",
+      "fallbackPrimitive": "box",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "fence": {
+      "name": "Периметральное ограждение",
+      "path": "/models/base/perimeter-fence.glb",
+      "fallbackPrimitive": "fenceSegment",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "road_segment": {
+      "name": "Дорожный сегмент",
+      "path": "/models/base/road-segment.glb",
+      "fallbackPrimitive": "box",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "rail_segment": {
+      "name": "Ж/д путь",
+      "path": "/models/base/rail-segment.glb",
+      "fallbackPrimitive": "rail",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "checkpoint": {
+      "name": "КПП",
+      "path": "/models/buildings/checkpoint.glb",
+      "fallbackPrimitive": "box",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "admin_building": {
+      "name": "Административное здание",
+      "path": "/models/buildings/admin-building.glb",
+      "fallbackPrimitive": "box",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "operator_station_protected": {
+      "name": "Операторная/подстанция с защитой",
+      "path": "/models/protection/operator-station-protected.glb",
+      "fallbackPrimitive": "box",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "protected_column": {
+      "name": "Колонный аппарат с защитой",
+      "path": "/models/protection/kolonnyy_apparat_s_zashchitoy.glb",
+      "fallbackPrimitive": "cylinder",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "column_group_protected": {
+      "name": "Группа колонных аппаратов с защитой",
+      "path": "/models/protection/column-group-protected.glb",
+      "fallbackPrimitive": "group",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "reactor_unit": {
+      "name": "Реакторный блок",
+      "path": "/models/production/reactor-unit.glb",
+      "fallbackPrimitive": "cylinder",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "tank": {
+      "name": "Резервуар вертикальный",
+      "path": "/models/storage/vertical-tank.glb",
+      "fallbackPrimitive": "cylinder",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "tank_protected": {
+      "name": "Резервуар с защитной клеткой",
+      "path": "/models/protection/tank-protected.glb",
+      "fallbackPrimitive": "cylinder",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "warehouse": {
+      "name": "Склад",
+      "path": "/models/buildings/warehouse.glb",
+      "fallbackPrimitive": "box",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "pump_station": {
+      "name": "Насосная станция",
+      "path": "/models/utilities/pump-station.glb",
+      "fallbackPrimitive": "box",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "compressor_station": {
+      "name": "Компрессорная",
+      "path": "/models/utilities/compressor-station.glb",
+      "fallbackPrimitive": "box",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "electrical_substation": {
+      "name": "Электроподстанция",
+      "path": "/models/utilities/electrical-substation.glb",
+      "fallbackPrimitive": "box",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "pipe_rack": {
+      "name": "Трубопроводная эстакада",
+      "path": "/models/utilities/pipe-rack.glb",
+      "fallbackPrimitive": "pipeRack",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "fbs_barrier_segment": {
+      "name": "ФБС-защита, сегмент",
+      "path": "/models/protection/fbs-barrier-segment.glb",
+      "fallbackPrimitive": "box",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "mesh_screen": {
+      "name": "Защитная сетка/тросовая завеса",
+      "path": "/models/protection/cable-mesh-screen.glb",
+      "fallbackPrimitive": "plane",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "scaffold_protection": {
+      "name": "Защита строительными лесами",
+      "path": "/models/protection/scaffold-protection.glb",
+      "fallbackPrimitive": "box",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "water_treatment": {
+      "name": "Водоочистка/очистные сооружения",
+      "path": "/models/utilities/water-treatment.glb",
+      "fallbackPrimitive": "box",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "loading_station": {
+      "name": "Погрузочный узел",
+      "path": "/models/logistics/loading-station.glb",
+      "fallbackPrimitive": "box",
+      "defaultScale": [
+        1,
+        1,
+        1
+      ]
+    }
+  },
+  "site": {
+    "id": "site-001",
+    "name": "Типовая промышленная площадка",
+    "dimensions": {
+      "width": 420,
+      "depth": 300
+    },
+    "ground": {
+      "modelKey": "ground",
+      "position": [
+        0,
+        -0.05,
+        0
+      ],
+      "scale": [
+        420,
+        0.1,
+        300
+      ],
+      "material": {
+        "color": "#D8D3C4",
+        "roughness": 0.95
+      }
+    },
+    "perimeter": {
+      "points": [
+        [
+          -210,
+          -150
+        ],
+        [
+          210,
+          -150
+        ],
+        [
+          210,
+          150
+        ],
+        [
+          -210,
+          150
+        ]
+      ],
+      "fenceModelKey": "fence",
+      "height": 3.2
+    }
+  },
+  "zones": [
+    {
+      "id": "zone-admin",
+      "name": "Административно-бытовая зона",
+      "layer": "admin",
+      "polygon": [
+        [
+          -195,
+          -135
+        ],
+        [
+          -55,
+          -135
+        ],
+        [
+          -55,
+          -45
+        ],
+        [
+          -195,
+          -45
+        ]
+      ],
+      "color": "#B3D5FF",
+      "opacity": 0.18
+    },
+    {
+      "id": "zone-production-main",
+      "name": "Основная производственная зона",
+      "layer": "production",
+      "polygon": [
+        [
+          -40,
+          -125
+        ],
+        [
+          145,
+          -125
+        ],
+        [
+          145,
+          75
+        ],
+        [
+          -40,
+          75
+        ]
+      ],
+      "color": "#FFCC80",
+      "opacity": 0.18
+    },
+    {
+      "id": "zone-storage",
+      "name": "Складская зона",
+      "layer": "storage",
+      "polygon": [
+        [
+          150,
+          -125
+        ],
+        [
+          200,
+          -125
+        ],
+        [
+          200,
+          130
+        ],
+        [
+          150,
+          130
+        ]
+      ],
+      "color": "#C5E1A5",
+      "opacity": 0.18
+    },
+    {
+      "id": "zone-utilities",
+      "name": "Инженерная зона",
+      "layer": "utilities",
+      "polygon": [
+        [
+          -195,
+          15
+        ],
+        [
+          -55,
+          15
+        ],
+        [
+          -55,
+          135
+        ],
+        [
+          -195,
+          135
+        ]
+      ],
+      "color": "#CEB5FF",
+      "opacity": 0.18
+    },
+    {
+      "id": "zone-logistics",
+      "name": "Логистика и погрузка",
+      "layer": "railway",
+      "polygon": [
+        [
+          -40,
+          85
+        ],
+        [
+          200,
+          85
+        ],
+        [
+          200,
+          140
+        ],
+        [
+          -40,
+          140
+        ]
+      ],
+      "color": "#B0BEC5",
+      "opacity": 0.18
+    }
+  ],
+  "objects": [
+    {
+      "id": "road-main-south",
+      "name": "Главный южный проезд",
+      "type": "road",
+      "modelKey": "road_segment",
+      "layer": "roads",
+      "zoneId": "zone-admin",
+      "position": [
+        0,
+        0.01,
+        -132
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        390,
+        1,
+        9
+      ],
+      "dimensions": {
+        "width": 390,
+        "height": 0.1,
+        "depth": 9
+      },
+      "status": "ready",
+      "selectable": false,
+      "tags": [
+        "road",
+        "access"
+      ]
+    },
+    {
+      "id": "road-central",
+      "name": "Центральный технологический проезд",
+      "type": "road",
+      "modelKey": "road_segment",
+      "layer": "roads",
+      "zoneId": "zone-production-main",
+      "position": [
+        50,
+        0.01,
+        -30
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        10,
+        1,
+        200
+      ],
+      "dimensions": {
+        "width": 10,
+        "height": 0.1,
+        "depth": 200
+      },
+      "status": "ready",
+      "selectable": false,
+      "tags": [
+        "road",
+        "service"
+      ]
+    },
+    {
+      "id": "rail-north-01",
+      "name": "Ж/д ветка",
+      "type": "railway",
+      "modelKey": "rail_segment",
+      "layer": "railway",
+      "zoneId": "zone-logistics",
+      "position": [
+        80,
+        0.05,
+        118
+      ],
+      "rotation": [
+        0,
+        1.5708,
+        0
+      ],
+      "scale": [
+        210,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 210,
+        "height": 0.2,
+        "depth": 3
+      },
+      "status": "ready",
+      "selectable": false,
+      "tags": [
+        "railway",
+        "logistics"
+      ]
+    },
+    {
+      "id": "checkpoint-01",
+      "name": "КПП и проходная",
+      "type": "checkpoint",
+      "modelKey": "checkpoint",
+      "layer": "admin",
+      "zoneId": "zone-admin",
+      "position": [
+        -165,
+        0,
+        -125
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 18,
+        "height": 5,
+        "depth": 10
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 7
+      },
+      "tags": [
+        "entrance",
+        "security",
+        "people-flow"
+      ],
+      "metadata": {
+        "description": "Основной вход на промышленную площадку."
+      }
+    },
+    {
+      "id": "admin-building-01",
+      "name": "Заводоуправление",
+      "type": "building",
+      "modelKey": "admin_building",
+      "layer": "admin",
+      "zoneId": "zone-admin",
+      "position": [
+        -125,
+        0,
+        -88
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1.4,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 45,
+        "height": 14,
+        "depth": 24
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 17
+      },
+      "tags": [
+        "admin",
+        "office"
+      ],
+      "metadata": {
+        "description": "Административное здание, не производственный объект."
+      }
+    },
+    {
+      "id": "parking-01",
+      "name": "Парковка",
+      "type": "parking_area",
+      "modelKey": "ground",
+      "layer": "admin",
+      "zoneId": "zone-admin",
+      "position": [
+        -165,
+        0.02,
+        -62
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        42,
+        0.02,
+        28
+      ],
+      "dimensions": {
+        "width": 42,
+        "height": 0.02,
+        "depth": 28
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": false,
+        "offsetY": 1
+      },
+      "tags": [
+        "parking",
+        "admin"
+      ]
+    },
+    {
+      "id": "production-unit-01",
+      "name": "Узел колонных аппаратов №1",
+      "type": "protected_column_group",
+      "modelKey": "column_group_protected",
+      "layer": "production",
+      "zoneId": "zone-production-main",
+      "position": [
+        -5,
+        0,
+        -75
+      ],
+      "rotation": [
+        0,
+        0.15,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 52,
+        "height": 28,
+        "depth": 44
+      },
+      "status": "needs_review",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 31
+      },
+      "tags": [
+        "production",
+        "columns",
+        "protected",
+        "high-priority"
+      ],
+      "metadata": {
+        "description": "Типовой производственный узел с группой колонных аппаратов и защитной системой.",
+        "riskCategory": "high",
+        "inspectionFrequency": "monthly"
+      },
+      "protection": {
+        "hasProtection": true,
+        "protectionTypes": [
+          "steel_frame",
+          "wire_mesh",
+          "guy_wires",
+          "fbs_blocks"
+        ],
+        "coverage": "top_and_sides",
+        "readinessPercent": 72
+      }
+    },
+    {
+      "id": "column-protected-01",
+      "name": "Колонный аппарат с защитой",
+      "type": "protected_column",
+      "modelKey": "protected_column",
+      "layer": "protection",
+      "zoneId": "zone-production-main",
+      "position": [
+        85,
+        0,
+        -78
+      ],
+      "rotation": [
+        0,
+        -0.25,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 7.4,
+        "height": 10.8,
+        "depth": 7.3
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 12
+      },
+      "tags": [
+        "protection",
+        "column",
+        "mesh",
+        "fbs",
+        "3d-generated"
+      ],
+      "metadata": {
+        "description": "Отдельный колонный аппарат с защитным каркасом, сеткой, растяжками и ФБС-якорями.",
+        "modelNote": "Габариты соответствуют MVP-модели, не инженерной CAD-геометрии."
+      },
+      "protection": {
+        "hasProtection": true,
+        "protectionTypes": [
+          "steel_frame",
+          "wire_mesh",
+          "top_cage",
+          "guy_wires",
+          "fbs_blocks"
+        ],
+        "coverage": "top_and_sides",
+        "readinessPercent": 100
+      }
+    },
+    {
+      "id": "reactor-unit-01",
+      "name": "Реакторный блок",
+      "type": "reactor_unit",
+      "modelKey": "reactor_unit",
+      "layer": "production",
+      "zoneId": "zone-production-main",
+      "position": [
+        88,
+        0,
+        -18
+      ],
+      "rotation": [
+        0,
+        0.45,
+        0
+      ],
+      "scale": [
+        1.1,
+        1,
+        1.1
+      ],
+      "dimensions": {
+        "width": 34,
+        "height": 19,
+        "depth": 32
+      },
+      "status": "in_progress",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 22
+      },
+      "tags": [
+        "production",
+        "reactor",
+        "equipment"
+      ],
+      "metadata": {
+        "description": "Типовой реакторный блок с площадками обслуживания."
+      },
+      "protection": {
+        "hasProtection": false,
+        "protectionTypes": [],
+        "coverage": "none",
+        "readinessPercent": 0
+      }
+    },
+    {
+      "id": "scaffold-protection-01",
+      "name": "Оборудование под защитой строительных лесов",
+      "type": "scaffold_protection",
+      "modelKey": "scaffold_protection",
+      "layer": "protection",
+      "zoneId": "zone-production-main",
+      "position": [
+        10,
+        0,
+        -12
+      ],
+      "rotation": [
+        0,
+        0.65,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 32,
+        "height": 17,
+        "depth": 28
+      },
+      "status": "in_progress",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 19
+      },
+      "tags": [
+        "protection",
+        "scaffolding",
+        "temporary"
+      ],
+      "metadata": {
+        "description": "Временная или модульная защита оборудования на основе строительных лесов."
+      },
+      "protection": {
+        "hasProtection": true,
+        "protectionTypes": [
+          "scaffolding",
+          "wire_mesh",
+          "top_mesh"
+        ],
+        "coverage": "top_and_sides",
+        "readinessPercent": 55
+      }
+    },
+    {
+      "id": "operator-station-01",
+      "name": "Операторная подстанция с защитой",
+      "type": "operator_station",
+      "modelKey": "operator_station_protected",
+      "layer": "protection",
+      "zoneId": "zone-production-main",
+      "position": [
+        -18,
+        0,
+        32
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 26,
+        "height": 8,
+        "depth": 16
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 10
+      },
+      "tags": [
+        "operator",
+        "substation",
+        "protected",
+        "building"
+      ],
+      "metadata": {
+        "description": "Небольшое техническое здание с защитной сеткой и каркасом."
+      },
+      "protection": {
+        "hasProtection": true,
+        "protectionTypes": [
+          "roof_frame",
+          "wire_mesh",
+          "fbs_blocks"
+        ],
+        "coverage": "roof_and_perimeter",
+        "readinessPercent": 100
+      }
+    },
+    {
+      "id": "pump-station-01",
+      "name": "Насосная станция",
+      "type": "pump_station",
+      "modelKey": "pump_station",
+      "layer": "utilities",
+      "zoneId": "zone-utilities",
+      "position": [
+        -145,
+        0,
+        46
+      ],
+      "rotation": [
+        0,
+        0.1,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 34,
+        "height": 9,
+        "depth": 22
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 12
+      },
+      "tags": [
+        "utilities",
+        "pumps",
+        "water"
+      ],
+      "metadata": {
+        "description": "Инженерный объект для перекачки технологических сред."
+      }
+    },
+    {
+      "id": "compressor-station-01",
+      "name": "Компрессорная",
+      "type": "compressor_station",
+      "modelKey": "compressor_station",
+      "layer": "utilities",
+      "zoneId": "zone-utilities",
+      "position": [
+        -95,
+        0,
+        48
+      ],
+      "rotation": [
+        0,
+        -0.15,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 36,
+        "height": 11,
+        "depth": 24
+      },
+      "status": "needs_review",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 14
+      },
+      "tags": [
+        "utilities",
+        "compressor"
+      ],
+      "metadata": {
+        "description": "Компрессорная станция, объект инженерной инфраструктуры."
+      }
+    },
+    {
+      "id": "electrical-substation-01",
+      "name": "Электроподстанция",
+      "type": "electrical_substation",
+      "modelKey": "electrical_substation",
+      "layer": "utilities",
+      "zoneId": "zone-utilities",
+      "position": [
+        -150,
+        0,
+        106
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 44,
+        "height": 12,
+        "depth": 28
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 14
+      },
+      "tags": [
+        "utilities",
+        "electricity",
+        "substation"
+      ],
+      "metadata": {
+        "description": "Электроснабжение площадки."
+      }
+    },
+    {
+      "id": "water-treatment-01",
+      "name": "Водоочистка",
+      "type": "water_treatment",
+      "modelKey": "water_treatment",
+      "layer": "utilities",
+      "zoneId": "zone-utilities",
+      "position": [
+        -85,
+        0,
+        108
+      ],
+      "rotation": [
+        0,
+        0.2,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 48,
+        "height": 8,
+        "depth": 32
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 11
+      },
+      "tags": [
+        "utilities",
+        "water",
+        "treatment"
+      ],
+      "metadata": {
+        "description": "Типовой блок очистки/подготовки воды."
+      }
+    },
+    {
+      "id": "tank-raw-01",
+      "name": "Резервуар сырья №1",
+      "type": "tank",
+      "modelKey": "tank",
+      "layer": "storage",
+      "zoneId": "zone-storage",
+      "position": [
+        172,
+        0,
+        -92
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "diameter": 22,
+        "height": 16
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 18
+      },
+      "tags": [
+        "storage",
+        "tank",
+        "raw-materials"
+      ],
+      "metadata": {
+        "description": "Типовой вертикальный резервуар сырья."
+      }
+    },
+    {
+      "id": "tank-raw-02",
+      "name": "Резервуар сырья №2",
+      "type": "tank",
+      "modelKey": "tank",
+      "layer": "storage",
+      "zoneId": "zone-storage",
+      "position": [
+        172,
+        0,
+        -56
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "diameter": 22,
+        "height": 16
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 18
+      },
+      "tags": [
+        "storage",
+        "tank",
+        "raw-materials"
+      ]
+    },
+    {
+      "id": "tank-protected-01",
+      "name": "Защищённый резервуар",
+      "type": "tank_protected",
+      "modelKey": "tank_protected",
+      "layer": "protection",
+      "zoneId": "zone-storage",
+      "position": [
+        174,
+        0,
+        -14
+      ],
+      "rotation": [
+        0,
+        0.25,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "diameter": 24,
+        "height": 18,
+        "protectedWidth": 32,
+        "protectedDepth": 32
+      },
+      "status": "in_progress",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 21
+      },
+      "tags": [
+        "storage",
+        "tank",
+        "protected",
+        "mesh"
+      ],
+      "metadata": {
+        "description": "Резервуар с модульной защитной клеткой."
+      },
+      "protection": {
+        "hasProtection": true,
+        "protectionTypes": [
+          "steel_frame",
+          "wire_mesh"
+        ],
+        "coverage": "sides",
+        "readinessPercent": 68
+      }
+    },
+    {
+      "id": "warehouse-01",
+      "name": "Склад материалов",
+      "type": "warehouse",
+      "modelKey": "warehouse",
+      "layer": "storage",
+      "zoneId": "zone-storage",
+      "position": [
+        174,
+        0,
+        52
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 44,
+        "height": 12,
+        "depth": 38
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 15
+      },
+      "tags": [
+        "storage",
+        "warehouse"
+      ],
+      "metadata": {
+        "description": "Складская зона для материалов и комплектующих."
+      }
+    },
+    {
+      "id": "loading-station-01",
+      "name": "Погрузочный узел",
+      "type": "loading_station",
+      "modelKey": "loading_station",
+      "layer": "railway",
+      "zoneId": "zone-logistics",
+      "position": [
+        105,
+        0,
+        112
+      ],
+      "rotation": [
+        0,
+        1.5708,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 58,
+        "height": 14,
+        "depth": 18
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 17
+      },
+      "tags": [
+        "logistics",
+        "loading",
+        "railway"
+      ],
+      "metadata": {
+        "description": "Типовой железнодорожный/автомобильный погрузочный узел."
+      }
+    },
+    {
+      "id": "pipe-rack-main-01",
+      "name": "Главная трубопроводная эстакада",
+      "type": "pipe_rack",
+      "modelKey": "pipe_rack",
+      "layer": "pipelines",
+      "zoneId": "zone-production-main",
+      "position": [
+        63,
+        5.2,
+        28
+      ],
+      "rotation": [
+        0,
+        1.5708,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "length": 156,
+        "height": 10,
+        "width": 8
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 13
+      },
+      "tags": [
+        "pipeline",
+        "rack",
+        "utilities"
+      ],
+      "metadata": {
+        "description": "Эстакада, связывающая производственные и инженерные зоны."
+      }
+    },
+    {
+      "id": "pipe-rack-utility-01",
+      "name": "Эстакада к инженерной зоне",
+      "type": "pipe_rack",
+      "modelKey": "pipe_rack",
+      "layer": "pipelines",
+      "zoneId": "zone-utilities",
+      "position": [
+        -74,
+        5.2,
+        28
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "length": 82,
+        "height": 10,
+        "width": 8
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": false,
+        "offsetY": 13
+      },
+      "tags": [
+        "pipeline",
+        "rack",
+        "utilities"
+      ]
+    },
+    {
+      "id": "fbs-barrier-production-south",
+      "name": "ФБС-защита южного периметра производства",
+      "type": "fbs_barrier",
+      "modelKey": "fbs_barrier_segment",
+      "layer": "protection",
+      "zoneId": "zone-production-main",
+      "position": [
+        52,
+        0,
+        -113
+      ],
+      "rotation": [
+        0,
+        1.5708,
+        0
+      ],
+      "scale": [
+        9,
+        1,
+        1
+      ],
+      "dimensions": {
+        "length": 108,
+        "height": 3,
+        "depth": 2
+      },
+      "status": "ready",
+      "selectable": true,
+      "label": {
+        "visible": false,
+        "offsetY": 5
+      },
+      "tags": [
+        "protection",
+        "fbs",
+        "barrier"
+      ],
+      "metadata": {
+        "description": "Повторяемый защитный сегмент из ФБС-блоков с тросами."
+      }
+    },
+    {
+      "id": "fbs-barrier-storage-west",
+      "name": "ФБС-защита складской зоны",
+      "type": "fbs_barrier",
+      "modelKey": "fbs_barrier_segment",
+      "layer": "protection",
+      "zoneId": "zone-storage",
+      "position": [
+        148,
+        0,
+        -32
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        7,
+        1,
+        1
+      ],
+      "dimensions": {
+        "length": 84,
+        "height": 3,
+        "depth": 2
+      },
+      "status": "in_progress",
+      "selectable": true,
+      "label": {
+        "visible": false,
+        "offsetY": 5
+      },
+      "tags": [
+        "protection",
+        "fbs",
+        "storage"
+      ]
+    },
+    {
+      "id": "mesh-screen-01",
+      "name": "Защитная тросовая завеса",
+      "type": "mesh_screen",
+      "modelKey": "mesh_screen",
+      "layer": "protection",
+      "zoneId": "zone-production-main",
+      "position": [
+        35,
+        0,
+        66
+      ],
+      "rotation": [
+        0,
+        1.5708,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 70,
+        "height": 14,
+        "depth": 0.3
+      },
+      "status": "planned",
+      "selectable": true,
+      "label": {
+        "visible": true,
+        "offsetY": 16
+      },
+      "tags": [
+        "protection",
+        "mesh",
+        "second-line"
+      ],
+      "metadata": {
+        "description": "Второй эшелон защиты в виде тросово-сетчатой преграды."
+      },
+      "protection": {
+        "hasProtection": true,
+        "protectionTypes": [
+          "cable_mesh",
+          "steel_posts",
+          "guy_wires"
+        ],
+        "coverage": "vertical_screen",
+        "readinessPercent": 0
+      }
+    },
+    {
+      "id": "mesh-screen-02",
+      "name": "Защитная сетка у инженерной зоны",
+      "type": "mesh_screen",
+      "modelKey": "mesh_screen",
+      "layer": "protection",
+      "zoneId": "zone-utilities",
+      "position": [
+        -55,
+        0,
+        84
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "dimensions": {
+        "width": 76,
+        "height": 12,
+        "depth": 0.3
+      },
+      "status": "needs_review",
+      "selectable": true,
+      "label": {
+        "visible": false,
+        "offsetY": 14
+      },
+      "tags": [
+        "protection",
+        "mesh",
+        "utilities"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn-pipe-001",
+      "name": "Трубопровод: колонный узел — реакторный блок",
+      "type": "pipeline",
+      "layer": "pipelines",
+      "fromObjectId": "production-unit-01",
+      "toObjectId": "reactor-unit-01",
+      "points": [
+        [
+          -5,
+          9,
+          -55
+        ],
+        [
+          28,
+          9,
+          -55
+        ],
+        [
+          65,
+          9,
+          -25
+        ],
+        [
+          88,
+          9,
+          -18
+        ]
+      ],
+      "diameter": 0.55,
+      "status": "ready",
+      "material": {
+        "color": "#9E9E9E",
+        "metalness": 0.7,
+        "roughness": 0.35
+      },
+      "selectable": true
+    },
+    {
+      "id": "conn-pipe-002",
+      "name": "Трубопровод: резервуары — производство",
+      "type": "pipeline",
+      "layer": "pipelines",
+      "fromObjectId": "tank-raw-01",
+      "toObjectId": "reactor-unit-01",
+      "points": [
+        [
+          160,
+          8,
+          -92
+        ],
+        [
+          132,
+          8,
+          -78
+        ],
+        [
+          115,
+          8,
+          -40
+        ],
+        [
+          88,
+          8,
+          -18
+        ]
+      ],
+      "diameter": 0.45,
+      "status": "ready",
+      "material": {
+        "color": "#B0BEC5",
+        "metalness": 0.7,
+        "roughness": 0.35
+      },
+      "selectable": true
+    },
+    {
+      "id": "conn-road-001",
+      "name": "Сервисный маршрут КПП — производство",
+      "type": "route",
+      "layer": "roads",
+      "fromObjectId": "checkpoint-01",
+      "toObjectId": "production-unit-01",
+      "points": [
+        [
+          -165,
+          0.05,
+          -125
+        ],
+        [
+          -120,
+          0.05,
+          -130
+        ],
+        [
+          -40,
+          0.05,
+          -128
+        ],
+        [
+          18,
+          0.05,
+          -113
+        ],
+        [
+          12,
+          0.05,
+          -90
+        ]
+      ],
+      "width": 3,
+      "status": "ready",
+      "selectable": false
+    },
+    {
+      "id": "conn-utility-001",
+      "name": "Инженерная связь: подстанция — производство",
+      "type": "cable_route",
+      "layer": "utilities",
+      "fromObjectId": "electrical-substation-01",
+      "toObjectId": "operator-station-01",
+      "points": [
+        [
+          -150,
+          0.1,
+          106
+        ],
+        [
+          -115,
+          0.1,
+          86
+        ],
+        [
+          -75,
+          0.1,
+          64
+        ],
+        [
+          -18,
+          0.1,
+          32
+        ]
+      ],
+      "status": "ready",
+      "selectable": false
+    }
+  ],
+  "ui": {
+    "objectInfoPanelFields": [
+      "name",
+      "type",
+      "status",
+      "zoneId",
+      "dimensions",
+      "protection",
+      "metadata.description"
+    ],
+    "filters": [
+      {
+        "id": "filter-status",
+        "name": "Статус",
+        "field": "status",
+        "type": "multiSelect"
+      },
+      {
+        "id": "filter-layer",
+        "name": "Слой",
+        "field": "layer",
+        "type": "multiSelect"
+      },
+      {
+        "id": "filter-protection",
+        "name": "Только защитные объекты",
+        "field": "protection.hasProtection",
+        "type": "boolean"
+      }
+    ],
+    "legend": [
+      {
+        "label": "Готово",
+        "status": "ready",
+        "color": "#2E7D32"
+      },
+      {
+        "label": "В работе",
+        "status": "in_progress",
+        "color": "#F9A825"
+      },
+      {
+        "label": "Нужна проверка",
+        "status": "needs_review",
+        "color": "#EF6C00"
+      },
+      {
+        "label": "Риск",
+        "status": "risk",
+        "color": "#C62828"
+      },
+      {
+        "label": "Планируется",
+        "status": "planned",
+        "color": "#607D8B"
+      }
+    ]
+  },
+  "rendererHints": {
+    "instancingRecommendedFor": [
+      "fbs_barrier_segment",
+      "mesh_screen",
+      "road_segment",
+      "rail_segment",
+      "fence"
+    ],
+    "lod": {
+      "enabled": true,
+      "nearDistance": 80,
+      "midDistance": 180,
+      "farDistance": 320
+    },
+    "performance": {
+      "mergeStaticGeometry": true,
+      "useDracoCompressionForGLB": true,
+      "useKtx2Textures": true,
+      "targetFps": 60
+    }
+  }
+}
