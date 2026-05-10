@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useTheme } from "next-themes";
 import {
   Shield, Brain, BarChart3, ScanLine, Zap, Users,
@@ -752,9 +753,9 @@ export default function HeroPage() {
           <div className="text-[12px] text-slate-400">
             © 2026 Fortis. Система защиты промышленных предприятий от БПЛА.
           </div>
-          <a href="/dashboard" className="text-[12px] text-sky-500 hover:text-sky-400 transition-colors">
+          <Link href="/dashboard" className="text-[12px] text-sky-500 hover:text-sky-400 transition-colors">
             Личный кабинет →
-          </a>
+          </Link>
         </div>
       </footer>
     </div>

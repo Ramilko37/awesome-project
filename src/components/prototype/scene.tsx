@@ -6,6 +6,7 @@ import { Grid, Line, OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { ScaledGlbModel } from "@/components/FactoryMap/ScaledGlbModel";
 import { isAssetType, type AssetType } from "@/config/assetDimensions";
+import { withBasePath } from "@/shared/lib/base-path";
 import {
   plantSite,
   plantZones,
@@ -28,34 +29,34 @@ const scaledAssetByModelKey: Record<
   }
 > = {
   protected_column: {
-    url: "/models/kolonnyy-apparat-s-zashchitoy.glb",
+    url: withBasePath("/models/kolonnyy-apparat-s-zashchitoy.glb"),
     assetType: "protected_column_apparatus",
     upAxis: "Z",
     scaleMode: "uniformByHeight",
   },
   operator_station_protected: {
-    url: "/models/protective/operator_substation_protected.glb",
+    url: withBasePath("/models/protective/operator_substation_protected.glb"),
     assetType: "operator_substation_protected",
     upAxis: "Z",
   },
   scaffold_protection: {
-    url: "/models/protection/05_protective_scaffolding_with_equipment_textured.glb",
+    url: withBasePath("/models/protection/05_protective_scaffolding_with_equipment_textured.glb"),
     assetType: "protective_scaffolding_with_equipment",
     upAxis: "Z",
     scaleMode: "uniformByHeight",
   },
   fbs_barrier_segment: {
-    url: "/models/protection/04_perimeter_fbs_cable_barrier_textured.glb",
+    url: withBasePath("/models/protection/04_perimeter_fbs_cable_barrier_textured.glb"),
     assetType: "perimeter_fbs_cable_barrier_module",
     upAxis: "Z",
   },
   mesh_screen: {
-    url: "/models/protection/02_cable_mesh_curtain_textured.glb",
+    url: withBasePath("/models/protection/02_cable_mesh_curtain_textured.glb"),
     assetType: "cable_mesh_curtain_module",
     upAxis: "Z",
   },
   tank_protected: {
-    url: "/models/protection/03_fbs_protection_enclosure_textured.glb",
+    url: withBasePath("/models/protection/03_fbs_protection_enclosure_textured.glb"),
     assetType: "fbs_protection_enclosure",
     upAxis: "Z",
   },
@@ -72,49 +73,49 @@ const scaledAssetByKind: Record<
   }
 > = {
   operator_substation: {
-    url: "/models/protective/operator_substation_protected.glb",
+    url: withBasePath("/models/protective/operator_substation_protected.glb"),
     assetType: "operator_substation_protected",
     upAxis: "Z",
   },
   scaffolding: {
-    url: "/models/protection/05_protective_scaffolding_with_equipment_textured.glb",
+    url: withBasePath("/models/protection/05_protective_scaffolding_with_equipment_textured.glb"),
     assetType: "protective_scaffolding_with_equipment",
     upAxis: "Z",
     scaleMode: "uniformByHeight",
   },
   fbs_enclosure: {
-    url: "/models/protection/03_fbs_protection_enclosure_textured.glb",
+    url: withBasePath("/models/protection/03_fbs_protection_enclosure_textured.glb"),
     assetType: "fbs_protection_enclosure",
     upAxis: "Z",
   },
   perimeter_barrier: {
-    url: "/models/protection/04_perimeter_fbs_cable_barrier_textured.glb",
+    url: withBasePath("/models/protection/04_perimeter_fbs_cable_barrier_textured.glb"),
     assetType: "perimeter_fbs_cable_barrier_module",
     upAxis: "Z",
   },
   cable_mesh: {
-    url: "/models/protection/02_cable_mesh_curtain_textured.glb",
+    url: withBasePath("/models/protection/02_cable_mesh_curtain_textured.glb"),
     assetType: "cable_mesh_curtain_module",
     upAxis: "Z",
   },
   sensor: {
-    url: "/models/protective/operator_substation_protected.glb",
+    url: withBasePath("/models/protective/operator_substation_protected.glb"),
     assetType: "operator_substation_protected",
   },
   camera: {
-    url: "/models/protection/02_cable_mesh_curtain_textured.glb",
+    url: withBasePath("/models/protection/02_cable_mesh_curtain_textured.glb"),
     assetType: "cable_mesh_curtain_module",
   },
   shield: {
-    url: "/models/protection/03_fbs_protection_enclosure_textured.glb",
+    url: withBasePath("/models/protection/03_fbs_protection_enclosure_textured.glb"),
     assetType: "fbs_protection_enclosure",
   },
   post: {
-    url: "/models/protection/04_perimeter_fbs_cable_barrier_textured.glb",
+    url: withBasePath("/models/protection/04_perimeter_fbs_cable_barrier_textured.glb"),
     assetType: "perimeter_fbs_cable_barrier_module",
   },
   barrier: {
-    url: "/models/protection/04_perimeter_fbs_cable_barrier_textured.glb",
+    url: withBasePath("/models/protection/04_perimeter_fbs_cable_barrier_textured.glb"),
     assetType: "perimeter_fbs_cable_barrier_module",
   },
 };
@@ -780,7 +781,7 @@ function DroneSwarm({
   plantObjects: PlantMapObject[];
   assets: SceneObject[];
 }) {
-  const gltf = useGLTF("/models/chaklun-v2-drone.glb");
+  const gltf = useGLTF(withBasePath("/models/chaklun-v2-drone.glb"));
   const [hitEffects, setHitEffects] = useState<
     Array<{ id: string; position: [number, number, number]; startedAt: number }>
   >([]);
@@ -1168,13 +1169,13 @@ export function PrototypeScene({
   );
 }
 
-useGLTF.preload("/models/chaklun-v2-drone.glb");
-useGLTF.preload("/models/protection/02_cable_mesh_curtain_textured.glb");
-useGLTF.preload("/models/protection/03_fbs_protection_enclosure_textured.glb");
-useGLTF.preload("/models/protection/04_perimeter_fbs_cable_barrier_textured.glb");
-useGLTF.preload("/models/protection/05_protective_scaffolding_with_equipment_textured.glb");
-useGLTF.preload("/models/protective/operator_substation_protected.glb");
-useGLTF.preload("/models/protective/protective_scaffolding_with_equipment.glb");
-useGLTF.preload("/models/protective/fbs_protection_enclosure.glb");
-useGLTF.preload("/models/protective/perimeter_fbs_cable_barrier.glb");
-useGLTF.preload("/models/protective/cable_mesh_curtain_module.glb");
+useGLTF.preload(withBasePath("/models/chaklun-v2-drone.glb"));
+useGLTF.preload(withBasePath("/models/protection/02_cable_mesh_curtain_textured.glb"));
+useGLTF.preload(withBasePath("/models/protection/03_fbs_protection_enclosure_textured.glb"));
+useGLTF.preload(withBasePath("/models/protection/04_perimeter_fbs_cable_barrier_textured.glb"));
+useGLTF.preload(withBasePath("/models/protection/05_protective_scaffolding_with_equipment_textured.glb"));
+useGLTF.preload(withBasePath("/models/protective/operator_substation_protected.glb"));
+useGLTF.preload(withBasePath("/models/protective/protective_scaffolding_with_equipment.glb"));
+useGLTF.preload(withBasePath("/models/protective/fbs_protection_enclosure.glb"));
+useGLTF.preload(withBasePath("/models/protective/perimeter_fbs_cable_barrier.glb"));
+useGLTF.preload(withBasePath("/models/protective/cable_mesh_curtain_module.glb"));

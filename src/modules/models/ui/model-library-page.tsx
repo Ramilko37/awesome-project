@@ -4,6 +4,7 @@ import { Suspense, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Center, ContactShadows, Grid, OrbitControls, useGLTF } from "@react-three/drei";
 import { Box, Check, Cuboid, Download, Gauge, Maximize2, Rotate3D, Ruler, Shield } from "lucide-react";
+import { withBasePath } from "@/shared/lib/base-path";
 import styles from "./model-library-page.module.css";
 
 type ModelAsset = {
@@ -24,7 +25,7 @@ const modelAssets: ModelAsset[] = [
     id: "fixed-wing-uav",
     name: "Fixed-wing UAV",
     subtitle: "Silver reconnaissance drone",
-    src: "/models/fixed-wing-uav-reference.glb",
+    src: withBasePath("/models/fixed-wing-uav-reference.glb"),
     format: "GLB",
     size: "249 KB",
     category: "Airframe",
@@ -37,7 +38,7 @@ const modelAssets: ModelAsset[] = [
     id: "silent-sky-scout",
     name: "Silent Sky Scout",
     subtitle: "Meshy textured recon UAV",
-    src: "/models/meshy-silent-sky-scout.glb",
+    src: withBasePath("/models/meshy-silent-sky-scout.glb"),
     format: "GLB",
     size: "32 MB",
     category: "Airframe",

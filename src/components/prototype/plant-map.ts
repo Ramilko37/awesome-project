@@ -1,5 +1,6 @@
 import mapJson from "./data/typical-chemical-plant-map.json";
 import type { AssetType } from "@/config/assetDimensions";
+import { withBasePath } from "@/shared/lib/base-path";
 
 type Tuple2 = [number, number];
 type Tuple3 = [number, number, number];
@@ -274,7 +275,7 @@ export const defaultPlantMapObjects: PlantMapObject[] = expandedObjectsRaw.map((
   position: recenter3(toTuple3(item.position)),
   rotation: toTuple3(item.rotation),
   scale: toTuple3(item.scale),
-  modelUrl: item.modelUrl,
+  modelUrl: item.modelUrl ? withBasePath(item.modelUrl) : undefined,
   assetType: item.assetType as AssetType | undefined,
   upAxis: item.upAxis,
   scaleMode: item.scaleMode,
