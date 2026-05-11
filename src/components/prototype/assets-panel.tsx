@@ -2,8 +2,6 @@
 
 import {
   DragOutlined,
-  FilterOutlined,
-  SearchOutlined,
   BuildOutlined,
   BorderOuterOutlined,
   ApartmentOutlined,
@@ -34,12 +32,7 @@ export function AssetsPanel({
   return (
     <aside className={styles.assetsPanel} aria-label="Ассеты">
       <div className={styles.panelHeader}>
-        <h2>Ассеты</h2>
-      </div>
-      <div className={styles.searchRow}>
-        <SearchOutlined />
-        <input aria-label="Поиск ассетов" placeholder="Поиск ассетов..." />
-        <FilterOutlined />
+        <h2>Защитные элементы</h2>
       </div>
       <div className={styles.assetList}>
         {assetCatalog.map((item) => (
@@ -60,7 +53,7 @@ export function AssetsPanel({
       <div className={styles.dragHint}>
         <span className={styles.mouseGlyph} />
         <p>
-          {placingKind ? "Кликните по карте, чтобы разместить ассет" : "Выберите ассет и кликните по карте"}
+          {placingKind ? "Кликните по карте, чтобы разместить защиту" : "Выберите элемент и кликните по карте"}
         </p>
       </div>
       {placingKind ? (

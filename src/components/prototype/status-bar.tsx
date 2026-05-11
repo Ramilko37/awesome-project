@@ -2,35 +2,31 @@
 
 import {
   AimOutlined,
-  CameraOutlined,
-  GatewayOutlined,
+  DollarOutlined,
   PlayCircleOutlined,
   RadarChartOutlined,
   SafetyCertificateOutlined,
+  ThunderboltOutlined,
 } from "@ant-design/icons";
-import { scenarioLabels, type ScenarioId } from "./types";
+import { scenarioLabels, type DefenseStats, type ScenarioId } from "./types";
 import styles from "./drone-defense-prototype.module.css";
-
-type Stats = {
-  sensorCount: number;
-  cameraCount: number;
-  postCount: number;
-  coverage: number;
-  perimeter: string;
-};
 
 export function StatusBar({
   stats,
   scenario,
   demoMode,
+  autoDemoRunning,
   onScenarioReset,
   onToggleDemo,
+  onToggleAutoDemo,
 }: {
-  stats: Stats;
+  stats: DefenseStats;
   scenario: ScenarioId;
   demoMode: boolean;
+  autoDemoRunning: boolean;
   onScenarioReset: () => void;
   onToggleDemo: () => void;
+  onToggleAutoDemo: () => void;
 }) {
   return (
     <footer className={styles.statusBar}>
@@ -40,33 +36,37 @@ export function StatusBar({
         <span>›</span>
       </button>
       <div className={styles.metric}>
-        <RadarChartOutlined />
-        <strong>{stats.sensorCount}</strong>
-        <span>Сенсоры</span>
-      </div>
-      <div className={styles.metric}>
-        <CameraOutlined />
-        <strong>{stats.cameraCount}</strong>
-        <span>Камеры</span>
-      </div>
-      <div className={styles.metric}>
-        <GatewayOutlined />
-        <strong>{stats.postCount}</strong>
-        <span>Посты управления</span>
-      </div>
-      <div className={styles.metric}>
         <SafetyCertificateOutlined />
-        <strong>{stats.perimeter}</strong>
-        <span>Периметр</span>
+        <strong>{stats.protectedObjects}/{stats.protectedObjectsTotal}</strong>
+        <span>Защищено объектов</span>
+      </div>
+      <div className={styles.metric}>
+        <RadarChartOutlined />
+        <strong>{stats.perimeterCoveredPercent}%</strong>
+        <span>Периметр перекрыт</span>
+      </div>
+      <div className={styles.metric}>
+        <ThunderboltOutlined />
+        <strong>{stats.attacksRepelled}/{stats.attacksTotal}</strong>
+        <span>Отражено атак</span>
       </div>
       <div className={styles.metric}>
         <AimOutlined />
-        <strong>{stats.coverage}%</strong>
-        <span>Покрытие</span>
+        <strong>{stats.residualRiskPercent}%</strong>
+        <span>Остаточный риск</span>
+      </div>
+      <div className={styles.metric}>
+        <DollarOutlined />
+        <strong>{stats.capexMln}</strong>
+        <span>CAPEX, млн ₽</span>
       </div>
       <button className={styles.simulationButton} type="button" onClick={onToggleDemo}>
         <PlayCircleOutlined />
         {demoMode ? "Пауза симуляции" : "Запустить симуляцию"}
+      </button>
+      <button className={styles.autoDemoButton} type="button" onClick={onToggleAutoDemo}>
+        <PlayCircleOutlined />
+        {autoDemoRunning ? "Остановить автодемо" : "Автодемо"}
       </button>
     </footer>
   );

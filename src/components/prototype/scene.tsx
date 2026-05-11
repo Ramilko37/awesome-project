@@ -1,8 +1,8 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Canvas, ThreeEvent, useFrame } from "@react-three/fiber";
-import { Grid, Line, OrbitControls, useGLTF } from "@react-three/drei";
+import { Canvas, ThreeEvent, useFrame, useThree } from "@react-three/fiber";
+import { Grid, Html, Line, OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { ScaledGlbModel } from "@/components/FactoryMap/ScaledGlbModel";
 import { isAssetType, type AssetType } from "@/config/assetDimensions";
@@ -13,11 +13,28 @@ import {
   type PlantMapConnection,
   type PlantMapObject,
 } from "./plant-map";
-import { kindColor, snapToGrid, type ObjectKind, type SceneObject } from "./types";
+import {
+  criticalTargets,
+  defenseRoleColor,
+  kindColor,
+  snapToGrid,
+  threatStatusColor,
+  threatStatusLabel,
+  threatTracks,
+  type CameraPresetId,
+  type ObjectKind,
+  type ScenarioId,
+  type SceneObject,
+  type ThreatStatus,
+} from "./types";
 import styles from "./drone-defense-prototype.module.css";
 
 const levelPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const PLANT_SCALE = 1;
+type CameraPresetRequest = {
+  id: CameraPresetId;
+  nonce: number;
+};
 const scaledAssetByModelKey: Record<
   string,
   {
@@ -555,14 +572,87 @@ function RouteConnection({ item, color }: { item: PlantMapConnection; color: str
   );
 }
 
+function RiskHeatmap({ scenario }: { scenario: ScenarioId }) {
+  const heatmapStyle = {
+    unprotected: { color: "#ff4f3f", radius: 92, opacity: 0.18 },
+    baseline: { color: "#f6c65b", radius: 64, opacity: 0.12 },
+    perimeter: { color: "#55e7bb", radius: 46, opacity: 0.1 },
+    assets: { color: "#f6c65b", radius: 64, opacity: 0.12 },
+    night: { color: "#55e7bb", radius: 46, opacity: 0.1 },
+  }[scenario];
+
+  return (
+    <group>
+      {criticalTargets.map((target) => (
+        <mesh
+          key={target.id}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[target.position[0], 0.025, target.position[2]]}
+        >
+          <circleGeometry args={[heatmapStyle.radius * target.riskWeight, 72]} />
+          <meshBasicMaterial
+            color={heatmapStyle.color}
+            transparent
+            opacity={heatmapStyle.opacity * target.riskWeight}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function SceneCallouts({ objects }: { objects: SceneObject[] }) {
+  const visibleAssets = objects
+    .filter((item) => item.defenseRole === "command" || item.defenseRole === "barrier" || item.defenseRole === "mesh")
+    .slice(0, 7);
+
+  return (
+    <group>
+      {criticalTargets.map((target) => (
+        <Html
+          key={target.id}
+          position={[target.position[0], 18 + target.riskWeight * 8, target.position[2]]}
+          center
+          distanceFactor={260}
+          className={styles.targetCallout}
+        >
+          <strong>{target.label}</strong>
+          <span>Критический объект</span>
+        </Html>
+      ))}
+      {visibleAssets.map((item) => (
+        <Html
+          key={`asset-callout-${item.id}`}
+          position={[item.position[0], item.elevation + 12, item.position[2]]}
+          center
+          distanceFactor={240}
+          className={styles.assetCallout}
+        >
+          <strong>{item.label}</strong>
+          <span>{Math.round(item.effectiveness * 100)}% эффективность</span>
+        </Html>
+      ))}
+    </group>
+  );
+}
+
 function Coverage({ item, selected }: { item: SceneObject; selected: boolean }) {
-  const color = item.kind === "fbs_enclosure" || item.kind === "perimeter_barrier" ? "#f7b84a" : "#42bfff";
-  const coverageScale = 1.22;
+  const color = defenseRoleColor[item.defenseRole] ?? kindColor[item.kind];
+  const radius = item.coverageRadiusM;
   return (
     <group position={item.position}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
-        <ringGeometry args={[item.radius * 0.78 * coverageScale, item.radius * coverageScale, 72]} />
-        <meshBasicMaterial color={selected ? "#00b6ff" : color} transparent opacity={0.52} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.055, 0]}>
+        <circleGeometry args={[radius, 96]} />
+        <meshBasicMaterial color={selected ? "#55d6ff" : color} transparent opacity={selected ? 0.22 : 0.12} depthWrite={false} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.07, 0]}>
+        <ringGeometry args={[Math.max(1, radius - 2.2), radius + 2.2, 96]} />
+        <meshBasicMaterial color={selected ? "#ffffff" : color} transparent opacity={selected ? 0.78 : 0.48} depthWrite={false} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]}>
+        <ringGeometry args={[Math.max(1, radius * 0.34 - 1.2), radius * 0.34 + 1.2, 72]} />
+        <meshBasicMaterial color={selected ? "#ffffff" : color} transparent opacity={selected ? 0.54 : 0.32} depthWrite={false} />
       </mesh>
     </group>
   );
@@ -703,22 +793,26 @@ function SceneUnit({
 
 const HIT_EFFECT_DURATION_SEC = 1.45;
 
-function HitPulse({
+function ImpactPulse({
   position,
   startedAt,
+  status,
 }: {
   position: [number, number, number];
   startedAt: number;
+  status: "neutralized" | "breach";
 }) {
   const ringRef = useRef<THREE.Mesh | null>(null);
   const domeRef = useRef<THREE.Mesh | null>(null);
-  const smokeRefs = useRef<Array<THREE.Mesh | null>>([]);
+  const isBreach = status === "breach";
+  const ringColor = isBreach ? "#ff3730" : "#55e7bb";
+  const domeColor = isBreach ? "#ff9a3d" : "#70c9ff";
 
   useFrame(({ clock }) => {
     const age = Math.max(0, clock.getElapsedTime() - startedAt);
     const life = Math.min(1, age / HIT_EFFECT_DURATION_SEC);
-    const ringScale = 1 + life * 14;
-    const domeScale = 0.95 + life * 5.4;
+    const ringScale = 1 + life * (isBreach ? 14 : 8);
+    const domeScale = 0.95 + life * (isBreach ? 5.4 : 3.2);
     const opacity = 0.95 - life * 0.95;
 
     if (ringRef.current) {
@@ -731,224 +825,204 @@ function HitPulse({
       const domeMat = domeRef.current.material as THREE.MeshBasicMaterial;
       domeMat.opacity = Math.max(0, opacity * 0.75);
     }
-    smokeRefs.current.forEach((smoke, index) => {
-      if (!smoke) return;
-      const localLife = Math.min(1, Math.max(0, life * 1.25 - index * 0.11));
-      const smokeScale = 1.2 + localLife * (5.4 + index * 0.6);
-      smoke.scale.setScalar(smokeScale);
-      smoke.position.y = 0.4 + localLife * (2.8 + index * 0.35);
-      const smokeMat = smoke.material as THREE.MeshBasicMaterial;
-      smokeMat.opacity = Math.max(0, (1 - localLife) * 0.42);
-    });
   });
 
   return (
     <group position={position}>
       <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[3.4, 4.6, 58]} />
-        <meshBasicMaterial color="#ff2f2f" transparent opacity={0.98} />
+        <meshBasicMaterial color={ringColor} transparent opacity={0.98} />
       </mesh>
       <mesh ref={domeRef} position={[0, 0.26, 0]}>
         <sphereGeometry args={[0.82, 22, 22]} />
-        <meshBasicMaterial color="#ff9a3d" transparent opacity={0.8} />
+        <meshBasicMaterial color={domeColor} transparent opacity={0.8} />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
         <ringGeometry args={[1.8, 2.6, 42]} />
-        <meshBasicMaterial color="#ffd27a" transparent opacity={0.82} />
+        <meshBasicMaterial color={isBreach ? "#ffd27a" : "#d8fff2"} transparent opacity={0.82} />
       </mesh>
-      {[-0.9, 0.15, 1.1].map((xOffset, index) => (
-        <mesh
-          key={index}
-          ref={(node) => {
-            smokeRefs.current[index] = node;
-          }}
-          position={[xOffset, 0.4, (index - 1) * 0.45]}
-        >
-          <sphereGeometry args={[0.56 + index * 0.08, 16, 16]} />
-          <meshBasicMaterial color="#5f646d" transparent opacity={0.4} depthWrite={false} />
-        </mesh>
-      ))}
     </group>
+  );
+}
+
+type DroneRuntimeState = {
+  progress: number;
+  hold: number;
+  status: ThreatStatus;
+  completed: boolean;
+};
+
+type ThreatEffect = {
+  id: string;
+  position: [number, number, number];
+  startedAt: number;
+  status: "neutralized" | "breach";
+};
+
+function initialDroneRuntime(): DroneRuntimeState[] {
+  return threatTracks.map((_, index) => ({
+    progress: (index * 0.11) % 0.34,
+    hold: 0,
+    status: "detected" as ThreatStatus,
+    completed: false,
+  }));
+}
+
+function threatStatusForProgress(progress: number, detectAt: number, trackAt: number): ThreatStatus {
+  if (progress >= trackAt) return "tracking";
+  if (progress >= detectAt) return "detected";
+  return "detected";
+}
+
+function interpolateTrackPoint(from: [number, number, number], to: [number, number, number], progress: number) {
+  return new THREE.Vector3(
+    THREE.MathUtils.lerp(from[0], to[0], progress),
+    THREE.MathUtils.lerp(from[1], to[1], progress),
+    THREE.MathUtils.lerp(from[2], to[2], progress),
   );
 }
 
 function DroneSwarm({
   enabled,
-  plantObjects,
-  assets,
+  scenario,
 }: {
   enabled: boolean;
-  plantObjects: PlantMapObject[];
-  assets: SceneObject[];
+  scenario: ScenarioId;
 }) {
   const gltf = useGLTF(withBasePath("/models/chaklun-v2-drone.glb"));
-  const [hitEffects, setHitEffects] = useState<
-    Array<{ id: string; position: [number, number, number]; startedAt: number }>
-  >([]);
-  const [pathLines, setPathLines] = useState<Array<{ id: string; from: [number, number, number]; to: [number, number, number] }>>([]);
-  const attackTargets = useMemo(() => {
-    const staticTargets = plantObjects
-      .filter((item) => item.layer === "protection")
-      .map((item) => new THREE.Vector3(item.position[0], 0, item.position[2]));
-
-    const placedAssetTargets = assets.map((item) => new THREE.Vector3(item.position[0], 0, item.position[2]));
-    const allTargets = [...placedAssetTargets, ...staticTargets];
-    return allTargets.slice(0, Math.max(6, allTargets.length));
-  }, [assets, plantObjects]);
-
   const drones = useMemo(
     () =>
-      Array.from({ length: 6 }).map((_, index) => {
-        const fallbackTarget = new THREE.Vector3(120 + index * 40, 0, -90 + index * 34);
-        const target = attackTargets[index % Math.max(1, attackTargets.length)] ?? fallbackTarget;
-        const entryX = -plantSite.width * 0.62;
-        const entryZ = target.z + (index - 2.5) * 18;
-        const altitude = 24 + (index % 3) * 3;
-
-        return {
-          id: `drone-track-${String(index + 1).padStart(2, "0")}`,
-          from: new THREE.Vector3(entryX, altitude, entryZ),
-          to: new THREE.Vector3(target.x, altitude, target.z),
-          altitude,
-          speed: 0.07 + index * 0.006,
-          targetIndex: index % Math.max(1, attackTargets.length),
-          phase: (index * 0.17) % 1,
-          model: gltf.scene.clone(true),
-        };
-      }),
-    [attackTargets, gltf.scene],
+      threatTracks.map((track) => ({
+        id: track.id,
+        model: gltf.scene.clone(true),
+      })),
+    [gltf.scene],
   );
   const refs = useRef<Array<THREE.Group | null>>([]);
-  const droneStateRef = useRef(
-    drones.map((drone) => ({
-      from: drone.from.clone(),
-      to: drone.to.clone(),
-      altitude: drone.altitude,
-      speed: drone.speed,
-      targetIndex: drone.targetIndex,
-      progress: drone.phase,
-    })),
-  );
-
-  useEffect(() => {
-    droneStateRef.current = drones.map((drone) => ({
-      from: drone.from.clone(),
-      to: drone.to.clone(),
-      altitude: drone.altitude,
-      speed: drone.speed,
-      targetIndex: drone.targetIndex,
-      progress: drone.phase,
-    }));
-    setPathLines(
-      drones.map((drone) => ({
-        id: drone.id,
-        from: drone.from.toArray() as [number, number, number],
-        to: drone.to.toArray() as [number, number, number],
-      })),
-    );
-    setHitEffects([]);
-  }, [drones]);
-
-  useEffect(() => {
-    if (!enabled) return undefined;
-    const timer = window.setInterval(() => {
-      const now = performance.now() / 1000;
-      setHitEffects((prev) => prev.filter((effect) => now - effect.startedAt < HIT_EFFECT_DURATION_SEC));
-    }, 180);
-    return () => window.clearInterval(timer);
-  }, [enabled]);
+  const runtimeRef = useRef<DroneRuntimeState[]>(initialDroneRuntime());
+  const effectSequenceRef = useRef(0);
+  const statusRef = useRef<ThreatStatus[]>(threatTracks.map(() => "detected"));
+  const [statuses, setStatuses] = useState<ThreatStatus[]>(() => threatTracks.map(() => "detected"));
+  const [effects, setEffects] = useState<ThreatEffect[]>([]);
 
   useFrame(({ clock }, delta) => {
     if (!enabled) return;
-    const t = clock.getElapsedTime();
-    drones.forEach((drone, index) => {
+    const elapsed = clock.getElapsedTime();
+    const nextStatuses = [...statusRef.current];
+    const nextEffects: ThreatEffect[] = [];
+    let statusChanged = false;
+
+    threatTracks.forEach((track, index) => {
       const node = refs.current[index];
-      if (!node) return;
-      const droneState = droneStateRef.current[index];
-      if (!droneState) return;
+      const state = runtimeRef.current[index];
+      if (!node || !state) return;
 
-      droneState.progress += delta * droneState.speed;
-      if (droneState.progress >= 1) {
-        const hitTime = t;
-        setHitEffects((prev) =>
-          [
-            ...prev.filter((effect) => hitTime - effect.startedAt < HIT_EFFECT_DURATION_SEC),
-            {
-              id: `${drone.id}-hit-${Math.round(hitTime * 1000)}`,
-              position: [droneState.to.x, 0.18, droneState.to.z] as [number, number, number],
-              startedAt: hitTime,
-            },
-          ].slice(-32),
-        );
+      const outcome = track.outcomeByScenario[scenario];
+      if (state.completed) {
+        state.hold += delta;
+        if (state.hold > 2.6) {
+          state.progress = 0;
+          state.hold = 0;
+          state.status = "detected";
+          state.completed = false;
+        }
+      } else {
+        state.progress += delta * track.speed;
+        const shouldNeutralize = outcome === "neutralized" && state.progress >= track.neutralizeAt;
+        const shouldBreach = outcome === "breach" && state.progress >= 1;
 
-        const nextTargetIndex = (droneState.targetIndex + 1) % Math.max(1, attackTargets.length);
-        const nextTarget = attackTargets[nextTargetIndex];
-        const entryX = -plantSite.width * 0.62;
-        const entryZ = (nextTarget?.z ?? droneState.to.z) + (index - 2.5) * 16;
-        const nextFrom = new THREE.Vector3(entryX, droneState.altitude, entryZ);
-        const nextTo = new THREE.Vector3(
-          nextTarget?.x ?? droneState.to.x,
-          droneState.altitude,
-          nextTarget?.z ?? droneState.to.z,
-        );
-
-        droneState.from = nextFrom;
-        droneState.to = nextTo;
-        droneState.targetIndex = nextTargetIndex;
-        droneState.progress = 0;
-
-        setPathLines((prev) =>
-          prev.map((line) =>
-            line.id === drone.id
-              ? {
-                  ...line,
-                  from: nextFrom.toArray() as [number, number, number],
-                  to: nextTo.toArray() as [number, number, number],
-                }
-              : line,
-          ),
-        );
+        if (shouldNeutralize || shouldBreach) {
+          state.status = shouldNeutralize ? "neutralized" : "breach";
+          state.completed = true;
+          state.hold = 0;
+          state.progress = shouldNeutralize ? track.neutralizeAt : 1;
+          const impactPoint = interpolateTrackPoint(track.from, track.to, state.progress);
+          nextEffects.push({
+            id: `${track.id}-${effectSequenceRef.current++}`,
+            position: [impactPoint.x, 0.2, impactPoint.z],
+            startedAt: elapsed,
+            status: state.status,
+          });
+        } else {
+          state.status = threatStatusForProgress(state.progress, track.detectAt, track.trackAt);
+        }
       }
 
-      const next = droneState.from.clone().lerp(droneState.to, droneState.progress);
-      next.y = droneState.altitude;
-      node.position.copy(next);
-
-      const dir = droneState.to.clone().sub(droneState.from).normalize();
-      // Meshy model local forward axis correction to keep nose aligned with motion.
+      const nextPoint = interpolateTrackPoint(track.from, track.to, state.progress);
+      node.position.copy(nextPoint);
+      const dir = new THREE.Vector3(track.to[0] - track.from[0], 0, track.to[2] - track.from[2]).normalize();
       const headingOffset = Math.PI / 2;
-      const yaw = Math.atan2(dir.x, dir.z);
-      node.rotation.set(0, yaw + headingOffset, 0);
+      node.rotation.set(0, Math.atan2(dir.x, dir.z) + headingOffset, 0);
+
+      if (nextStatuses[index] !== state.status) {
+        nextStatuses[index] = state.status;
+        statusChanged = true;
+      }
     });
+
+    if (statusChanged) {
+      statusRef.current = nextStatuses;
+      setStatuses(nextStatuses);
+    }
+    if (nextEffects.length > 0) {
+      setEffects((prev) => [
+        ...prev.filter((effect) => elapsed - effect.startedAt < HIT_EFFECT_DURATION_SEC),
+        ...nextEffects,
+      ].slice(-24));
+    }
   });
 
   if (!enabled) return null;
 
   return (
     <group>
-      {pathLines.map((path) => (
-        <Line
-          key={`${path.id}-path`}
-          points={[path.from, path.to]}
-          color="#ff3a3a"
-          lineWidth={1.6}
-          dashed
-          dashScale={3}
-          dashSize={0.7}
-          gapSize={0.28}
-          transparent
-          opacity={0.9}
-        />
-      ))}
-      {drones.map((drone, index) => (
-        <group key={drone.id} ref={(node) => { refs.current[index] = node; }} scale={4.8}>
-          <primitive object={drone.model} />
-        </group>
-      ))}
-      {hitEffects.map((effect) => (
-        <HitPulse key={effect.id} position={effect.position} startedAt={effect.startedAt} />
+      {threatTracks.map((track) => {
+        const outcome = track.outcomeByScenario[scenario];
+        const color = outcome === "neutralized" ? "#55e7bb" : "#ff6b5f";
+        return (
+          <Line
+            key={`${track.id}-path`}
+            points={[track.from, track.to]}
+            color={color}
+            lineWidth={1.8}
+            dashed
+            dashScale={3}
+            dashSize={0.7}
+            gapSize={0.28}
+            transparent
+            opacity={0.86}
+          />
+        );
+      })}
+      {drones.map((drone, index) => {
+        const status = statuses[index] ?? "detected";
+        return (
+          <group key={drone.id} ref={(node) => { refs.current[index] = node; }} scale={4.8}>
+            <primitive object={drone.model} />
+            <Html
+              position={[0, 4.2, 0]}
+              center
+              distanceFactor={80}
+              className={`${styles.threatBadge} ${styles[status]}`}
+            >
+              <span style={{ backgroundColor: threatStatusColor[status] }} />
+              {threatStatusLabel[status]}
+            </Html>
+          </group>
+        );
+      })}
+      {effects.map((effect) => (
+        <ImpactPulse key={effect.id} position={effect.position} startedAt={effect.startedAt} status={effect.status} />
       ))}
     </group>
+  );
+}
+
+function SimulationFallback() {
+  return (
+    <Html center>
+      <div className={styles.simulationLoading}>Готовим симуляцию...</div>
+    </Html>
   );
 }
 
@@ -970,6 +1044,48 @@ function CameraClamp({
   return null;
 }
 
+function CameraPresetController({
+  orbitRef,
+  request,
+  mapHalf,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  orbitRef: RefObject<any>;
+  request: CameraPresetRequest;
+  mapHalf: number;
+}) {
+  const { camera } = useThree();
+
+  useEffect(() => {
+    const presets: Record<CameraPresetId, { position: [number, number, number]; target: [number, number, number] }> = {
+      overview: {
+        position: [mapHalf * 0.92, mapHalf * 0.64, mapHalf * 0.92],
+        target: [0, 0, 0],
+      },
+      perimeter: {
+        position: [-220, 250, 360],
+        target: [52, 0, 75],
+      },
+      tanks: {
+        position: [340, 220, 260],
+        target: [174, 0, 132],
+      },
+      operator: {
+        position: [-190, 190, 360],
+        target: [-18, 0, 220],
+      },
+    };
+    const preset = presets[request.id];
+    camera.position.set(...preset.position);
+    if (orbitRef.current) {
+      orbitRef.current.target.set(...preset.target);
+      orbitRef.current.update?.();
+    }
+  }, [camera, mapHalf, orbitRef, request.id, request.nonce]);
+
+  return null;
+}
+
 export function PrototypeScene({
   objects,
   plantObjects,
@@ -978,9 +1094,11 @@ export function PrototypeScene({
   setSelectedId,
   updateObjectPosition,
   demoMode,
+  scenario,
   theme,
   placingKind,
   placementPoint,
+  cameraPresetRequest,
   onPlacementMove,
   onPlacePending,
   onCancelPlacement,
@@ -992,9 +1110,11 @@ export function PrototypeScene({
   setSelectedId: (id: string | null) => void;
   updateObjectPosition: (id: string, x: number, z: number) => void;
   demoMode: boolean;
+  scenario: ScenarioId;
   theme: "light" | "dark";
   placingKind: ObjectKind | null;
   placementPoint: [number, number, number];
+  cameraPresetRequest: CameraPresetRequest;
   onPlacementMove: (x: number, z: number) => void;
   onPlacePending: () => void;
   onCancelPlacement: () => void;
@@ -1066,6 +1186,7 @@ export function PrototypeScene({
         fadeDistance={100000}
         fadeStrength={0}
       />
+      <RiskHeatmap scenario={scenario} />
       {placingKind ? (
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
@@ -1120,10 +1241,11 @@ export function PrototypeScene({
         })}
       </group>
 
-      <Suspense fallback={null}>
-        <DroneSwarm enabled={demoMode} plantObjects={plantObjects} assets={objects} />
+      <Suspense fallback={<SimulationFallback />}>
+        {demoMode ? <DroneSwarm key={scenario} enabled={demoMode} scenario={scenario} /> : null}
       </Suspense>
 
+      <SceneCallouts objects={objects} />
       {objects.map((item) => (
         <Coverage key={`coverage-${item.id}`} item={item} selected={selectedId === item.id} />
       ))}
@@ -1146,30 +1268,30 @@ export function PrototypeScene({
         makeDefault
         enableDamping
         dampingFactor={0.08}
-        enableRotate={false}
+        enableRotate
         enablePan
         screenSpacePanning={false}
         mouseButtons={{
-          LEFT: THREE.MOUSE.PAN,
+          LEFT: THREE.MOUSE.ROTATE,
           MIDDLE: THREE.MOUSE.DOLLY,
           RIGHT: THREE.MOUSE.PAN,
         }}
         touches={{
-          ONE: THREE.TOUCH.PAN,
+          ONE: THREE.TOUCH.ROTATE,
           TWO: THREE.TOUCH.DOLLY_PAN,
         }}
         target={[0, 0, 0]}
-        maxPolarAngle={Math.PI * 0.34}
-        minPolarAngle={Math.PI * 0.34}
+        maxPolarAngle={Math.PI * 0.42}
+        minPolarAngle={Math.PI * 0.25}
         minDistance={Math.max(220, mapHalf * 0.42)}
         maxDistance={Math.max(1600, mapHalf * 3.9)}
       />
       <CameraClamp orbitRef={orbitRef} minHeight={Math.max(84, mapHalf * 0.16)} />
+      <CameraPresetController orbitRef={orbitRef} request={cameraPresetRequest} mapHalf={mapHalf} />
     </Canvas>
   );
 }
 
-useGLTF.preload(withBasePath("/models/chaklun-v2-drone.glb"));
 useGLTF.preload(withBasePath("/models/protection/02_cable_mesh_curtain_textured.glb"));
 useGLTF.preload(withBasePath("/models/protection/03_fbs_protection_enclosure_textured.glb"));
 useGLTF.preload(withBasePath("/models/protection/04_perimeter_fbs_cable_barrier_textured.glb"));

@@ -1,14 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CompassOutlined,
   ControlOutlined,
   DragOutlined,
+  EyeOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
 import { message } from "antd";
-import { cloneScenario, kindLabel, type ObjectKind, type ScenarioId, type SceneObject } from "./types";
+import {
+  cloneScenario,
+  kindLabel,
+  objectDefaultsByKind,
+  scenarioStats,
+  threatStatusColor,
+  threatStatusLabel,
+  type CameraPresetId,
+  type ObjectKind,
+  type ScenarioId,
+  type SceneObject,
+  type ThreatStatus,
+} from "./types";
 import { defaultPlantConnections, defaultPlantMapObjects, type PlantMapConnection, type PlantMapObject } from "./plant-map";
 import { PrototypeScene } from "./scene";
 import { Topbar } from "./topbar";
@@ -16,6 +29,20 @@ import { AssetsPanel } from "./assets-panel";
 import { PropertiesPanel } from "./properties-panel";
 import { StatusBar } from "./status-bar";
 import styles from "./drone-defense-prototype.module.css";
+
+type CameraPresetRequest = {
+  id: CameraPresetId;
+  nonce: number;
+};
+
+const cameraPresetLabels: Record<CameraPresetId, string> = {
+  overview: "Общий вид",
+  perimeter: "Периметр",
+  tanks: "Резервуары",
+  operator: "Операторная",
+};
+
+const threatStatusSequence: ThreatStatus[] = ["detected", "tracking", "neutralized", "breach"];
 
 export function DroneDefensePrototype() {
   const [objects, setObjects] = useState<SceneObject[]>(() => cloneScenario("baseline"));
@@ -27,10 +54,13 @@ export function DroneDefensePrototype() {
   const theme = "dark" as const;
   const [scenario, setScenario] = useState<ScenarioId>("baseline");
   const [demoMode, setDemoMode] = useState(false);
+  const [autoDemoRunning, setAutoDemoRunning] = useState(false);
+  const [cameraPresetRequest, setCameraPresetRequest] = useState<CameraPresetRequest>({ id: "overview", nonce: 0 });
   const [isPropertiesOpen, setIsPropertiesOpen] = useState(true);
   const [idCounter, setIdCounter] = useState(100);
   const [placingKind, setPlacingKind] = useState<ObjectKind | null>(null);
   const [placementPoint, setPlacementPoint] = useState<[number, number, number]>([0, 0, 0]);
+  const autoDemoTimers = useRef<number[]>([]);
   const [messageApi, contextHolder] = message.useMessage();
 
   const selectedObject = useMemo(() => objects.find((item) => item.id === selectedId) ?? null, [objects, selectedId]);
@@ -39,13 +69,21 @@ export function DroneDefensePrototype() {
     [plantObjects, selectedId],
   );
 
-  const stats = useMemo(() => {
-    const sensorCount = objects.filter((item) => item.kind === "operator_substation").length;
-    const cameraCount = objects.filter((item) => item.kind === "scaffolding").length;
-    const postCount = objects.filter((item) => item.kind === "fbs_enclosure").length;
-    const coverage = Math.min(98, Math.round(objects.reduce((sum, item) => sum + item.radius, 0) * 1.6));
-    return { sensorCount, cameraCount, postCount, coverage, perimeter: scenario === "perimeter" ? "3.1 km" : "2.4 km" };
-  }, [objects, scenario]);
+  const stats = scenarioStats[scenario];
+
+  const requestCameraPreset = useCallback((id: CameraPresetId) => {
+    setCameraPresetRequest((prev) => ({ id, nonce: prev.nonce + 1 }));
+  }, []);
+
+  const clearAutoDemoTimers = useCallback(() => {
+    autoDemoTimers.current.forEach((timer) => window.clearTimeout(timer));
+    autoDemoTimers.current = [];
+  }, []);
+
+  const stopAutoDemo = useCallback(() => {
+    clearAutoDemoTimers();
+    setAutoDemoRunning(false);
+  }, [clearAutoDemoTimers]);
 
   const updateObjectPosition = (id: string, x: number, z: number) => {
     setObjects((prev) =>
@@ -53,42 +91,36 @@ export function DroneDefensePrototype() {
     );
   };
 
-  const applyScenario = (id: ScenarioId) => {
+  const applyScenario = useCallback((id: ScenarioId) => {
     const next = cloneScenario(id);
     setScenario(id);
     setObjects(next);
     setSelectedId(null);
+    setPlacingKind(null);
+  }, []);
+
+  const applyScenarioManually = (id: ScenarioId) => {
+    stopAutoDemo();
+    setDemoMode(false);
+    applyScenario(id);
   };
 
   const buildObject = (kind: ObjectKind, position: [number, number, number], nextCounter: number): SceneObject => {
     const count = objects.filter((item) => item.kind === kind).length + 1;
+    const defaults = objectDefaultsByKind[kind];
     return {
       id: `${kind}-${nextCounter}`,
       kind,
       label: `${kindLabel[kind]} ${String(count).padStart(2, "0")}`,
       position,
-      radius:
-        kind === "operator_substation"
-          ? 5.6
-          : kind === "scaffolding"
-            ? 5.2
-            : kind === "fbs_enclosure"
-              ? 5
-              : kind === "perimeter_barrier"
-                ? 6
-                : 4.8,
-      elevation:
-        kind === "operator_substation"
-          ? 12
-          : kind === "scaffolding"
-            ? 10
-            : kind === "fbs_enclosure"
-              ? 9
-              : kind === "perimeter_barrier"
-                ? 8
-                : 10,
-      zones: kind === "perimeter_barrier" || kind === "operator_substation" ? 2 : 1,
+      radius: defaults.coverageRadiusM,
+      coverageRadiusM: defaults.coverageRadiusM,
+      elevation: defaults.elevation,
+      zones: defaults.zones,
       assignment: "Сетка Альфа",
+      defenseRole: defaults.defenseRole,
+      costMln: defaults.costMln,
+      effectiveness: defaults.effectiveness,
     };
   };
 
@@ -103,6 +135,8 @@ export function DroneDefensePrototype() {
   };
 
   const startPlacing = (kind: ObjectKind) => {
+    stopAutoDemo();
+    setDemoMode(false);
     setPlacingKind(kind);
     setSelectedId(null);
     messageApi.info(`Режим размещения: ${kindLabel[kind]}`);
@@ -134,12 +168,67 @@ export function DroneDefensePrototype() {
       ...selectedObject,
       id: `${selectedObject.kind}-${nextCounter}`,
       label: `${selectedObject.label} (копия)`,
-      position: [selectedObject.position[0] + 1.4, 0, selectedObject.position[2] + 1.2],
+      position: [selectedObject.position[0] + 14, 0, selectedObject.position[2] + 12],
     };
     setObjects((prev) => [...prev, copy]);
     setIdCounter(nextCounter);
     setSelectedId(copy.id);
     setIsPropertiesOpen(true);
+  };
+
+  const scheduleAutoStep = useCallback((delayMs: number, step: () => void) => {
+    const timer = window.setTimeout(step, delayMs);
+    autoDemoTimers.current.push(timer);
+  }, []);
+
+  const startAutoDemo = useCallback(() => {
+    clearAutoDemoTimers();
+    setAutoDemoRunning(true);
+    setSelectedId(null);
+    setPlacingKind(null);
+    applyScenario("baseline");
+    setDemoMode(false);
+    requestCameraPreset("overview");
+    messageApi.info("Автодемо: базовая защита и обзор площадки");
+
+    scheduleAutoStep(5000, () => {
+      applyScenario("unprotected");
+      requestCameraPreset("overview");
+      setDemoMode(true);
+      messageApi.warning("Этап 1: атака без защитного контура");
+    });
+
+    scheduleAutoStep(22000, () => {
+      applyScenario("baseline");
+      requestCameraPreset("tanks");
+      setDemoMode(true);
+      messageApi.info("Этап 2: базовая защита отражает 4 из 6 угроз");
+    });
+
+    scheduleAutoStep(43000, () => {
+      applyScenario("perimeter");
+      requestCameraPreset("perimeter");
+      setDemoMode(true);
+      messageApi.success("Этап 3: усиленный периметр нейтрализует все маршруты");
+    });
+
+    scheduleAutoStep(65000, () => {
+      requestCameraPreset("operator");
+      messageApi.success("Финал: остаточный риск снижен до 12%");
+    });
+
+    scheduleAutoStep(75000, () => {
+      setAutoDemoRunning(false);
+    });
+  }, [applyScenario, clearAutoDemoTimers, messageApi, requestCameraPreset, scheduleAutoStep]);
+
+  const toggleAutoDemo = () => {
+    if (autoDemoRunning) {
+      stopAutoDemo();
+      messageApi.info("Автодемо остановлено");
+      return;
+    }
+    startAutoDemo();
   };
 
   useEffect(() => {
@@ -161,12 +250,15 @@ export function DroneDefensePrototype() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        stopAutoDemo();
         setPlacingKind(null);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [stopAutoDemo]);
+
+  useEffect(() => () => clearAutoDemoTimers(), [clearAutoDemoTimers]);
 
   return (
     <main className={`${styles.page} ${styles.pageDark}`.trim()}>
@@ -174,7 +266,7 @@ export function DroneDefensePrototype() {
 
       <Topbar
         scenario={scenario}
-        onScenarioChange={applyScenario}
+        onScenarioChange={applyScenarioManually}
       />
 
       <section className={`${styles.workspace} ${!isPropertiesOpen ? styles.workspaceNoProperties : ""}`.trim()}>
@@ -193,18 +285,39 @@ export function DroneDefensePrototype() {
             setSelectedId={setSelectedId}
             updateObjectPosition={updateObjectPosition}
             demoMode={demoMode}
+            scenario={scenario}
             theme={theme}
             placingKind={placingKind}
             placementPoint={placementPoint}
+            cameraPresetRequest={cameraPresetRequest}
             onPlacementMove={(x, z) => setPlacementPoint([x, 0, z])}
             onPlacePending={placePendingObject}
             onCancelPlacement={() => setPlacingKind(null)}
           />
           <div className={styles.sceneVignette} />
+          <div className={styles.cameraPresetBar} aria-label="Ракурсы камеры">
+            {(Object.keys(cameraPresetLabels) as CameraPresetId[]).map((id) => (
+              <button key={id} type="button" onClick={() => requestCameraPreset(id)}>
+                <EyeOutlined />
+                {cameraPresetLabels[id]}
+              </button>
+            ))}
+          </div>
+          {demoMode ? (
+            <div className={styles.simulationStatusPanel} aria-label="Статусы угроз">
+              <span>Статусы угроз</span>
+              {threatStatusSequence.map((status) => (
+                <strong key={status}>
+                  <i style={{ backgroundColor: threatStatusColor[status] }} />
+                  {threatStatusLabel[status]}
+                </strong>
+              ))}
+            </div>
+          ) : null}
           <div className={styles.controlLegend}>
-            <span><CompassOutlined /> Орбита</span>
-            <span><DragOutlined /> Панорама</span>
-            <span><SearchOutlined /> Масштаб</span>
+            <span><CompassOutlined /> Орбита ЛКМ</span>
+            <span><DragOutlined /> Панорама ПКМ</span>
+            <span><SearchOutlined /> Масштаб колесом</span>
             <span><ControlOutlined /> Перемещение объектов</span>
           </div>
         </section>
@@ -225,8 +338,13 @@ export function DroneDefensePrototype() {
         stats={stats}
         scenario={scenario}
         demoMode={demoMode}
-        onScenarioReset={() => applyScenario(scenario)}
-        onToggleDemo={() => setDemoMode((prev) => !prev)}
+        autoDemoRunning={autoDemoRunning}
+        onScenarioReset={() => applyScenarioManually(scenario)}
+        onToggleDemo={() => {
+          stopAutoDemo();
+          setDemoMode((prev) => !prev);
+        }}
+        onToggleAutoDemo={toggleAutoDemo}
       />
     </main>
   );
