@@ -26,7 +26,7 @@ import {
   type ScenarioId,
   type SceneObject,
   type ThreatStatus,
-} from "./types";
+} from "../domain/prototype-types";
 import styles from "./drone-defense-prototype.module.css";
 
 const levelPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);

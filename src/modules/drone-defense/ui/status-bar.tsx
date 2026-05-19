@@ -8,7 +8,7 @@ import {
   SafetyCertificateOutlined,
   ThunderboltOutlined,
 } from "@ant-design/icons";
-import { scenarioLabels, type DefenseStats, type ScenarioId } from "./types";
+import { scenarioLabels, type DefenseStats, type ScenarioId } from "../domain/prototype-types";
 import styles from "./drone-defense-prototype.module.css";
 
 export function StatusBar({

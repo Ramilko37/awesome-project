@@ -21,7 +21,7 @@ import {
   type ScenarioId,
   type SceneObject,
   type ThreatStatus,
-} from "./types";
+} from "../domain/prototype-types";
 import { defaultPlantConnections, defaultPlantMapObjects, type PlantMapConnection, type PlantMapObject } from "./plant-map";
 import { PrototypeScene } from "./scene";
 import { Topbar } from "./topbar";
@@ -52,7 +52,7 @@ const viewModeLabels: Record<ViewMode, string> = {
   hex: "Гексокарта",
 };
 
-export function DroneDefensePrototype() {
+export function FacilityDrilldown() {
   const [activeTab, setActiveTab] = useState<PrototypeTab>("map");
   const [objects, setObjects] = useState<SceneObject[]>(() => cloneScenario("baseline"));
   const [plantObjects] = useState<PlantMapObject[]>(() =>

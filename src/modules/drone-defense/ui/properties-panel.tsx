@@ -25,7 +25,7 @@ import {
   type ObjectKind,
   type ScenarioId,
   type SceneObject,
-} from "./types";
+} from "../domain/prototype-types";
 import styles from "./drone-defense-prototype.module.css";
 
 function assetTypeFromObjectKind(kind: ObjectKind): AssetType | null {

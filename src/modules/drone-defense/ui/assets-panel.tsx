@@ -8,7 +8,7 @@ import {
   DeploymentUnitOutlined,
   GatewayOutlined,
 } from "@ant-design/icons";
-import { assetCatalog, type AssetCatalogItem, type ObjectKind, type ProtectiveObjectKind } from "./types";
+import { assetCatalog, type AssetCatalogItem, type ObjectKind, type ProtectiveObjectKind } from "../domain/prototype-types";
 import styles from "./drone-defense-prototype.module.css";
 
 function AssetIcon({ kind }: { kind: AssetCatalogItem["kind"] }) {

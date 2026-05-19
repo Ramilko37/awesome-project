@@ -7,7 +7,7 @@ import {
   CompassOutlined,
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
-import { scenarioLabels, type ScenarioId } from "./types";
+import { scenarioLabels, type ScenarioId } from "../domain/prototype-types";
 import styles from "./drone-defense-prototype.module.css";
 
 type PrototypeView = "map" | "catalog";

@@ -18,6 +18,8 @@ concurrency:
 
 env:
   NEXT_PUBLIC_BASE_PATH: /awesome-project
+  NEXT_STATIC_EXPORT: "true"
+  NEXT_PUBLIC_DEFENSE_RUNTIME: "local"
 
 jobs:
   build:

@@ -5,7 +5,7 @@ import { Canvas } from "@react-three/fiber";
 import { Html, OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { withBasePath } from "@/shared/lib/base-path";
-import defenseCatalogFromExcel from "../data/defense-catalog-from-excel.json";
+import defenseCatalogSeed from "@/modules/drone-defense/infra/data/defense-catalog-seed.json";
 import { THREAT_TYPES } from "../data/threat-types";
 import {
   defenseLayerStatusColor,
@@ -16,10 +16,10 @@ import {
   type DefenseLayer,
   type DefenseLayerId,
   type DefenseLayerStatus,
-} from "../types";
+} from "../../domain/prototype-types";
 import styles from "./defense-catalog-tab.module.css";
 
-const catalogData = defenseCatalogFromExcel as DefenseCatalogData;
+const catalogData = defenseCatalogSeed as DefenseCatalogData;
 
 type ModelFilter = "all" | "with" | "without";
 type ValueFilter = "all" | "with" | "without";
@@ -235,8 +235,8 @@ export function DefenseCatalogTab() {
         <div>
           <h2>Каталог защиты / 9 эшелонов</h2>
           <p>
-            Источник: Excel-модель · {catalogData.summary.totalAssets} средства · {catalogData.summary.totalLayers} эшелонов ·
-            данные нормализованы из Слой 0–8 в Эшелоны 1–9
+            Источник: seed-каталог · {catalogData.summary.totalAssets} средства · {catalogData.summary.totalLayers} эшелонов ·
+            данные нормализованы из migration-пакета в Эшелоны 1–9
           </p>
         </div>
         <div className={styles.headerActions}>
