@@ -21,6 +21,7 @@ import type {
 } from "@/shared/types/drone-defense";
 
 type GisBoardProps = {
+  className?: string;
   facilities: Facility[];
   selectedFacilityId: string;
   onSelectFacility: (facilityId: string) => void;
@@ -34,6 +35,8 @@ type GisBoardProps = {
   onSelectLayer: (layerId: DefenseLayerId) => void;
   onAddCatalogGroup: (groupId: string) => void;
   onRemoveCatalogGroup: (groupId: string) => void;
+  onOpenComparison?: () => void;
+  onOpenDrilldown?: () => void;
 };
 
 const mapStyle: StyleSpecification = {
@@ -71,6 +74,7 @@ function readinessLabel(coveredPct: number) {
 }
 
 export function GisBoard({
+  className = "",
   facilities,
   selectedFacilityId,
   onSelectFacility,
@@ -84,14 +88,19 @@ export function GisBoard({
   onSelectLayer,
   onAddCatalogGroup,
   onRemoveCatalogGroup,
+  onOpenComparison,
+  onOpenDrilldown,
 }: GisBoardProps) {
   const [hoverLabel, setHoverLabel] = useState<string | null>(null);
 
   const selectedFacility = facilities.find((item) => item.id === selectedFacilityId);
   const layerCoverage = hexCoverageByLayer(layers);
   const selectedLayer = defenseLayers.find((layer) => layer.id === selectedLayerId) ?? defenseLayers[0];
-  const selectedLayerCoverage = layers?.layerCoverage.find((item) => item.layerId === selectedLayerId)?.coveredPct ?? 0;
   const selectedLayerPlacements = configuration.placements.filter((placement) => placement.layerId === selectedLayerId);
+  const nextGroupToPlace = selectedLayerGroups.find(
+    (group) => !configuration.placements.some((placement) => placement.catalogGroupId === group.id),
+  );
+  const removableLayerPlacement = selectedLayerPlacements.find((placement) => placement.catalogGroupId);
   const layerOrderById = useMemo(() => new globalThis.Map(defenseLayers.map((layer) => [layer.id, layer.order])), []);
   const echelonModel = useMemo(
     () =>
@@ -288,7 +297,7 @@ export function GisBoard({
   );
 
   return (
-    <section className="relative h-[calc(100vh-11.5rem)] min-h-[540px] overflow-hidden rounded-lg border border-slate-200">
+    <section className={`relative h-[calc(100vh-11.5rem)] min-h-[540px] overflow-hidden rounded-lg border border-slate-200 ${className}`}>
       <DeckGL
         initialViewState={{
           longitude: selectedFacility?.center.lon ?? 60.5945,
@@ -303,91 +312,87 @@ export function GisBoard({
         <MaplibreMap mapStyle={mapStyle} />
       </DeckGL>
 
-      <aside className="absolute left-3 top-3 w-[320px] rounded-md border border-slate-200 bg-white/92 p-3 text-xs shadow-sm backdrop-blur">
-        <p className="text-[11px] uppercase tracking-wide text-slate-500">GIS Board</p>
-        <p className="mt-1 text-sm font-semibold text-slate-900">{selectedFacility?.name ?? "Facility"}</p>
-        <p className="mt-1 text-slate-600">{selectedFacility?.region ?? "—"}</p>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="rounded bg-slate-100 px-2 py-1.5">
-            <p className="text-[10px] uppercase text-slate-500">Hex cells</p>
-            <p className="text-sm font-semibold text-slate-900">{filteredHexes.length}</p>
-          </div>
-          <div className="rounded bg-slate-100 px-2 py-1.5">
-            <p className="text-[10px] uppercase text-slate-500">Threat routes</p>
-            <p className="text-sm font-semibold text-slate-900">{filteredRoutes.length}</p>
-          </div>
-        </div>
-        <div className="mt-3">
-          <p className="text-[10px] uppercase text-slate-500">Layer Readiness L1-L9</p>
-          <div className="mt-2 grid grid-cols-3 gap-1.5">
-            {defenseLayers.map((layer) => {
-              const layerItem = layers?.layerCoverage.find((item) => item.layerId === layer.id);
-              const coverage = layerItem?.coveredPct ?? 0;
-              const distanceBand = layerItem?.distanceBandM?.label ?? layer.distanceBandM.label;
-              return (
-                <button
-                  key={layer.id}
-                  type="button"
-                  className={`rounded px-1.5 py-1 text-left text-[10px] font-semibold transition ${
-                    selectedLayerId === layer.id ? "ring-2 ring-sky-500" : ""
-                  } ${readinessClassName(coverage)}`}
-                  onClick={() => onSelectLayer(layer.id)}
-                  title={`${layer.name}: ${readinessLabel(coverage)} (${Math.round(coverage * 100)}%)`}
-                >
-                  <span className="block">{layer.shortName} {Math.round(coverage * 100)}%</span>
-                  <span className="block text-[9px] font-medium opacity-75">{distanceBand}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </aside>
-
-      <aside className="absolute bottom-3 right-3 max-h-[calc(100%-1.5rem)] w-[360px] overflow-auto rounded-md border border-slate-200 bg-white/94 p-3 text-xs shadow-sm backdrop-blur">
-        <p className="text-[11px] font-semibold uppercase text-slate-500">Active Echelon Placement</p>
-        <div className="mt-1 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-900">
-              {selectedLayer.shortName} · {selectedLayer.name}
-            </p>
-            <p className="mt-0.5 text-slate-600">{selectedLayer.distanceBandM.label} от объекта</p>
-          </div>
-          <span className={readinessClassName(selectedLayerCoverage) + " rounded px-2 py-1 font-semibold"}>
-            {Math.round(selectedLayerCoverage * 100)}%
-          </span>
-        </div>
-
-        <div className="mt-3 rounded border border-slate-200 bg-slate-50 p-2">
-          <p className="font-semibold text-slate-800">Размещено на эшелоне: {selectedLayerPlacements.length}</p>
-          <p className="mt-1 text-slate-600">
-            Клик по цветному кольцу выбирает эшелон. Добавление ниже создаёт объект на этом цветном слое и пересчитывает KPI.
+      <div className="absolute left-4 top-4 z-10 flex max-w-[min(42rem,calc(100%-2rem))] flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="grid h-10 w-10 place-items-center rounded-lg bg-white/95 text-lg text-slate-500 shadow-md shadow-slate-900/10 backdrop-blur hover:text-slate-900"
+          title="Поиск по карте"
+        >
+          ⌕
+        </button>
+        <div className="rounded-lg border border-white/60 bg-white/95 px-3 py-2 text-xs shadow-md shadow-slate-900/10 backdrop-blur">
+          <p className="font-semibold text-slate-950">{selectedFacility?.name ?? "Facility"}</p>
+          <p className="text-slate-500">
+            {selectedLayer.shortName} · {selectedLayer.distanceBandM.label} · {selectedLayerPlacements.length} объектов
           </p>
         </div>
+      </div>
 
-        <div className="mt-3 space-y-2">
-          {selectedLayerGroups.map((group) => {
-            const placement = configuration.placements.find((item) => item.catalogGroupId === group.id);
-            const isPlaced = Boolean(placement);
-            return (
-              <div key={group.id} className="flex items-center justify-between gap-2 rounded border border-slate-200 bg-white p-2">
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-slate-900">{group.name}</p>
-                  <p className="text-[10px] text-slate-500">Вес {group.weightPct}% · {selectedLayer.shortName}</p>
-                </div>
-                <button
-                  type="button"
-                  className={`h-8 shrink-0 rounded px-2 text-[11px] font-semibold ${
-                    isPlaced ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"
-                  }`}
-                  onClick={() => (isPlaced ? onRemoveCatalogGroup(group.id) : onAddCatalogGroup(group.id))}
-                >
-                  {isPlaced ? "Убрать" : "Поставить"}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </aside>
+      <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+        <button className="h-10 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-md shadow-blue-600/25" type="button">
+          Опубликовать
+        </button>
+        <button className="grid h-10 w-10 place-items-center rounded-lg bg-white/95 text-slate-500 shadow-md shadow-slate-900/10" type="button" title="На весь экран">
+          ⛶
+        </button>
+        <button className="grid h-10 w-10 place-items-center rounded-lg bg-white/95 text-slate-500 shadow-md shadow-slate-900/10" type="button" title="Информация">
+          i
+        </button>
+      </div>
+
+      <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-white/70 bg-white/95 p-1 shadow-lg shadow-slate-900/15 backdrop-blur">
+        {defenseLayers.map((layer) => {
+          const layerItem = layers?.layerCoverage.find((item) => item.layerId === layer.id);
+          const coverage = layerItem?.coveredPct ?? 0;
+          return (
+            <button
+              key={layer.id}
+              type="button"
+              className={`h-9 min-w-10 rounded-md px-2 text-[11px] font-bold transition ${
+                selectedLayerId === layer.id ? "bg-slate-900 text-white" : readinessClassName(coverage)
+              }`}
+              onClick={() => onSelectLayer(layer.id)}
+              title={`${layer.name}: ${readinessLabel(coverage)} (${Math.round(coverage * 100)}%)`}
+            >
+              {layer.shortName}
+            </button>
+          );
+        })}
+        <span className="mx-1 h-6 w-px bg-slate-200" />
+        <button
+          className="h-9 rounded-md px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+          type="button"
+          onClick={() => nextGroupToPlace && onAddCatalogGroup(nextGroupToPlace.id)}
+          disabled={!nextGroupToPlace}
+          title={nextGroupToPlace ? `Поставить: ${nextGroupToPlace.name}` : "Все группы выбранного эшелона уже поставлены"}
+        >
+          Поставить
+        </button>
+        <button
+          className="h-9 rounded-md px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-40"
+          type="button"
+          onClick={() => removableLayerPlacement?.catalogGroupId && onRemoveCatalogGroup(removableLayerPlacement.catalogGroupId)}
+          disabled={!removableLayerPlacement?.catalogGroupId}
+        >
+          Убрать
+        </button>
+        <button className="h-9 rounded-md px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100" type="button" onClick={onOpenComparison}>
+          Сравнить
+        </button>
+        <button className="h-9 rounded-md px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100" type="button" onClick={onOpenDrilldown}>
+          3D
+        </button>
+      </div>
+
+      <div className="absolute bottom-5 right-4 z-10 flex flex-col overflow-hidden rounded-lg bg-white/95 text-slate-500 shadow-md shadow-slate-900/10">
+        <button className="grid h-10 w-10 place-items-center border-b border-slate-100 text-lg" type="button">+</button>
+        <button className="grid h-10 w-10 place-items-center border-b border-slate-100 text-xs font-semibold" type="button">3.6</button>
+        <button className="grid h-10 w-10 place-items-center text-lg" type="button">−</button>
+      </div>
+
+      <div className="absolute bottom-5 left-4 z-10 rounded bg-white/90 px-3 py-1.5 text-[11px] text-slate-600 shadow">
+        1000 км
+      </div>
 
       {hoverLabel ? (
         <div className="pointer-events-none absolute bottom-3 left-3 rounded bg-slate-900/88 px-2 py-1 text-xs text-white">
