@@ -77,10 +77,14 @@ export function buildCatalogPlacement({
   facilityId,
   scenarioId,
   groupId,
+  slotId,
+  mapRef,
 }: {
   facilityId: string;
   scenarioId: DefenseScenarioId;
   groupId: string;
+  slotId?: string;
+  mapRef?: { lon: number; lat: number };
 }): Placement {
   const group = echelonCatalogGroups.find((item) => item.id === groupId);
   if (!group) {
@@ -98,6 +102,8 @@ export function buildCatalogPlacement({
     layerId: group.layerId,
     catalogGroupId: group.id,
     catalogGroupName: group.name,
+    slotId,
+    mapRef,
     qty: 1,
     readiness: 0.72,
     layerGapBoost,

@@ -20,6 +20,7 @@ import {
   scenarioOptions,
 } from "@/modules/drone-defense/infra/mock-defense-data";
 import { useDefenseStudioStore, studioPreviewData } from "@/modules/drone-defense/domain/use-defense-studio-store";
+import { buildEchelonMapModel } from "@/modules/drone-defense/domain/echelon-map-model";
 import { ComparisonView } from "@/modules/drone-defense/ui/comparison-view";
 import { FacilityDrilldown } from "@/modules/drone-defense/ui/facility-drilldown";
 import { GisBoard } from "@/modules/drone-defense/ui/gis-board";
@@ -29,6 +30,7 @@ type Stage = "gis" | "comparison" | "drilldown";
 
 export function DroneDefensePrototype() {
   const [selectedLayerId, setSelectedLayerId] = useState<DefenseLayerId>("layer_01_external_warning");
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [catalogQuery, setCatalogQuery] = useState("");
   const {
     init,
@@ -72,14 +74,37 @@ export function DroneDefensePrototype() {
     if (!query) return selectedLayerGroups;
     return selectedLayerGroups.filter((group) => group.name.toLowerCase().includes(query));
   }, [catalogQuery, selectedLayerGroups]);
-  const selectedLayerPlacements = useMemo(
-    () => configuration.placements.filter((placement) => placement.layerId === selectedLayerId),
-    [configuration.placements, selectedLayerId],
-  );
   const selectedLayerCoverage = layers?.layerCoverage.find((item) => item.layerId === selectedLayerId)?.coveredPct ?? 0;
+  const echelonModel = useMemo(
+    () =>
+      buildEchelonMapModel({
+        facility: selectedFacility,
+        layers: defenseLayers,
+        layerCoverage: layers,
+        configuration,
+        catalog,
+        selectedLayerId,
+        selectedSlotId,
+      }),
+    [catalog, configuration, layers, selectedFacility, selectedLayerId, selectedSlotId],
+  );
+  const selectedLayerSlots = useMemo(
+    () => echelonModel.slots.filter((slot) => slot.layerId === selectedLayerId),
+    [echelonModel.slots, selectedLayerId],
+  );
+  const selectedSlot = useMemo(
+    () => selectedLayerSlots.find((slot) => slot.id === selectedSlotId) ?? selectedLayerSlots.find((slot) => slot.status === "empty") ?? selectedLayerSlots[0] ?? null,
+    [selectedLayerSlots, selectedSlotId],
+  );
 
   const addCatalogGroup = (groupId: string) => {
-    const placement = buildCatalogPlacement({ facilityId, scenarioId, groupId });
+    const placement = buildCatalogPlacement({
+      facilityId,
+      scenarioId,
+      groupId,
+      slotId: selectedSlot?.id,
+      mapRef: selectedSlot ? { lon: selectedSlot.position[0], lat: selectedSlot.position[1] } : undefined,
+    });
     void upsertLocalPlacement(placement);
   };
 
@@ -87,6 +112,15 @@ export function DroneDefensePrototype() {
     const placement = configuration.placements.find((item) => item.catalogGroupId === groupId);
     if (!placement) return;
     void removeLocalPlacement(placement.id);
+  };
+
+  const selectLayerWithDefaultSlot = (layerId: DefenseLayerId) => {
+    setSelectedLayerId(layerId);
+    const nextSlot =
+      echelonModel.slots.find((slot) => slot.layerId === layerId && slot.status === "empty") ??
+      echelonModel.slots.find((slot) => slot.layerId === layerId) ??
+      null;
+    setSelectedSlotId(nextSlot?.id ?? null);
   };
 
   const railItems: Array<{ id: Stage; label: string; icon: ReactNode }> = [
@@ -161,6 +195,13 @@ export function DroneDefensePrototype() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="sticky top-0 z-10 border-b border-blue-100 bg-blue-50/95 px-4 py-3 backdrop-blur">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-500">Активный эшелон</p>
+              <p className="mt-0.5 text-sm font-semibold text-blue-950">
+                Вы на {selectedLayer.shortName} · {selectedLayer.name} · {selectedSlot?.label ?? "слот не выбран"}
+              </p>
+            </div>
+
             <div className="border-b border-slate-100 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Контекст расчёта</p>
               <label className="mt-3 block text-xs font-medium text-slate-500">
@@ -224,7 +265,8 @@ export function DroneDefensePrototype() {
               <div className="mt-3 space-y-1.5">
                 {defenseLayers.map((layer) => {
                   const coverage = layers?.layerCoverage.find((item) => item.layerId === layer.id)?.coveredPct ?? 0;
-                  const count = configuration.placements.filter((placement) => placement.layerId === layer.id).length;
+                  const layerSlots = echelonModel.slots.filter((slot) => slot.layerId === layer.id);
+                  const occupiedSlots = layerSlots.filter((slot) => slot.status === "occupied").length;
                   return (
                     <button
                       key={layer.id}
@@ -234,7 +276,7 @@ export function DroneDefensePrototype() {
                           ? "border-blue-400 bg-blue-50 text-blue-900"
                           : "border-slate-100 bg-white text-slate-700 hover:border-slate-200 hover:bg-slate-50"
                       }`}
-                      onClick={() => setSelectedLayerId(layer.id)}
+                      onClick={() => selectLayerWithDefaultSlot(layer.id)}
                     >
                       <span className="rounded-md bg-slate-900 px-1.5 py-1 text-center text-[11px] font-bold text-white">{layer.shortName}</span>
                       <span className="min-w-0">
@@ -243,7 +285,7 @@ export function DroneDefensePrototype() {
                       </span>
                       <span className="text-right text-[11px] text-slate-500">
                         {Math.round(coverage * 100)}%
-                        <span className="block">{count} СЗ</span>
+                        <span className="block">{occupiedSlots}/{layerSlots.length} слотов</span>
                       </span>
                     </button>
                   );
@@ -256,12 +298,14 @@ export function DroneDefensePrototype() {
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Каталог СЗ</p>
                   <h2 className="mt-1 text-sm font-semibold text-slate-950">
-                    {selectedLayer.shortName} · {selectedLayer.name}
+                    {selectedLayer.shortName} · {selectedLayer.name} · {selectedSlot?.label ?? "слот не выбран"}
                   </h2>
-                  <p className="text-xs text-slate-500">{selectedLayer.distanceBandM.label} от объекта</p>
+                  <p className="text-xs text-slate-500">
+                    {selectedLayer.distanceBandM.label} от объекта · {selectedSlot?.status === "occupied" ? "слот занят" : "слот доступен"}
+                  </p>
                 </div>
                 <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
-                  {selectedLayerPlacements.length} выбрано
+                  {selectedLayerSlots.filter((slot) => slot.status === "occupied").length}/{selectedLayerSlots.length} слотов
                 </span>
               </div>
               <input
@@ -273,7 +317,8 @@ export function DroneDefensePrototype() {
               <div className="mt-3 space-y-2">
                 {filteredLayerGroups.map((group) => {
                   const placement = configuration.placements.find((item) => item.catalogGroupId === group.id);
-                  const isSelected = Boolean(placement);
+                  const isSelected = Boolean(placement && (!selectedSlot || placement.slotId === selectedSlot.id));
+                  const isBlockedByOccupiedSlot = Boolean(selectedSlot?.status === "occupied" && !isSelected);
                   return (
                     <article key={group.id} className="rounded-lg border border-slate-200 bg-white p-3">
                       <div className="flex items-start justify-between gap-3">
@@ -284,11 +329,12 @@ export function DroneDefensePrototype() {
                         <button
                           className={`h-8 shrink-0 rounded-lg px-2 text-xs font-semibold ${
                             isSelected ? "bg-rose-50 text-rose-700" : "bg-blue-600 text-white"
-                          }`}
+                          } disabled:bg-slate-100 disabled:text-slate-400`}
                           type="button"
+                          disabled={isBlockedByOccupiedSlot}
                           onClick={() => (isSelected ? removeCatalogGroup(group.id) : addCatalogGroup(group.id))}
                         >
-                          {isSelected ? "Убрать" : "Поставить"}
+                          {isSelected ? "Убрать" : isBlockedByOccupiedSlot ? "Слот занят" : selectedSlot ? `В ${selectedSlot.label}` : "Поставить"}
                         </button>
                       </div>
                     </article>
@@ -323,8 +369,13 @@ export function DroneDefensePrototype() {
               configuration={configuration}
               catalog={catalog}
               selectedLayerId={selectedLayerId}
+              selectedSlotId={selectedSlotId}
               selectedLayerGroups={selectedLayerGroups}
-              onSelectLayer={setSelectedLayerId}
+              onSelectLayer={selectLayerWithDefaultSlot}
+              onSelectSlot={(slot) => {
+                setSelectedLayerId(slot.layerId);
+                setSelectedSlotId(slot.id);
+              }}
               onAddCatalogGroup={addCatalogGroup}
               onRemoveCatalogGroup={removeCatalogGroup}
               onOpenComparison={() => setView("comparison")}

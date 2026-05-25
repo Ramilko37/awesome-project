@@ -99,6 +99,8 @@ export type Placement = {
   layerId?: DefenseLayerId;
   catalogGroupId?: string;
   catalogGroupName?: string;
+  slotId?: string;
+  mapRef?: GeoPoint;
   qty: number;
   readiness: number;
   layerGapBoost: number;

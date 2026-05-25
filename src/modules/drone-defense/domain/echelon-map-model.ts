@@ -29,6 +29,19 @@ export type EchelonMapPlacement = {
   position: [number, number];
   color: [number, number, number, number];
   isCatalogPlacement: boolean;
+  slotId?: string;
+};
+
+export type EchelonMapSlot = {
+  id: string;
+  layerId: DefenseLayerId;
+  slotIndex: number;
+  label: string;
+  position: [number, number];
+  status: "empty" | "selected" | "occupied";
+  placementId?: string;
+  catalogGroupId?: string;
+  color: [number, number, number, number];
 };
 
 const layerColors: Record<DefenseLayerId, [number, number, number]> = {
@@ -44,6 +57,17 @@ const layerColors: Record<DefenseLayerId, [number, number, number]> = {
 };
 
 const layerOrderFactor = 37;
+const slotCountByLayer: Record<DefenseLayerId, number> = {
+  layer_01_external_warning: 5,
+  layer_02_detection: 5,
+  layer_03_identification: 3,
+  layer_04_suppression: 5,
+  layer_05_mid_range_kinetic: 4,
+  layer_06_last_line_kinetic: 3,
+  layer_07_accuracy_disruption: 5,
+  layer_08_passive_protection: 3,
+  layer_09_hardening: 2,
+};
 
 function projectMeters(center: GeoPoint, eastM: number, northM: number): [number, number] {
   const lat = center.lat + northM / 111_320;
@@ -83,18 +107,31 @@ function placementPosition(center: GeoPoint, layer: DefenseLayer, placementIndex
   return projectMeters(center, Math.sin(angle) * radius, Math.cos(angle) * radius);
 }
 
+function slotPosition(center: GeoPoint, layer: DefenseLayer, slotIndex: number, slotCount: number) {
+  const min = layer.distanceBandM.min;
+  const max = layer.distanceBandM.max;
+  const radius = min === 0 ? Math.max(80, max * 0.62) : min + (max - min) * 0.58;
+  const angleOffset = (layer.order % 2) * 18;
+  const angle = ((slotIndex / slotCount) * 360 + angleOffset) * (Math.PI / 180);
+  return projectMeters(center, Math.sin(angle) * radius, Math.cos(angle) * radius);
+}
+
 export function buildEchelonMapModel({
   facility,
   layers,
   layerCoverage,
   configuration,
   catalog,
+  selectedLayerId,
+  selectedSlotId,
 }: {
   facility: Facility | null;
   layers: DefenseLayer[];
   layerCoverage: DefenseLayersResponse | null;
   configuration: Configuration;
   catalog: DefenseCatalogResponse | null;
+  selectedLayerId?: DefenseLayerId;
+  selectedSlotId?: string | null;
 }) {
   const assetsById = new Map((catalog?.assets ?? []).map((asset) => [asset.id, asset]));
   const coverageByLayer = new Map(layerCoverage?.layerCoverage.map((item) => [item.layerId, item.coveredPct]) ?? []);
@@ -121,21 +158,57 @@ export function buildEchelonMapModel({
       })
     : [];
 
+  const slots: EchelonMapSlot[] = facility
+    ? layers.flatMap((layer) => {
+        const color = layerColors[layer.id];
+        const count = slotCountByLayer[layer.id];
+        return Array.from({ length: count }, (_, index) => {
+          const slotId = `${layer.id}-slot-${String(index + 1).padStart(2, "0")}`;
+          const slotPlacement = configuration.placements.find((placement) => placement.slotId === slotId);
+          const isSelected = selectedSlotId === slotId || (!selectedSlotId && selectedLayerId === layer.id && index === 0);
+          const status = slotPlacement ? "occupied" : isSelected ? "selected" : "empty";
+          return {
+            id: slotId,
+            layerId: layer.id,
+            slotIndex: index + 1,
+            label: `S${index + 1}`,
+            position: slotPlacement?.mapRef
+              ? [slotPlacement.mapRef.lon, slotPlacement.mapRef.lat]
+              : slotPosition(facility.center, layer, index, count),
+            status,
+            placementId: slotPlacement?.id,
+            catalogGroupId: slotPlacement?.catalogGroupId,
+            color:
+              status === "occupied"
+                ? ([color[0], color[1], color[2], 255] as [number, number, number, number])
+                : status === "selected"
+                  ? ([15, 23, 42, 255] as [number, number, number, number])
+                  : ([255, 255, 255, 235] as [number, number, number, number]),
+          };
+        });
+      })
+    : [];
+
   const placements: EchelonMapPlacement[] = facility
     ? placementLayers.map(({ placement, layerId }, index) => {
         const layer = layers.find((item) => item.id === layerId) ?? layers[0];
         const asset = assetsById.get(placement.assetId);
         const color = layerColors[layerId];
+        const slot = placement.slotId ? slots.find((item) => item.id === placement.slotId) : null;
+        const position = placement.mapRef
+          ? ([placement.mapRef.lon, placement.mapRef.lat] as [number, number])
+          : slot?.position ?? placementPosition(facility.center, layer, index);
         return {
-          id: `${placement.id}:${layerId}`,
+          id: placement.slotId ? `${placement.id}:${placement.slotId}:${layerId}` : `${placement.id}:${layerId}`,
           layerId,
           label: placement.catalogGroupName ?? asset?.name ?? placement.assetId,
-          position: placementPosition(facility.center, layer, index),
+          position,
           color: [...color, 245] as [number, number, number, number],
           isCatalogPlacement: Boolean(placement.catalogGroupId),
+          slotId: placement.slotId,
         };
       })
     : [];
 
-  return { zones, placements };
+  return { zones, slots, placements };
 }

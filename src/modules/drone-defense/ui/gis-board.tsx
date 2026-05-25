@@ -9,7 +9,12 @@ import MaplibreMap from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { StyleSpecification } from "maplibre-gl";
 import { defenseLayers, type EchelonCatalogGroup } from "@/modules/drone-defense/infra/mock-defense-data";
-import { buildEchelonMapModel, type EchelonMapPlacement, type EchelonZone } from "@/modules/drone-defense/domain/echelon-map-model";
+import {
+  buildEchelonMapModel,
+  type EchelonMapPlacement,
+  type EchelonMapSlot,
+  type EchelonZone,
+} from "@/modules/drone-defense/domain/echelon-map-model";
 import type {
   Configuration,
   DefenseCatalogResponse,
@@ -31,8 +36,10 @@ type GisBoardProps = {
   configuration: Configuration;
   catalog: DefenseCatalogResponse | null;
   selectedLayerId: DefenseLayerId;
+  selectedSlotId: string | null;
   selectedLayerGroups: EchelonCatalogGroup[];
   onSelectLayer: (layerId: DefenseLayerId) => void;
+  onSelectSlot: (slot: EchelonMapSlot) => void;
   onAddCatalogGroup: (groupId: string) => void;
   onRemoveCatalogGroup: (groupId: string) => void;
   onOpenComparison?: () => void;
@@ -84,8 +91,10 @@ export function GisBoard({
   configuration,
   catalog,
   selectedLayerId,
+  selectedSlotId,
   selectedLayerGroups,
   onSelectLayer,
+  onSelectSlot,
   onAddCatalogGroup,
   onRemoveCatalogGroup,
   onOpenComparison,
@@ -100,8 +109,6 @@ export function GisBoard({
   const nextGroupToPlace = selectedLayerGroups.find(
     (group) => !configuration.placements.some((placement) => placement.catalogGroupId === group.id),
   );
-  const removableLayerPlacement = selectedLayerPlacements.find((placement) => placement.catalogGroupId);
-  const layerOrderById = useMemo(() => new globalThis.Map(defenseLayers.map((layer) => [layer.id, layer.order])), []);
   const echelonModel = useMemo(
     () =>
       buildEchelonMapModel({
@@ -110,9 +117,18 @@ export function GisBoard({
         layerCoverage: layers,
         configuration,
         catalog,
+        selectedLayerId,
+        selectedSlotId,
       }),
-    [catalog, configuration, layers, selectedFacility],
+    [catalog, configuration, layers, selectedFacility, selectedLayerId, selectedSlotId],
   );
+  const selectedSlot = useMemo(
+    () => echelonModel.slots.find((slot) => slot.id === selectedSlotId) ?? null,
+    [echelonModel.slots, selectedSlotId],
+  );
+  const removableLayerPlacement =
+    configuration.placements.find((placement) => placement.slotId === selectedSlotId && placement.catalogGroupId) ??
+    selectedLayerPlacements.find((placement) => placement.catalogGroupId);
 
   const filteredHexes = useMemo(
     () => hexCells.filter((cell) => cell.facilityId === selectedFacilityId),
@@ -126,64 +142,78 @@ export function GisBoard({
   const deckLayers = useMemo(
     () =>
       [
-        new PolygonLayer<EchelonZone>({
-          id: "echelon-distance-zones",
-          data: echelonModel.zones.toSorted((a, b) => {
-            const aLayer = defenseLayers.find((layer) => layer.id === a.layerId);
-            const bLayer = defenseLayers.find((layer) => layer.id === b.layerId);
-            return (aLayer?.order ?? 0) - (bLayer?.order ?? 0);
-          }),
-          pickable: true,
-          stroked: true,
-          filled: true,
-          extruded: false,
-          getPolygon: (item) => item.polygon,
-          getFillColor: (item) => {
-            if (item.layerId === selectedLayerId) return [item.fillColor[0], item.fillColor[1], item.fillColor[2], 135];
-            return item.fillColor;
-          },
-          getLineColor: (item) => {
-            if (item.layerId === selectedLayerId) return [15, 23, 42, 255];
-            return item.lineColor;
-          },
-          getLineWidth: (item) => (item.layerId === selectedLayerId ? 180 : 90),
-          lineWidthUnits: "meters",
-          onClick: ({ object }) => {
-            if (!object) return;
-            onSelectLayer(object.layerId);
-          },
-          onHover: ({ object }) =>
-            setHoverLabel(
-              object
-                ? `${object.shortName}: ${object.name}, ${object.distanceLabel}, объектов ${object.placedCount}`
-                : null,
-            ),
-        }),
-        new ScatterplotLayer<EchelonZone>({
-          id: "echelon-interaction-rings",
-          data: echelonModel.zones,
-          getPosition: () =>
-            selectedFacility ? [selectedFacility.center.lon, selectedFacility.center.lat] : [60.5945, 56.8389],
-          radiusUnits: "pixels",
-          getRadius: (item) => 58 + (10 - (layerOrderById.get(item.layerId) ?? 1)) * 17,
-          stroked: true,
-          filled: false,
-          lineWidthMinPixels: 2,
-          getLineColor: (item) => {
-            if (item.layerId === selectedLayerId) return [15, 23, 42, 255];
-            return [item.lineColor[0], item.lineColor[1], item.lineColor[2], 190];
-          },
-          pickable: true,
-          onClick: ({ object }) => {
-            if (!object) return;
-            onSelectLayer(object.layerId);
-          },
-          onHover: ({ object }) =>
-            setHoverLabel(
-              object
-                ? `${object.shortName}: интерактивный слой размещения, ${object.distanceLabel}`
-                : null,
-            ),
+        ...echelonModel.zones.flatMap((zone) => {
+          const layerSlug = zone.shortName.toLowerCase();
+          const isActive = zone.layerId === selectedLayerId;
+          const zoneSlots = echelonModel.slots.filter((slot) => slot.layerId === zone.layerId);
+          return [
+            new PolygonLayer<EchelonZone>({
+              id: `echelon-${layerSlug}-zone`,
+              data: [zone],
+              pickable: true,
+              stroked: true,
+              filled: true,
+              extruded: false,
+              getPolygon: (item) => item.polygon,
+              getFillColor: (item) =>
+                isActive
+                  ? [item.fillColor[0], item.fillColor[1], item.fillColor[2], 132]
+                  : [item.fillColor[0], item.fillColor[1], item.fillColor[2], 28],
+              getLineColor: (item) => (isActive ? [15, 23, 42, 255] : [item.lineColor[0], item.lineColor[1], item.lineColor[2], 90]),
+              getLineWidth: () => (isActive ? 180 : 70),
+              lineWidthUnits: "meters",
+              onClick: ({ object }) => {
+                if (!object) return;
+                onSelectLayer(object.layerId);
+              },
+              onHover: ({ object }) =>
+                setHoverLabel(
+                  object
+                    ? `${object.shortName}: ${object.name}, ${object.distanceLabel}, слотов ${zoneSlots.length}`
+                    : null,
+                ),
+            }),
+            new ScatterplotLayer<EchelonMapSlot>({
+              id: `echelon-${layerSlug}-slots`,
+              data: zoneSlots,
+              getPosition: (item) => item.position,
+              getRadius: (item) => (item.status === "selected" ? 2400 : item.status === "occupied" ? 2100 : 1600),
+              radiusMinPixels: 8,
+              radiusMaxPixels: 18,
+              getFillColor: (item) =>
+                isActive
+                  ? item.color
+                  : [item.color[0], item.color[1], item.color[2], item.status === "occupied" ? 145 : 90],
+              getLineColor: (item) => {
+                if (item.status === "selected") return [15, 23, 42, 255];
+                if (item.status === "occupied") return [255, 255, 255, 245];
+                return isActive ? zone.lineColor : [148, 163, 184, 120];
+              },
+              lineWidthMinPixels: 2,
+              stroked: true,
+              pickable: true,
+              onClick: ({ object }) => {
+                if (!object) return;
+                onSelectSlot(object);
+              },
+              onHover: ({ object }) =>
+                setHoverLabel(
+                  object
+                    ? `${zone.shortName} · ${object.label}: ${object.status === "occupied" ? "занят" : "свободен"}`
+                    : null,
+                ),
+            }),
+            new TextLayer<EchelonMapSlot>({
+              id: `echelon-${layerSlug}-slot-labels`,
+              data: zoneSlots,
+              getPosition: (item) => item.position,
+              getText: (item) => item.label,
+              getColor: (item) => (item.status === "selected" ? [255, 255, 255, 255] : isActive ? [15, 23, 42, 255] : [71, 85, 105, 150]),
+              getSize: (item) => (item.status === "selected" ? 12 : 10),
+              getTextAnchor: "middle",
+              getAlignmentBaseline: "center",
+            }),
+          ];
         }),
         new H3HexagonLayer<HexCell>({
           id: "regional-h3-gaps",
@@ -219,6 +249,11 @@ export function GisBoard({
           pickable: true,
           onClick: ({ object }) => {
             if (!object) return;
+            const slot = object.slotId ? echelonModel.slots.find((item) => item.id === object.slotId) : null;
+            if (slot) {
+              onSelectSlot(slot);
+              return;
+            }
             onSelectLayer(object.layerId);
           },
           onHover: ({ object }) =>
@@ -293,7 +328,7 @@ export function GisBoard({
           getPixelOffset: [12, -12],
         }),
       ] satisfies Layer[],
-    [echelonModel, facilities, filteredHexes, filteredRoutes, layerCoverage, layerOrderById, onSelectFacility, onSelectLayer, selectedFacility, selectedFacilityId, selectedLayerId],
+    [echelonModel, facilities, filteredHexes, filteredRoutes, layerCoverage, onSelectFacility, onSelectLayer, onSelectSlot, selectedFacilityId, selectedLayerId],
   );
 
   return (
@@ -323,7 +358,7 @@ export function GisBoard({
         <div className="rounded-lg border border-white/60 bg-white/95 px-3 py-2 text-xs shadow-md shadow-slate-900/10 backdrop-blur">
           <p className="font-semibold text-slate-950">{selectedFacility?.name ?? "Facility"}</p>
           <p className="text-slate-500">
-            {selectedLayer.shortName} · {selectedLayer.distanceBandM.label} · {selectedLayerPlacements.length} объектов
+            {selectedLayer.shortName} · {selectedSlot?.label ?? "слот не выбран"} · {selectedLayer.distanceBandM.label}
           </p>
         </div>
       </div>
@@ -363,8 +398,14 @@ export function GisBoard({
           className="h-9 rounded-md px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100"
           type="button"
           onClick={() => nextGroupToPlace && onAddCatalogGroup(nextGroupToPlace.id)}
-          disabled={!nextGroupToPlace}
-          title={nextGroupToPlace ? `Поставить: ${nextGroupToPlace.name}` : "Все группы выбранного эшелона уже поставлены"}
+          disabled={!nextGroupToPlace || selectedSlot?.status === "occupied"}
+          title={
+            selectedSlot?.status === "occupied"
+              ? "Выбранный слот уже занят"
+              : nextGroupToPlace
+                ? `Поставить: ${nextGroupToPlace.name}`
+                : "Все группы выбранного эшелона уже поставлены"
+          }
         >
           Поставить
         </button>
