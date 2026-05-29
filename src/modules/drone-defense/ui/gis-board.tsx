@@ -28,6 +28,7 @@ import {
   type BuildAssetIcon,
   type SlotBuildOption,
 } from "@/modules/drone-defense/domain/echelon-build-assets";
+import { withBasePath } from "@/shared/lib/base-path";
 import type {
   Configuration,
   DefenseCatalogResponse,
@@ -391,7 +392,7 @@ export function GisBoard({
               data: buildSlots,
               getPosition: (item) => item.slot.position,
               getIcon: (item) => ({
-                url: item.option.imageUrl,
+                url: withBasePath(item.option.imageUrl),
                 width: 128,
                 height: 128,
                 anchorY: 64,
@@ -470,7 +471,7 @@ export function GisBoard({
           data: iconPlacements,
           getPosition: (item) => item.placement.position,
           getIcon: (item) => ({
-            url: item.asset.imageUrl,
+            url: withBasePath(item.asset.imageUrl),
             width: 128,
             height: 128,
             anchorY: 64,
