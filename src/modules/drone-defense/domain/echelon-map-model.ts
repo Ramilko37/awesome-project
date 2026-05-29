@@ -1,3 +1,4 @@
+import type { MapViewState } from "@deck.gl/core";
 import type {
   Configuration,
   DefenseAsset,
@@ -30,6 +31,7 @@ export type EchelonMapPlacement = {
   color: [number, number, number, number];
   isCatalogPlacement: boolean;
   slotId?: string;
+  catalogGroupId?: string;
 };
 
 export type EchelonMapSlot = {
@@ -42,6 +44,19 @@ export type EchelonMapSlot = {
   placementId?: string;
   catalogGroupId?: string;
   color: [number, number, number, number];
+};
+
+export type LayerFocusViewState = MapViewState;
+
+export type EchelonBuildCatalogGroup = {
+  id: string;
+  layerId: DefenseLayerId;
+  name: string;
+};
+
+export type SlotBuildProfile = {
+  glyph: string;
+  title: string;
 };
 
 const layerColors: Record<DefenseLayerId, [number, number, number]> = {
@@ -69,6 +84,45 @@ const slotCountByLayer: Record<DefenseLayerId, number> = {
   layer_09_hardening: 2,
 };
 
+const slotBuildProfiles: Record<DefenseLayerId, SlotBuildProfile> = {
+  layer_01_external_warning: { glyph: "RAD", title: "Построить внешний сенсор" },
+  layer_02_detection: { glyph: "EYE", title: "Построить узел обнаружения" },
+  layer_03_identification: { glyph: "ID", title: "Построить узел идентификации" },
+  layer_04_suppression: { glyph: "EW", title: "Построить средство подавления" },
+  layer_05_mid_range_kinetic: { glyph: "INT", title: "Построить перехватчик среднего рубежа" },
+  layer_06_last_line_kinetic: { glyph: "AA", title: "Построить последний рубеж ПВО" },
+  layer_07_accuracy_disruption: { glyph: "CAM", title: "Построить средство срыва точности" },
+  layer_08_passive_protection: { glyph: "NET", title: "Построить пассивную защиту" },
+  layer_09_hardening: { glyph: "ENG", title: "Построить инженерное усиление" },
+};
+
+const earthCircumferenceM = 40_075_016.686;
+const webMercatorTileSizePx = 512;
+const targetLayerDiameterPx = 640;
+const minLayerFocusZoom = 6;
+const maxLayerFocusZoom = 18;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+export function getSlotBuildProfile(layerId: DefenseLayerId) {
+  return slotBuildProfiles[layerId];
+}
+
+export function findNextBuildableCatalogGroupForLayer({
+  layerId,
+  catalogGroups,
+  placements,
+}: {
+  layerId: DefenseLayerId;
+  catalogGroups: EchelonBuildCatalogGroup[];
+  placements: Configuration["placements"];
+}) {
+  const placedCatalogGroupIds = new Set(placements.map((placement) => placement.catalogGroupId).filter(Boolean));
+  return catalogGroups.find((group) => group.layerId === layerId && !placedCatalogGroupIds.has(group.id)) ?? null;
+}
+
 function projectMeters(center: GeoPoint, eastM: number, northM: number): [number, number] {
   const lat = center.lat + northM / 111_320;
   const lon = center.lon + eastM / (111_320 * Math.cos(center.lat * (Math.PI / 180)));
@@ -76,7 +130,7 @@ function projectMeters(center: GeoPoint, eastM: number, northM: number): [number
 }
 
 function circleRing(center: GeoPoint, radiusM: number, segments: number) {
-  return Array.from({ length: segments + 1 }, (_, index) => {
+  return Array.from({ length: segments }, (_, index) => {
     const angle = (index / segments) * Math.PI * 2;
     return projectMeters(center, Math.sin(angle) * radiusM, Math.cos(angle) * radiusM);
   });
@@ -92,6 +146,46 @@ export function buildEchelonPolygon(center: GeoPoint, layer: DefenseLayer, segme
 
   const inner = circleRing(center, layer.distanceBandM.min, segments).reverse();
   return [outer, inner];
+}
+
+export function buildLayerFocusViewState({
+  facility,
+  layer,
+  transition,
+}: {
+  facility: Facility;
+  layer: DefenseLayer;
+  transition?: {
+    durationMs?: LayerFocusViewState["transitionDuration"];
+    easing?: LayerFocusViewState["transitionEasing"];
+    interpolator?: LayerFocusViewState["transitionInterpolator"];
+    interruption?: LayerFocusViewState["transitionInterruption"];
+  };
+}): LayerFocusViewState {
+  const layerRadiusM = Math.max(layer.distanceBandM.max, 100);
+  const layerDiameterM = layerRadiusM * 2;
+  const metersPerPixel = layerDiameterM / targetLayerDiameterPx;
+  const latitudeScale = Math.max(0.2, Math.cos(facility.center.lat * (Math.PI / 180)));
+  const rawZoom = Math.log2((earthCircumferenceM * latitudeScale) / (metersPerPixel * webMercatorTileSizePx));
+  const focusState: LayerFocusViewState = {
+    longitude: facility.center.lon,
+    latitude: facility.center.lat,
+    zoom: Number(clamp(rawZoom, minLayerFocusZoom, maxLayerFocusZoom).toFixed(2)),
+    pitch: 28,
+    bearing: 0,
+  };
+
+  if (!transition) {
+    return focusState;
+  }
+
+  return {
+    ...focusState,
+    transitionDuration: transition.durationMs ?? 650,
+    transitionEasing: transition.easing,
+    transitionInterpolator: transition.interpolator,
+    transitionInterruption: transition.interruption,
+  };
 }
 
 function placementLayerIds(placement: Placement, assetsById: Map<string, DefenseAsset>) {
@@ -206,6 +300,7 @@ export function buildEchelonMapModel({
           color: [...color, 245] as [number, number, number, number],
           isCatalogPlacement: Boolean(placement.catalogGroupId),
           slotId: placement.slotId,
+          catalogGroupId: placement.catalogGroupId,
         };
       })
     : [];

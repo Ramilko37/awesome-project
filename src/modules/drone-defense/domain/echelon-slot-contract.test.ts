@@ -1,4 +1,8 @@
-import { buildEchelonMapModel } from "@/modules/drone-defense/domain/echelon-map-model";
+import {
+  buildEchelonMapModel,
+  findNextBuildableCatalogGroupForLayer,
+  getSlotBuildProfile,
+} from "@/modules/drone-defense/domain/echelon-map-model";
 import {
   buildCatalogPlacement,
   buildCatalogResponse,
@@ -63,4 +67,31 @@ if (occupiedSlot?.status !== "occupied" || occupiedSlot.placementId !== placemen
 
 if (!model.placements.some((item) => item.id.includes(slotId) && item.position[0] === mapRef.lon)) {
   throw new Error("Placement markers must use mapRef when the placement is bound to a slot");
+}
+
+const placedMarker = model.placements.find((item) => item.catalogGroupId === "l4-ew-gnss");
+
+if (!placedMarker?.catalogGroupId) {
+  throw new Error("Placement markers must expose catalogGroupId for GIS asset icon rendering");
+}
+
+for (const layer of defenseLayers) {
+  const profile = getSlotBuildProfile(layer.id);
+  if (!profile.glyph || !profile.title) {
+    throw new Error(`Layer ${layer.shortName} must expose a tactical build icon profile`);
+  }
+}
+
+const nextSuppressionGroup = findNextBuildableCatalogGroupForLayer({
+  layerId: selectedLayer.id,
+  catalogGroups: [
+    { id: "l4-ew-gnss", layerId: selectedLayer.id, name: "already placed" },
+    { id: "l4-ew-radio", layerId: selectedLayer.id, name: "next buildable" },
+    { id: "l2-radar", layerId: "layer_02_detection", name: "wrong layer" },
+  ],
+  placements: configuration.placements,
+});
+
+if (nextSuppressionGroup?.id !== "l4-ew-radio") {
+  throw new Error("Slot build action must pick the next unplaced catalog group for the clicked echelon");
 }

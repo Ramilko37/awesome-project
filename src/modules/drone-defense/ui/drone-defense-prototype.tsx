@@ -20,7 +20,7 @@ import {
   scenarioOptions,
 } from "@/modules/drone-defense/infra/mock-defense-data";
 import { useDefenseStudioStore, studioPreviewData } from "@/modules/drone-defense/domain/use-defense-studio-store";
-import { buildEchelonMapModel } from "@/modules/drone-defense/domain/echelon-map-model";
+import { buildEchelonMapModel, type EchelonMapSlot } from "@/modules/drone-defense/domain/echelon-map-model";
 import { ComparisonView } from "@/modules/drone-defense/ui/comparison-view";
 import { FacilityDrilldown } from "@/modules/drone-defense/ui/facility-drilldown";
 import { GisBoard } from "@/modules/drone-defense/ui/gis-board";
@@ -97,13 +97,13 @@ export function DroneDefensePrototype() {
     [selectedLayerSlots, selectedSlotId],
   );
 
-  const addCatalogGroup = (groupId: string) => {
+  const addCatalogGroup = (groupId: string, targetSlot: EchelonMapSlot | null = selectedSlot) => {
     const placement = buildCatalogPlacement({
       facilityId,
       scenarioId,
       groupId,
-      slotId: selectedSlot?.id,
-      mapRef: selectedSlot ? { lon: selectedSlot.position[0], lat: selectedSlot.position[1] } : undefined,
+      slotId: targetSlot?.id,
+      mapRef: targetSlot ? { lon: targetSlot.position[0], lat: targetSlot.position[1] } : undefined,
     });
     void upsertLocalPlacement(placement);
   };

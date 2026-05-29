@@ -1,4 +1,4 @@
-import { buildEchelonMapModel } from "@/modules/drone-defense/domain/echelon-map-model";
+import { buildEchelonMapModel, buildLayerFocusViewState } from "@/modules/drone-defense/domain/echelon-map-model";
 import {
   buildCatalogPlacement,
   buildCatalogResponse,
@@ -46,10 +46,63 @@ if (!externalZone?.polygon.length || !hardeningZone?.polygon.length) {
   throw new Error("Every echelon zone must expose a map polygon");
 }
 
+const hardeningRing = hardeningZone.polygon[0];
+if (!hardeningRing) {
+  throw new Error("L9 hardening zone must expose an outer ring");
+}
+
+const firstHardeningPoint = hardeningRing[0];
+const lastHardeningPoint = hardeningRing[hardeningRing.length - 1];
+if (firstHardeningPoint?.[0] === lastHardeningPoint?.[0] && firstHardeningPoint?.[1] === lastHardeningPoint?.[1]) {
+  throw new Error("Map polygon rings must not duplicate the first point; deck.gl closes rings internally");
+}
+
 if (externalZone.fillColor.join(",") === hardeningZone.fillColor.join(",")) {
   throw new Error("Different echelons must have different color layers on the map");
 }
 
 if (!model.placements.some((placement) => placement.layerId === "layer_09_hardening" && placement.isCatalogPlacement)) {
   throw new Error("Catalog placements must appear as objects inside their selected map echelon");
+}
+
+const externalWarningLayer = defenseLayers.find((layer) => layer.id === "layer_01_external_warning");
+const hardeningLayer = defenseLayers.find((layer) => layer.id === "layer_09_hardening");
+
+if (!externalWarningLayer || !hardeningLayer) {
+  throw new Error("L1 and L9 fixtures are required for layer focus tests");
+}
+
+const externalWarningFocus = buildLayerFocusViewState({
+  facility,
+  layer: externalWarningLayer,
+});
+const hardeningFocus = buildLayerFocusViewState({
+  facility,
+  layer: hardeningLayer,
+});
+
+if (externalWarningFocus.longitude !== facility.center.lon || externalWarningFocus.latitude !== facility.center.lat) {
+  throw new Error("Layer focus must center the map on the selected facility");
+}
+
+if (externalWarningFocus.zoom >= hardeningFocus.zoom) {
+  throw new Error("L1 focus must zoom out farther than L9 focus");
+}
+
+if (hardeningFocus.zoom > 18) {
+  throw new Error("L9 focus zoom must be capped to avoid over-zooming inside the facility");
+}
+
+const smoothEasing = (value: number) => value;
+const smoothFocus = buildLayerFocusViewState({
+  facility,
+  layer: hardeningLayer,
+  transition: {
+    durationMs: 1200,
+    easing: smoothEasing,
+  },
+});
+
+if (smoothFocus.transitionDuration !== 1200 || smoothFocus.transitionEasing !== smoothEasing) {
+  throw new Error("Layer focus must preserve smooth transition timing and easing");
 }
