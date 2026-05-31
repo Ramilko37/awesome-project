@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   AppstoreOutlined,
   ArrowLeftOutlined,
+  CalculatorOutlined,
   EnvironmentOutlined,
   ExportOutlined,
   FundProjectionScreenOutlined,
