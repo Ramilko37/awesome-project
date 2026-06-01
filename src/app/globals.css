@@ -209,6 +209,17 @@
     text-decoration: none;
   }
 
+  a[href],
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
   button, input, textarea, select {
     font: inherit;
   }

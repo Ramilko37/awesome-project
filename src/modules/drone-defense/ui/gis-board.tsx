@@ -51,7 +51,6 @@ type GisBoardProps = {
   onSelectSlot: (slot: EchelonMapSlot) => void;
   onSelectTool: (groupId: string) => void;
   onRemoveCatalogGroup: (groupId: string) => void;
-  onOpenComparison?: () => void;
   onOpenDrilldown?: () => void;
 };
 
@@ -158,7 +157,6 @@ export function GisBoard({
   onSelectSlot,
   onSelectTool,
   onRemoveCatalogGroup,
-  onOpenComparison,
   onOpenDrilldown,
 }: GisBoardProps) {
   const [hoverLabel, setHoverLabel] = useState<string | null>(null);
@@ -747,9 +745,6 @@ export function GisBoard({
           disabled={!removableLayerPlacement?.catalogGroupId}
         >
           Убрать
-        </button>
-        <button className="h-9 rounded-md px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100" type="button" onClick={onOpenComparison}>
-          Сравнить
         </button>
         <button className="h-9 rounded-md px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100" type="button" onClick={onOpenDrilldown}>
           3D
