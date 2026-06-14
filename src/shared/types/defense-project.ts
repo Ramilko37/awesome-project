@@ -112,6 +112,7 @@ export type PlacedDefenseObject = {
   scale?: number;
   quantity: number;
   status: "planned" | "active" | "inactive" | "maintenance";
+  isVisibleOnMap?: boolean;
   customPricePerUnitMln?: number;
   customCoverageRadius?: number;
   customCoverageAngle?: number;

@@ -92,6 +92,7 @@ type DefenseProjectState = {
   moveObject: (objectId: string, coordinates: Coordinates) => PlacementValidationResult;
   transferObjectToLayer: (objectId: string, layerId: string) => PlacementValidationResult;
   updatePlacedObject: (objectId: string, patch: Partial<PlacedDefenseObject>) => void;
+  setPlacedObjectMapVisibility: (objectId: string, isVisibleOnMap: boolean) => void;
   deletePlacedObject: (objectId: string) => void;
   duplicatePlacedObject: (objectId: string) => void;
   validateObjectPlacement: (assetId: string, layerId: string, coordinates: Coordinates) => PlacementValidationResult;
@@ -432,6 +433,8 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
       return result.validation;
     },
     updatePlacedObject: (objectId, patch) => applyProject(updatePlacedObjectInProject(get().project, objectId, patch), set),
+    setPlacedObjectMapVisibility: (objectId, isVisibleOnMap) =>
+      applyProject(updatePlacedObjectInProject(get().project, objectId, { isVisibleOnMap }), set),
     deletePlacedObject: (objectId) => applyProject(deletePlacedObjectInProject(get().project, objectId), set),
     duplicatePlacedObject: (objectId) => applyProject(duplicatePlacedObjectInProject(get().project, objectId), set),
     validateObjectPlacement: (assetId, layerId, coordinates) => validateObjectPlacement(get().project, assetId, layerId, coordinates),

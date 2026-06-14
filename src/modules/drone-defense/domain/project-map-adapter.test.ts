@@ -35,6 +35,16 @@ assert(placements[0].readiness === 0.72, "planned map placement must expose plan
 assert(placements[0].mapRef?.lat === 55.44 && placements[0].mapRef?.lon === 37.1, "map placement must carry object coordinates");
 assert(placements[0].isSelected, "map placement must expose selected object state");
 
+const hiddenOnMapProject = updatePlacedObjectInProject(placedProject, placedProject.placedObjects[0].id, {
+  isVisibleOnMap: false,
+});
+const hiddenOnMapPlacements = placedObjectsToMapPlacements({
+  project: hiddenOnMapProject,
+  facilityId: "facility-alpha",
+  scenarioId: "baseline",
+});
+assert(hiddenOnMapPlacements.length === 1, "hidden map object must still produce placement data for object lists");
+
 const activeAggregateProject = {
   ...applyAssetQuantityDraftsToProject(project, [{ assetId: "mobile-radar", quantity: 4 }]),
 };

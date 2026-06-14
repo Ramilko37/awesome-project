@@ -406,7 +406,7 @@ export function GisBoard({
     if (!selectedFacility) return [];
 
     const coveredPlacements = (() => {
-      if (selectedPlacementId && placementById.has(selectedPlacementId)) {
+      if (selectedPlacementId) {
         const selectedPlacement = placementById.get(selectedPlacementId);
         return selectedPlacement ? [selectedPlacement] : [];
       }

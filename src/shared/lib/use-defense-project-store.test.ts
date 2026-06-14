@@ -40,6 +40,17 @@ assert(placed.length === 1, "placeObject action must add a placed object");
 assert(useDefenseProjectStore.getState().selectedObjectId === placed[0].id, "new placed object must become selected");
 assert(storage.has(FORTIS_DEFENSE_PROJECT_STORAGE_KEY), "store must persist project after placement");
 
+useDefenseProjectStore.getState().setPlacedObjectMapVisibility(placed[0].id, false);
+const hiddenPlacedObject = useDefenseProjectStore.getState().project.placedObjects.find((object) => object.id === placed[0].id);
+assert(hiddenPlacedObject?.isVisibleOnMap === false, "setPlacedObjectMapVisibility(false) must hide object on map only");
+assert(
+  projectToCalculatorConfiguration(useDefenseProjectStore.getState().project).lines.some((line) => line.assetId === "mobile-radar" && line.quantity === placed[0].quantity),
+  "hidden map objects must still be included in calculator configuration",
+);
+useDefenseProjectStore.getState().setPlacedObjectMapVisibility(placed[0].id, true);
+const shownPlacedObject = useDefenseProjectStore.getState().project.placedObjects.find((object) => object.id === placed[0].id);
+assert(shownPlacedObject?.isVisibleOnMap === true, "setPlacedObjectMapVisibility(true) must show object on map again");
+
 useDefenseProjectStore.getState().moveObject(placed[0].id, { lat: 55.45, lng: 37.1 });
 assert(useDefenseProjectStore.getState().project.placedObjects[0].coordinates.lat === 55.45, "moveObject must update coordinates");
 

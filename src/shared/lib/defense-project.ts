@@ -716,6 +716,7 @@ export function createPlacedObject(
     scale: patch.scale,
     quantity: Math.max(1, Math.floor(patch.quantity ?? 1)),
     status: patch.status ?? "planned",
+    isVisibleOnMap: patch.isVisibleOnMap ?? true,
     customPricePerUnitMln: patch.customPricePerUnitMln,
     customCoverageRadius: patch.customCoverageRadius,
     customCoverageAngle: patch.customCoverageAngle,
