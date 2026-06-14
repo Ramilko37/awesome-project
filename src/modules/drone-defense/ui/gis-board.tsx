@@ -476,13 +476,13 @@ export function GisBoard({
               ? ([14, 165, 233, 54] as [number, number, number, number])
               : isActive
                 ? ([item.fillColor[0], item.fillColor[1], item.fillColor[2], Math.max(item.fillColor[3], 132)] as [number, number, number, number])
-                : ([item.fillColor[0], item.fillColor[1], item.fillColor[2], Math.max(18, Math.round(item.fillColor[3] * 0.45))] as [number, number, number, number]);
-          const zoneLineColor = (item: EchelonZone) =>
+                : ([item.fillColor[0], item.fillColor[1], item.fillColor[2], 0] as [number, number, number, number]);
+          const zoneLineColor = () =>
             isPreview
               ? ([2, 132, 199, 245] as [number, number, number, number])
               : isActive
                 ? ([15, 23, 42, 255] as [number, number, number, number])
-                : ([item.lineColor[0], item.lineColor[1], item.lineColor[2], 90] as [number, number, number, number]);
+                : ([100, 116, 139, 95] as [number, number, number, number]);
           const handleZoneClick = (object: EchelonZone | null | undefined) => {
             if (!object) return;
             if (previewLayer?.id === object.layerId) return;

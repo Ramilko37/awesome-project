@@ -25,7 +25,10 @@ storage.clear();
 useDefenseProjectStore.setState(useDefenseProjectStore.getInitialState(), true);
 
 const initial = useDefenseProjectStore.getState().project;
+const l1 = initial.layers.find((layer) => layer.code === "L1");
 const l2 = initial.layers.find((layer) => layer.code === "L2");
+assert(l1, "store initial project must include L1");
+assert(initial.activeLayerId === l1.id, "store initial project must open the widest L1 layer by default");
 assert(l2, "store initial project must include L2");
 
 useDefenseProjectStore.getState().selectLayer(l2.id);
