@@ -1,5 +1,6 @@
 "use client";
 
+import { EyeInvisibleOutlined, EyeOutlined } from "@ant-design/icons";
 import { describePlacement } from "@/modules/drone-defense/domain/placement-helpers";
 import type {
   DefenseCatalogResponse,
@@ -34,6 +35,7 @@ export function EchelonObjectsList({
   selectedPlacementId,
   onSelect,
   onLocate,
+  onToggleVisibility,
   onRemove,
 }: {
   layerId: DefenseLayerId;
@@ -44,6 +46,7 @@ export function EchelonObjectsList({
   selectedPlacementId: string | null;
   onSelect: (placementId: string) => void;
   onLocate: (placement: Placement) => void;
+  onToggleVisibility: (placementId: string) => void;
   onRemove: (placementId: string) => void;
 }) {
   const layerPlacements = placements.filter((placement) => placement.layerId === layerId);
@@ -93,6 +96,20 @@ export function EchelonObjectsList({
                 onClick={() => onLocate(placement)}
               >
                 На карте
+              </button>
+              <button
+                type="button"
+                className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold transition ${
+                  isHidden
+                    ? "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+                onClick={() => onToggleVisibility(placement.id)}
+                title={isHidden ? "Показать на карте" : "Скрыть на карте"}
+                aria-pressed={!isHidden}
+              >
+                {isHidden ? <EyeOutlined /> : <EyeInvisibleOutlined />}
+                {isHidden ? "Показать" : "Скрыть"}
               </button>
               <button
                 type="button"

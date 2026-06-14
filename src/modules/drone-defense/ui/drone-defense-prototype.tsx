@@ -162,6 +162,7 @@ export function DroneDefensePrototype() {
     selectObject,
     placeObject,
     updatePlacedObject,
+    setPlacedObjectMapVisibility,
     deletePlacedObject,
     validateObjectPlacement,
     restoreProjectFromLocalStorage,
@@ -279,14 +280,24 @@ export function DroneDefensePrototype() {
       }),
     [project, scenarioId],
   );
+  const hiddenPlacementIds = useMemo(
+    () =>
+      new Set(
+        project.placedObjects
+          .filter((object) => object.isVisibleOnMap === false)
+          .map((object) => object.id),
+      ),
+    [project.placedObjects],
+  );
   const visibleProjectCatalogPlacements = useMemo(
     () =>
       projectCatalogPlacements.filter(
-        (placement) => showAllEchelonObjects || placement.layerId === selectedLayerId,
+        (placement) =>
+          (showAllEchelonObjects || placement.layerId === selectedLayerId) &&
+          !hiddenPlacementIds.has(placement.id),
       ),
-    [projectCatalogPlacements, selectedLayerId, showAllEchelonObjects],
+    [hiddenPlacementIds, projectCatalogPlacements, selectedLayerId, showAllEchelonObjects],
   );
-  const hiddenPlacementIds = useMemo(() => new Set<string>(), []);
   const mapConfiguration = useMemo(
     () => ({
       ...studioConfiguration,
@@ -606,6 +617,18 @@ export function DroneDefensePrototype() {
     setLastPlacementMessage(`${messageAsset?.name ?? "Объект"} удалён из общей конфигурации`);
   };
 
+  const toggleProjectPlacementVisibility = (objectId: string) => {
+    const object = project.placedObjects.find((item) => item.id === objectId);
+    if (!object) return;
+    const nextVisibility = object.isVisibleOnMap === false;
+    const messageAsset = project.assetLibrary.find((item) => item.id === object.assetId);
+    setPlacedObjectMapVisibility(objectId, nextVisibility);
+    setIsEchelonObjectsPanelOpen(true);
+    setLastPlacementMessage(
+      `${messageAsset?.name ?? object.name ?? "Объект"} ${nextVisibility ? "показан" : "скрыт"} на карте`,
+    );
+  };
+
   const startAssetDrag = (asset: AssetCatalogItem, event: ReactDragEvent<HTMLDivElement>) => {
     event.dataTransfer.effectAllowed = "copy";
     event.dataTransfer.setData(defenseAssetDragMimeType, asset.assetId);
@@ -884,6 +907,7 @@ export function DroneDefensePrototype() {
                   selectedPlacementId={selectedPlacementId}
                   onSelect={(id) => selectPlacedObject(id)}
                   onLocate={handleLocatePlacement}
+                  onToggleVisibility={(id) => toggleProjectPlacementVisibility(id)}
                   onRemove={(id) => deleteProjectPlacement(id)}
                 />
               </div>
