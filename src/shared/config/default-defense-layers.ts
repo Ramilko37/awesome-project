@@ -39,7 +39,7 @@ export const defaultDefenseProjectLayers: EditableDefenseLayer[] = layerNames.ma
     },
     color: layerColors[index],
     opacity: 0.16,
-    isActive: order === 2,
+    isActive: order === 1,
     isVisible: true,
     isLocked: false,
   };

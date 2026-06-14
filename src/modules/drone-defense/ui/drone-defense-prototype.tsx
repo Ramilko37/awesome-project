@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AppstoreOutlined, CloseOutlined, DownOutlined, UpOutlined } from "@ant-design/icons";
+import { AppstoreOutlined, CloseOutlined, DownOutlined, EyeInvisibleOutlined, EyeOutlined, UpOutlined } from "@ant-design/icons";
 import { useDefenseStudioStore, studioPreviewData } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import { buildEchelonMapModel } from "@/modules/drone-defense/domain/echelon-map-model";
 import { placedObjectsToMapPlacements } from "@/modules/drone-defense/domain/project-map-adapter";
@@ -68,8 +68,9 @@ export function DroneDefensePrototype() {
   const [pointerDraggedAssetId, setPointerDraggedAssetId] = useState<string | null>(null);
   const [lastPlacementMessage, setLastPlacementMessage] = useState<string | null>(null);
   const [locateTarget, setLocateTarget] = useState<{ lon: number; lat: number; at: number } | null>(null);
-  const [echelonObjectsLayerId, setEchelonObjectsLayerId] = useState<DefenseLayerId | null>(null);
+  const [isEchelonObjectsPanelOpen, setIsEchelonObjectsPanelOpen] = useState(false);
   const [isEchelonObjectsCollapsed, setIsEchelonObjectsCollapsed] = useState(false);
+  const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(false);
   const {
     init,
     loading,
@@ -137,7 +138,6 @@ export function DroneDefensePrototype() {
   const projectMapLayers = useMemo(
     () =>
       [...project.layers]
-        .filter((layer) => layer.isVisible !== false)
         .sort((a, b) => a.order - b.order)
         .map(projectLayerToMapLayer),
     [project.layers],
@@ -211,10 +211,16 @@ export function DroneDefensePrototype() {
         project,
         facilityId: project.baseObject.id,
         scenarioId,
-      }).filter((placement) => project.layers.find((layer) => layer.id === placement.layerId)?.isVisible !== false),
+      }),
     [project, scenarioId],
   );
-  const visibleProjectCatalogPlacements = projectCatalogPlacements;
+  const visibleProjectCatalogPlacements = useMemo(
+    () =>
+      projectCatalogPlacements.filter(
+        (placement) => showAllEchelonObjects || placement.layerId === selectedLayerId,
+      ),
+    [projectCatalogPlacements, selectedLayerId, showAllEchelonObjects],
+  );
   const hiddenPlacementIds = useMemo(() => new Set<string>(), []);
   const mapConfiguration = useMemo(
     () => ({
@@ -240,10 +246,14 @@ export function DroneDefensePrototype() {
     () => project.placedObjects.filter((object) => object.layerId === selectedLayerId),
     [project.placedObjects, selectedLayerId],
   );
-  const activeEchelonObjectsLayer = useMemo(
-    () => project.layers.find((layer) => layer.id === echelonObjectsLayerId) ?? selectedLayer,
-    [echelonObjectsLayerId, project.layers, selectedLayer],
+  const selectedLayerSummary = useMemo(
+    () => layerSummaries.find((item) => item.layerId === selectedLayerId),
+    [layerSummaries, selectedLayerId],
   );
+  const objectVisibilityModeLabel = showAllEchelonObjects
+    ? `объекты всех эшелонов: ${visibleProjectCatalogPlacements.length}`
+    : `${selectedLayer?.code ?? "—"}: ${selectedLayerSummary?.objectCount ?? 0} объектов`;
+  const activeEchelonObjectsLayer = selectedLayer;
   const selectedPlacedObject = useMemo(
     () => project.placedObjects.find((object) => object.id === selectedObjectId) ?? null,
     [project.placedObjects, selectedObjectId],
@@ -385,6 +395,7 @@ export function DroneDefensePrototype() {
     if (!object) return;
     selectObject(objectId);
     setSelectedSlotId(null);
+    setIsEchelonObjectsPanelOpen(true);
     const asset = project.assetLibrary.find((item) => item.id === object.assetId);
     setLastPlacementMessage(`${asset?.name ?? object.name ?? "Объект"} выбран на карте`);
   };
@@ -579,11 +590,22 @@ export function DroneDefensePrototype() {
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
     setLastPlacementMessage(null);
+    setIsEchelonObjectsPanelOpen(true);
     const nextSlot =
       echelonModel.slots.find((slot) => slot.layerId === layerId && slot.status === "empty") ??
       echelonModel.slots.find((slot) => slot.layerId === layerId) ??
       null;
     setSelectedSlotId(nextSlot?.id ?? null);
+  };
+
+  const toggleObjectVisibilityMode = () => {
+    setShowAllEchelonObjects((current) => {
+      const next = !current;
+      setLastPlacementMessage(
+        next ? "Объекты: все эшелоны" : `Объекты: ${selectedLayer?.code ?? "активный эшелон"}`,
+      );
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -709,7 +731,7 @@ export function DroneDefensePrototype() {
           </div>
         ) : null}
 
-        {echelonObjectsLayerId && activeEchelonObjectsLayer ? (
+        {isEchelonObjectsPanelOpen && activeEchelonObjectsLayer ? (
           <aside className="absolute right-4 top-4 z-30 w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20">
             <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
               <div>
@@ -729,7 +751,7 @@ export function DroneDefensePrototype() {
                 <button
                   type="button"
                   className="h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
-                  onClick={() => setEchelonObjectsLayerId(null)}
+                  onClick={() => setIsEchelonObjectsPanelOpen(false)}
                   title="Закрыть карточку"
                   aria-label="Закрыть карточку"
                 >
@@ -740,7 +762,7 @@ export function DroneDefensePrototype() {
             {!isEchelonObjectsCollapsed ? (
               <div className="max-h-[70vh] overflow-y-auto p-4">
                 <EchelonObjectsList
-                  layerId={echelonObjectsLayerId}
+                  layerId={activeEchelonObjectsLayer.id as DefenseLayerId}
                   placements={projectCatalogPlacements}
                   catalog={catalog}
                   layers={allProjectMapLayers}
@@ -782,6 +804,7 @@ export function DroneDefensePrototype() {
               onSelectSlot={(slot) => {
                 selectLayer(slot.layerId);
                 setSelectedSlotId(slot.id);
+                setIsEchelonObjectsPanelOpen(true);
               }}
               onSelectTool={(groupId) => {
                 const asset =
@@ -883,10 +906,28 @@ export function DroneDefensePrototype() {
                     <div>
                       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-blue-500">Эшелоны проекта</p>
                       <p className="text-sm font-semibold text-slate-950">
-                        Кольца вокруг объекта · {project.layers.length}/{MAX_DEFENSE_PROJECT_LAYERS}
+                        Кольца вокруг объекта · {objectVisibilityModeLabel} · лимит {project.layers.length}/{MAX_DEFENSE_PROJECT_LAYERS}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className={`flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition ${
+                          showAllEchelonObjects
+                            ? "border-blue-500 bg-blue-600 text-white shadow-md shadow-blue-600/20"
+                            : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                        }`}
+                        onClick={toggleObjectVisibilityMode}
+                        aria-pressed={showAllEchelonObjects}
+                        title={
+                          showAllEchelonObjects
+                            ? "Показаны объекты всех эшелонов"
+                            : "Показаны объекты только активного эшелона"
+                        }
+                      >
+                        {showAllEchelonObjects ? <EyeOutlined /> : <EyeInvisibleOutlined />}
+                        Все объекты
+                      </button>
                       <div className="flex h-9 rounded-lg bg-slate-100 p-1">
                         <button
                           type="button"
@@ -949,10 +990,7 @@ export function DroneDefensePrototype() {
                           <button
                             type="button"
                             className="block w-full cursor-pointer text-left"
-                            onClick={() => {
-                              selectLayerWithDefaultSlot(layer.id);
-                              setEchelonObjectsLayerId(layer.id as DefenseLayerId);
-                            }}
+                            onClick={() => selectLayerWithDefaultSlot(layer.id)}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className="truncate text-xs font-semibold text-slate-950">
@@ -972,7 +1010,6 @@ export function DroneDefensePrototype() {
                               {summary?.totalMln ?? 0} млн
                             </span>
                             {layer.isLocked ? <span className="rounded bg-slate-900 px-1.5 py-0.5 text-white">locked</span> : null}
-                            {layer.isVisible === false ? <span className="rounded bg-slate-200 px-1.5 py-0.5 text-slate-600">hidden</span> : null}
                             {isSelected && isLayerEditMode ? (
                               <span className="ml-auto flex items-center gap-1">
                                 <button
