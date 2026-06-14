@@ -1,7 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AppstoreOutlined, CloseOutlined, DownOutlined, EyeInvisibleOutlined, EyeOutlined, UpOutlined } from "@ant-design/icons";
+import {
+  AppstoreOutlined,
+  CloseOutlined,
+  DeleteOutlined,
+  DownOutlined,
+  EditOutlined,
+  ExpandAltOutlined,
+  EyeInvisibleOutlined,
+  EyeOutlined,
+  LeftOutlined,
+  MoreOutlined,
+  PlusOutlined,
+  RightOutlined,
+  UpOutlined,
+} from "@ant-design/icons";
+import { Dropdown, Modal } from "antd";
 import { useDefenseStudioStore, studioPreviewData } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import { buildEchelonMapModel } from "@/modules/drone-defense/domain/echelon-map-model";
 import { placedObjectsToMapPlacements } from "@/modules/drone-defense/domain/project-map-adapter";
@@ -12,7 +27,7 @@ import { FacilityDrilldown } from "@/modules/drone-defense/ui/facility-drilldown
 import { GisBoard } from "@/modules/drone-defense/ui/gis-board";
 import { EchelonObjectsList } from "@/modules/drone-defense/ui/echelon-objects-list";
 import { MogCompositionEditor } from "@/modules/drone-defense/ui/mog-composition-editor";
-import { VariantSelector } from "@/modules/drone-defense/ui/variant-selector";
+import { VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
 import {
   type AssetCatalogItem,
   buildPlacedDefenseCompoundProfile,
@@ -20,11 +35,12 @@ import {
   findLayerInsertOptions,
   getAssetCatalogItems,
   getLayerRadii,
-  validateLayerGeometry,
+  validateLayerDraft,
 } from "@/shared/lib/defense-project";
 import {
   buildWizardLayer,
   formatDistance,
+  formatLayerRange,
   formatWizardRange,
   layerInsertOptionKey,
   parseCoordinatePlacementInput,
@@ -55,22 +71,70 @@ function protectedObjectToFacility(object: ProtectedObjectOption) {
   } as const;
 }
 
+function formatLayerCost(totalMln: number) {
+  return `${totalMln.toLocaleString("ru-RU", { maximumFractionDigits: 1 })} млн ₽`;
+}
+
+function formatObjectCountLabel(count: number) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${count} объект`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} объекта`;
+  return `${count} объектов`;
+}
+
+function formatLayerObjectMeta(objectCount: number, totalMln: number) {
+  return `${formatObjectCountLabel(objectCount)} · ${formatLayerCost(totalMln)}`;
+}
+
+function splitLayerTitle(code: string, name: string) {
+  const trimmedName = name.trim();
+  const [firstWord = trimmedName, ...restWords] = trimmedName.split(/\s+/);
+  return {
+    primary: `${code} · ${firstWord}`,
+    secondary: restWords.join(" "),
+  };
+}
+
+function describeLayerDeletion(totalLayers: number, objectCount: number) {
+  if (totalLayers <= 1) {
+    return {
+      canDelete: false,
+      reason: "Последний эшелон удалить нельзя.",
+    };
+  }
+  if (objectCount > 0) {
+    return {
+      canDelete: false,
+      reason: "Нельзя удалить: в эшелоне есть объекты.",
+    };
+  }
+  return {
+    canDelete: true,
+    reason: "Удаление доступно только после подтверждения.",
+  };
+}
+
 export function DroneDefensePrototype() {
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [catalogQuery, setCatalogQuery] = useState("");
   const [isCatalogTrayOpen, setIsCatalogTrayOpen] = useState(true);
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
   const [isLayerPanelExpanded, setIsLayerPanelExpanded] = useState(true);
-  const [layerPanelMode, setLayerPanelMode] = useState<"view" | "edit">("view");
+  const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(false);
   const [layerWizardState, setLayerWizardState] = useState<LayerWizardState | null>(null);
+  const [pendingLayerDeletionId, setPendingLayerDeletionId] = useState<string | null>(null);
+  const [hoveredLayerId, setHoveredLayerId] = useState<string | null>(null);
+  const [layerStripState, setLayerStripState] = useState({ canScrollLeft: false, canScrollRight: false });
   const [coordinatePlacementAssetId, setCoordinatePlacementAssetId] = useState<string | null>(null);
   const [coordinatePlacementValidation, setCoordinatePlacementValidation] = useState<CoordinatePlacementValidationState | null>(null);
   const [pointerDraggedAssetId, setPointerDraggedAssetId] = useState<string | null>(null);
   const [lastPlacementMessage, setLastPlacementMessage] = useState<string | null>(null);
   const [locateTarget, setLocateTarget] = useState<{ lon: number; lat: number; at: number } | null>(null);
   const [isEchelonObjectsPanelOpen, setIsEchelonObjectsPanelOpen] = useState(false);
+  const [echelonObjectsLayerId, setEchelonObjectsLayerId] = useState<DefenseLayerId | null>(null);
   const [isEchelonObjectsCollapsed, setIsEchelonObjectsCollapsed] = useState(false);
-  const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(false);
+  const layerStripRef = useRef<HTMLDivElement | null>(null);
   const {
     init,
     loading,
@@ -89,8 +153,9 @@ export function DroneDefensePrototype() {
     project,
     createLayerFromDraft,
     deleteLayer,
-    updateLayerGeometry,
+    updateLayerFromDraft,
     selectLayer,
+    setLayerVisibility,
     selectBaseObject,
     selectAsset,
     selectedObjectId,
@@ -186,13 +251,13 @@ export function DroneDefensePrototype() {
     return buildWizardLayer(project, layerWizardState.draft, baseLayer);
   }, [layerWizardState, project]);
   const wizardValidation = useMemo(() => {
-    if (!layerWizardState || !wizardLayer) return null;
-    return validateLayerGeometry(
+    if (!layerWizardState) return null;
+    return validateLayerDraft(
       project,
-      wizardLayer,
+      layerWizardState.draft,
       layerWizardState.mode === "edit" ? layerWizardState.layerId : undefined,
     );
-  }, [layerWizardState, project, wizardLayer]);
+  }, [layerWizardState, project]);
   const previewMapLayer = useMemo(() => {
     if (!wizardLayer) return null;
     return {
@@ -242,18 +307,33 @@ export function DroneDefensePrototype() {
       }),
     [catalog, mapConfiguration, layers, projectMapLayers, selectedFacility, selectedLayerId, selectedSlotId],
   );
-  const selectedLayerObjects = useMemo(
-    () => project.placedObjects.filter((object) => object.layerId === selectedLayerId),
-    [project.placedObjects, selectedLayerId],
+  const objectCountByLayer = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const object of project.placedObjects) {
+      counts.set(object.layerId, (counts.get(object.layerId) ?? 0) + 1);
+    }
+    return counts;
+  }, [project.placedObjects]);
+  const activeLayerSummary = useMemo(
+    () => layerSummaries.find((item) => item.layerId === selectedLayer?.id) ?? null,
+    [layerSummaries, selectedLayer?.id],
   );
-  const selectedLayerSummary = useMemo(
-    () => layerSummaries.find((item) => item.layerId === selectedLayerId),
-    [layerSummaries, selectedLayerId],
+  const layerPanelSummaryLabel = `${project.layers.length} из ${MAX_DEFENSE_PROJECT_LAYERS}`;
+  const activeLayerHeaderLabel = `Активный: ${selectedLayer?.code ?? "—"} · ${formatObjectCountLabel(
+    activeLayerSummary?.objectCount ?? 0,
+  )}`;
+  const objectVisibilityToggleLabel = showAllEchelonObjects ? "Только активный" : "Все объекты";
+  const objectVisibilityToggleTitle = showAllEchelonObjects
+    ? "Скрыть объекты других эшелонов на карте"
+    : "Показать объекты всех эшелонов на карте";
+  const activeEchelonObjectsLayer = useMemo(
+    () => project.layers.find((layer) => layer.id === echelonObjectsLayerId) ?? selectedLayer,
+    [echelonObjectsLayerId, project.layers, selectedLayer],
   );
-  const objectVisibilityModeLabel = showAllEchelonObjects
-    ? `объекты всех эшелонов: ${visibleProjectCatalogPlacements.length}`
-    : `${selectedLayer?.code ?? "—"}: ${selectedLayerSummary?.objectCount ?? 0} объектов`;
-  const activeEchelonObjectsLayer = selectedLayer;
+  const pendingLayerDeletion = useMemo(
+    () => project.layers.find((layer) => layer.id === pendingLayerDeletionId) ?? null,
+    [pendingLayerDeletionId, project.layers],
+  );
   const selectedPlacedObject = useMemo(
     () => project.placedObjects.find((object) => object.id === selectedObjectId) ?? null,
     [project.placedObjects, selectedObjectId],
@@ -285,9 +365,30 @@ export function DroneDefensePrototype() {
     [project.assetLibrary, coordinatePlacementAssetId],
   );
   const canCreateLayer = project.layers.length < MAX_DEFENSE_PROJECT_LAYERS;
-  const canDeleteSelectedLayer = project.layers.length > 1 && selectedLayerObjects.length === 0;
-  const isLayerEditMode = layerPanelMode === "edit";
   const showCompactLayerPanel = !isLayerPanelExpanded;
+
+  useEffect(() => {
+    const strip = layerStripRef.current;
+    if (!strip || showCompactLayerPanel) {
+      setLayerStripState({ canScrollLeft: false, canScrollRight: false });
+      return;
+    }
+
+    const syncLayerStripState = () => {
+      setLayerStripState({
+        canScrollLeft: strip.scrollLeft > 8,
+        canScrollRight: strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 8,
+      });
+    };
+
+    syncLayerStripState();
+    strip.addEventListener("scroll", syncLayerStripState, { passive: true });
+    window.addEventListener("resize", syncLayerStripState);
+    return () => {
+      strip.removeEventListener("scroll", syncLayerStripState);
+      window.removeEventListener("resize", syncLayerStripState);
+    };
+  }, [orderedProjectLayers, showCompactLayerPanel]);
 
   const draftForInsertOption = (option: LayerInsertOption | undefined): Pick<LayerWizardState, "draft" | "insertPosition"> => {
     const innerRadiusM = option?.minInnerRadiusM ?? 0;
@@ -296,7 +397,7 @@ export function DroneDefensePrototype() {
     return {
       insertPosition: option ? layerInsertOptionKey(option) : undefined,
       draft: {
-        name: "Новый эшелон",
+        name: "Новый эшелон защиты",
         code: `L${project.layers.length + 1}`,
         innerRadiusM,
         widthM: Math.max(widthM, 1000),
@@ -354,15 +455,12 @@ export function DroneDefensePrototype() {
       return;
     }
     if (!layerWizardState.layerId) return;
-    const result = updateLayerGeometry(layerWizardState.layerId, {
-      innerRadiusM: layerWizardState.draft.innerRadiusM,
-      widthM: layerWizardState.draft.widthM,
-    });
+    const result = updateLayerFromDraft(layerWizardState.layerId, layerWizardState.draft);
     if (!result.ok) {
       setLastPlacementMessage(result.validation.message ?? "Не удалось сохранить эшелон");
       return;
     }
-    setLastPlacementMessage("Размеры эшелона сохранены");
+    setLastPlacementMessage("Эшелон обновлён");
     setLayerWizardState(null);
   };
 
@@ -384,10 +482,39 @@ export function DroneDefensePrototype() {
     );
   };
 
-  const deleteSelectedLayer = () => {
-    if (!selectedLayer) return;
-    const result = deleteLayer(selectedLayer.id);
+  const confirmLayerDeletion = () => {
+    if (!pendingLayerDeletion) return;
+    const result = deleteLayer(pendingLayerDeletion.id);
+    setPendingLayerDeletionId(null);
     setLastPlacementMessage(result.ok ? "Эшелон удалён" : result.message);
+  };
+
+  const toggleLayerVisibility = (layerId: string, isVisible: boolean) => {
+    setLayerVisibility(layerId, isVisible);
+    if (!isVisible && layerId === selectedLayer?.id) {
+      const fallback =
+        orderedProjectLayers.find((layer) => layer.id !== layerId && layer.isVisible !== false) ??
+        orderedProjectLayers.find((layer) => layer.id !== layerId);
+      if (fallback) {
+        selectLayerWithDefaultSlot(fallback.id);
+      }
+    }
+  };
+
+  const toggleObjectVisibilityMode = () => {
+    setShowAllEchelonObjects((current) => {
+      const next = !current;
+      setLastPlacementMessage(
+        next ? "Объекты: все эшелоны" : `Объекты: ${selectedLayer?.code ?? "активный эшелон"}`,
+      );
+      return next;
+    });
+  };
+
+  const scrollLayerStrip = (direction: "left" | "right") => {
+    const strip = layerStripRef.current;
+    if (!strip) return;
+    strip.scrollBy({ left: direction === "left" ? -260 : 260, behavior: "smooth" });
   };
 
   const selectPlacedObject = (objectId: string) => {
@@ -598,16 +725,6 @@ export function DroneDefensePrototype() {
     setSelectedSlotId(nextSlot?.id ?? null);
   };
 
-  const toggleObjectVisibilityMode = () => {
-    setShowAllEchelonObjects((current) => {
-      const next = !current;
-      setLastPlacementMessage(
-        next ? "Объекты: все эшелоны" : `Объекты: ${selectedLayer?.code ?? "активный эшелон"}`,
-      );
-      return next;
-    });
-  };
-
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -642,7 +759,9 @@ export function DroneDefensePrototype() {
                 <p className="truncate text-xs text-slate-500">Defense Configuration Studio</p>
               </div>
             </div>
-
+            <div className="mt-3 hidden lg:block">
+              <VariantStatusButton fullWidth />
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-hidden">
@@ -654,7 +773,7 @@ export function DroneDefensePrototype() {
                     {selectedLayer?.code ?? "—"} · {selectedLayer?.name ?? "Эшелон не выбран"}
                   </h2>
                   <p className="text-xs text-slate-500">
-                    {formatDistance(selectedRadii.innerRadiusM)}-{formatDistance(selectedRadii.outerRadiusM)}
+                    {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)}
                   </p>
                 </div>
                 <button
@@ -715,11 +834,6 @@ export function DroneDefensePrototype() {
       </section>
 
       <main className="relative min-w-0 flex-1 overflow-hidden">
-        <div className="pointer-events-none absolute inset-x-0 top-4 z-30 flex justify-center">
-          <div className="pointer-events-auto rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 shadow-lg backdrop-blur">
-            <VariantSelector />
-          </div>
-        </div>
         {error ? (
           <div className="absolute left-4 top-4 z-30 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 shadow">
             {error}
@@ -797,10 +911,12 @@ export function DroneDefensePrototype() {
               mapLayers={projectMapLayers}
               previewLayer={previewMapLayer}
               selectedLayerId={selectedLayerId}
+              hoveredLayerId={hoveredLayerId}
               selectedSlotId={selectedSlotId}
               activeToolId={activeToolId}
               placementHint={placementHint}
               onSelectLayer={selectLayerWithDefaultSlot}
+              onHoverLayerChange={setHoveredLayerId}
               onSelectSlot={(slot) => {
                 selectLayer(slot.layerId);
                 setSelectedSlotId(slot.id);
@@ -866,38 +982,38 @@ export function DroneDefensePrototype() {
                 <div
                   className={`pointer-events-auto border border-white/70 bg-white/95 shadow-2xl shadow-slate-900/20 backdrop-blur ${
                     showCompactLayerPanel
-                      ? "max-w-full overflow-x-auto rounded-lg p-1"
+                      ? "w-full max-w-4xl rounded-2xl p-2"
                       : "w-full rounded-xl p-3"
                   }`}
                 >
                   {showCompactLayerPanel ? (
-                    <div className="flex items-center gap-1">
-                      {orderedProjectLayers.map((layer) => {
-                        const isSelected = layer.id === selectedLayer.id;
-                        return (
-                          <button
-                            key={layer.id}
-                            type="button"
-                            className={`h-9 min-w-10 cursor-pointer rounded-md px-2 text-[11px] font-bold transition ${
-                              isSelected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700"
-                            }`}
-                            onClick={() => selectLayerWithDefaultSlot(layer.id)}
-                            title={layer.name}
-                          >
-                            {layer.code}
-                          </button>
-                        );
-                      })}
+                    <div className="flex flex-col gap-3 rounded-[1.15rem] border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-500">
+                          Эшелоны проекта · {layerPanelSummaryLabel}
+                        </p>
+                        <p
+                          className="mt-1 truncate text-sm font-semibold text-slate-950"
+                          title={`Активный: ${selectedLayer.code} · ${selectedLayer.name}`}
+                        >
+                          Активный: {selectedLayer.code} · {selectedLayer.name}
+                        </p>
+                        <p className="mt-0.5 text-sm font-medium text-slate-500">
+                          {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)} ·{" "}
+                          {formatLayerObjectMeta(activeLayerSummary?.objectCount ?? 0, activeLayerSummary?.totalMln ?? 0)}
+                        </p>
+                      </div>
                       <button
                         type="button"
-                        className="h-9 cursor-pointer rounded-md bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700"
+                        className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl bg-blue-600 text-base text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700"
                         onClick={() => {
                           setIsCatalogTrayOpen(false);
                           setIsLayerPanelExpanded(true);
                         }}
                         title="Развернуть панель эшелонов"
+                        aria-label="Развернуть панель эшелонов"
                       >
-                        ↑
+                        <ExpandAltOutlined />
                       </button>
                     </div>
                   ) : (
@@ -906,8 +1022,9 @@ export function DroneDefensePrototype() {
                     <div>
                       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-blue-500">Эшелоны проекта</p>
                       <p className="text-sm font-semibold text-slate-950">
-                        Кольца вокруг объекта · {objectVisibilityModeLabel} · лимит {project.layers.length}/{MAX_DEFENSE_PROJECT_LAYERS}
+                        Эшелоны проекта · {layerPanelSummaryLabel}
                       </p>
+                      <p className="mt-0.5 text-xs font-medium text-slate-500">{activeLayerHeaderLabel}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
@@ -919,50 +1036,21 @@ export function DroneDefensePrototype() {
                         }`}
                         onClick={toggleObjectVisibilityMode}
                         aria-pressed={showAllEchelonObjects}
-                        title={
-                          showAllEchelonObjects
-                            ? "Показаны объекты всех эшелонов"
-                            : "Показаны объекты только активного эшелона"
-                        }
+                        title={objectVisibilityToggleTitle}
                       >
-                        {showAllEchelonObjects ? <EyeOutlined /> : <EyeInvisibleOutlined />}
-                        Все объекты
+                        {showAllEchelonObjects ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                        {objectVisibilityToggleLabel}
                       </button>
-                      <div className="flex h-9 rounded-lg bg-slate-100 p-1">
-                        <button
-                          type="button"
-                          className={`cursor-pointer rounded-md px-3 text-xs font-semibold transition ${
-                            layerPanelMode === "view"
-                              ? "bg-white text-blue-700 shadow-sm"
-                              : "text-slate-500 hover:text-slate-900"
-                          }`}
-                          onClick={() => setLayerPanelMode("view")}
-                        >
-                          Просмотр
-                        </button>
-                        <button
-                          type="button"
-                          className={`cursor-pointer rounded-md px-3 text-xs font-semibold transition ${
-                            isLayerEditMode
-                              ? "bg-white text-blue-700 shadow-sm"
-                              : "text-slate-500 hover:text-slate-900"
-                          }`}
-                          onClick={() => setLayerPanelMode("edit")}
-                        >
-                          Редактирование
-                        </button>
-                      </div>
-                      {isLayerEditMode ? (
-                        <button
-                          type="button"
-                          className="h-9 cursor-pointer rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-                          onClick={createProjectLayer}
-                          disabled={!canCreateLayer}
-                          title={canCreateLayer ? "Создать эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
-                        >
-                          + Эшелон
-                        </button>
-                      ) : null}
+                      <button
+                        type="button"
+                        className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-blue-600 text-sm text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                        onClick={createProjectLayer}
+                        disabled={!canCreateLayer}
+                        title={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
+                        aria-label={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
+                      >
+                        <PlusOutlined />
+                      </button>
                       <button
                         type="button"
                         className="h-9 cursor-pointer rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
@@ -973,79 +1061,171 @@ export function DroneDefensePrototype() {
                     </div>
                   </div>
 
-                  <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      onClick={() => scrollLayerStrip("left")}
+                      disabled={!layerStripState.canScrollLeft}
+                      aria-label="Прокрутить эшелоны влево"
+                    >
+                      <LeftOutlined />
+                    </button>
+                    <div className="relative min-w-0 flex-1">
+                      {layerStripState.canScrollLeft ? <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white via-white/80 to-transparent" /> : null}
+                      {layerStripState.canScrollRight ? <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white via-white/80 to-transparent" /> : null}
+                  <div ref={layerStripRef} className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {orderedProjectLayers.map((layer) => {
-                      const radii = getLayerRadii(layer);
                       const summary = layerSummaries.find((item) => item.layerId === layer.id);
                       const isSelected = layer.id === selectedLayer.id;
+                      const isHovered = layer.id === hoveredLayerId;
+                      const layerDeleteState = describeLayerDeletion(project.layers.length, objectCountByLayer.get(layer.id) ?? 0);
+                      const titleParts = splitLayerTitle(layer.code, layer.name);
+                      const layerMenuItems = [
+                        {
+                          key: "objects",
+                          icon: <AppstoreOutlined />,
+                          label: "Открыть объекты эшелона",
+                          onClick: () => {
+                            selectLayerWithDefaultSlot(layer.id);
+                            setEchelonObjectsLayerId(layer.id as DefenseLayerId);
+                          },
+                        },
+                        {
+                          key: "edit",
+                          icon: <EditOutlined />,
+                          label: "Настроить эшелон",
+                          onClick: () => {
+                            selectLayerWithDefaultSlot(layer.id);
+                            editSelectedLayer();
+                          },
+                        },
+                        {
+                          key: "delete",
+                          icon: <DeleteOutlined />,
+                          danger: true,
+                          disabled: !layerDeleteState.canDelete,
+                          label: (
+                            <div className="py-0.5">
+                              <p>Удалить эшелон</p>
+                              {!layerDeleteState.canDelete ? (
+                                <p className="mt-1 max-w-48 whitespace-normal text-[11px] font-medium text-slate-400">
+                                  {layerDeleteState.reason}
+                                </p>
+                              ) : null}
+                            </div>
+                          ),
+                          onClick: () => {
+                            if (!layerDeleteState.canDelete) return;
+                            setPendingLayerDeletionId(layer.id);
+                          },
+                        },
+                      ];
                       return (
                         <div
                           key={layer.id}
-                          className={`min-w-[11rem] rounded-lg border p-2 transition ${
+                          className={`group relative min-w-[16.25rem] max-w-[16.25rem] snap-start rounded-xl border px-3.5 py-3 transition ${
                             isSelected
-                              ? "border-blue-500 bg-blue-50 shadow-sm shadow-blue-600/10"
-                              : "border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50"
+                              ? "border-blue-500 bg-blue-50/80 shadow-[0_10px_24px_-18px_rgba(37,99,235,0.55)] ring-1 ring-blue-200/80"
+                              : isHovered
+                                ? "border-slate-300 bg-slate-50/80 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.28)]"
+                                : "border-slate-200 hover:border-blue-200 hover:bg-slate-50/80"
                           }`}
+                          onMouseEnter={() => setHoveredLayerId(layer.id)}
+                          onMouseLeave={() => setHoveredLayerId((current) => (current === layer.id ? null : current))}
                         >
+                          <div className="absolute right-2.5 top-2.5 z-10 flex items-center gap-0.5">
+                            <button
+                              type="button"
+                              className="grid h-8 w-8 cursor-pointer place-items-center rounded-[10px] border border-transparent bg-transparent text-[12px] text-slate-400 transition hover:border-slate-200 hover:bg-slate-100 hover:text-slate-700"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                toggleLayerVisibility(layer.id, layer.isVisible === false);
+                              }}
+                              title={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
+                              aria-label={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
+                            >
+                              {layer.isVisible === false ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                            </button>
+                            <Dropdown
+                              trigger={["click"]}
+                              placement="bottomRight"
+                              arrow
+                              menu={{
+                                items: layerMenuItems,
+                                className: "min-w-[13rem]",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                className="grid h-8 w-8 cursor-pointer place-items-center rounded-[10px] border border-transparent bg-transparent text-[12px] text-slate-400 transition hover:border-slate-200 hover:bg-slate-100 hover:text-slate-700"
+                                onClick={(event) => event.stopPropagation()}
+                                aria-label="Открыть меню эшелона"
+                              >
+                                <MoreOutlined />
+                              </button>
+                            </Dropdown>
+                          </div>
                           <button
                             type="button"
                             className="block w-full cursor-pointer text-left"
                             onClick={() => selectLayerWithDefaultSlot(layer.id)}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate text-xs font-semibold text-slate-950">
-                                {layer.code} · {layer.name}
-                              </span>
-                              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: layer.color }} />
+                            <div className="flex items-start gap-2.5 pr-[4.4rem]">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex min-w-0 items-start gap-2">
+                                  <span
+                                    className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                                    style={{ backgroundColor: layer.color ?? "#2563eb" }}
+                                    aria-hidden="true"
+                                  />
+                                  <div className="min-w-0 min-h-[2.45rem]" title={`${layer.code} · ${layer.name}`}>
+                                    <p className="truncate text-[15px] font-semibold leading-[1.15] text-slate-950">
+                                      {titleParts.primary}
+                                    </p>
+                                    {titleParts.secondary ? (
+                                      <p
+                                        className="text-[15px] font-semibold leading-[1.15] text-slate-950"
+                                        style={{
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 1,
+                                          WebkitBoxOrient: "vertical",
+                                          overflow: "hidden",
+                                        }}
+                                      >
+                                        {titleParts.secondary}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <p className="mt-1 text-[11px] text-slate-500">
-                              {formatDistance(radii.innerRadiusM)} + {formatDistance(radii.widthM)}
+                            <p className="mt-3 whitespace-nowrap text-[1.85rem] font-bold leading-[1.02] tracking-[-0.03em] text-slate-950">
+                              {formatLayerRange(summary?.innerRadiusM ?? 0, summary?.outerRadiusM ?? 0)}
+                            </p>
+                            <p className="mt-1.5 text-[14px] font-medium leading-[1.2] text-slate-500">
+                              {formatLayerObjectMeta(summary?.objectCount ?? 0, summary?.totalMln ?? 0)}
                             </p>
                           </button>
-                          <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] font-semibold">
-                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">
-                              {summary?.objectCount ?? 0} объектов
+                          {layer.isLocked ? (
+                            <span className="pointer-events-none absolute bottom-3 right-3 rounded-md bg-slate-950 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/90">
+                              locked
                             </span>
-                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">
-                              {summary?.totalMln ?? 0} млн
-                            </span>
-                            {layer.isLocked ? <span className="rounded bg-slate-900 px-1.5 py-0.5 text-white">locked</span> : null}
-                            {isSelected && isLayerEditMode ? (
-                              <span className="ml-auto flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  className="cursor-pointer rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 hover:bg-blue-200"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    editSelectedLayer();
-                                  }}
-                                >
-                                  Настроить
-                                </button>
-                                <button
-                                  type="button"
-                                  className="cursor-pointer rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    deleteSelectedLayer();
-                                  }}
-                                  disabled={!canDeleteSelectedLayer}
-                                  title={
-                                    project.layers.length <= 1
-                                      ? "Минимум 1 эшелон"
-                                      : selectedLayerObjects.length > 0
-                                        ? "В эшелоне есть размещённые объекты. Сначала удалите или перенесите их."
-                                        : "Удалить эшелон"
-                                  }
-                                >
-                                  Удалить
-                                </button>
-                              </span>
-                            ) : null}
-                          </div>
+                          ) : null}
                         </div>
                       );
                     })}
+                  </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      onClick={() => scrollLayerStrip("right")}
+                      disabled={!layerStripState.canScrollRight}
+                      aria-label="Прокрутить эшелоны вправо"
+                    >
+                      <RightOutlined />
+                    </button>
                   </div>
 
                     </>
@@ -1091,6 +1271,7 @@ export function DroneDefensePrototype() {
             state={layerWizardState}
             insertOptions={insertOptions}
             validationMessage={wizardValidation?.message}
+            fieldErrors={wizardValidation?.fieldErrors}
             isValid={Boolean(wizardValidation?.isValid)}
             onSelectInsertPosition={selectWizardInsertPosition}
             onDraftChange={(patch) =>
@@ -1107,6 +1288,20 @@ export function DroneDefensePrototype() {
             onSubmit={saveLayerWizard}
           />
         ) : null}
+        <Modal
+          open={Boolean(pendingLayerDeletion)}
+          title="Удалить эшелон?"
+          onCancel={() => setPendingLayerDeletionId(null)}
+          onOk={confirmLayerDeletion}
+          okText="Удалить"
+          cancelText="Отмена"
+          okButtonProps={{ danger: true }}
+          destroyOnHidden
+        >
+          <p className="text-sm text-slate-600">
+            {pendingLayerDeletion ? `${pendingLayerDeletion.code} · ${pendingLayerDeletion.name}` : "Выбранный эшелон"} будет удалён без возможности восстановления.
+          </p>
+        </Modal>
       </main>
     </div>
   );
@@ -1116,6 +1311,7 @@ type LayerGeometryWizardProps = {
   state: LayerWizardState;
   insertOptions: LayerInsertOption[];
   validationMessage?: string;
+  fieldErrors?: Partial<Record<"name" | "code" | "innerRadiusM" | "widthM" | "geometry", string>>;
   isValid: boolean;
   onSelectInsertPosition: (positionKey: string) => void;
   onDraftChange: (patch: Partial<LayerWizardDraft>) => void;
@@ -1136,6 +1332,7 @@ function LayerGeometryWizard({
   state,
   insertOptions,
   validationMessage,
+  fieldErrors,
   isValid,
   onSelectInsertPosition,
   onDraftChange,
@@ -1211,9 +1408,11 @@ function LayerGeometryWizard({
               {state.mode === "create" ? "Мастер создания" : "Мастер настройки"}
             </p>
             <h3 className="mt-1 text-base font-semibold text-slate-950">
-              {state.mode === "create" ? "+ Эшелон" : "Размеры эшелона"}
+              {state.mode === "create" ? "Создание эшелона" : "Редактирование эшелона"}
             </h3>
-            <p className="mt-1 hidden text-[11px] font-medium text-slate-400 sm:block">Потяните за заголовок, чтобы переместить окно</p>
+            <p className="mt-1 text-[11px] font-medium text-slate-500">
+              {state.mode === "create" ? "Новый эшелон защиты появится в выбранном диапазоне вокруг объекта." : "Обновите код, название и диапазон эшелона без изменения общей модели проекта."}
+            </p>
           </div>
           <button
             type="button"
@@ -1228,7 +1427,7 @@ function LayerGeometryWizard({
           <div className="grid gap-3 sm:grid-cols-2">
             {state.mode === "create" ? (
               <label className="sm:col-span-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Позиция</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Где создать эшелон</span>
                 <select
                   className="mt-1 h-10 w-full cursor-pointer rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-400"
                   value={state.insertPosition}
@@ -1241,6 +1440,7 @@ function LayerGeometryWizard({
                     </option>
                   ))}
                 </select>
+                {fieldErrors?.geometry ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.geometry}</p> : null}
               </label>
             ) : null}
 
@@ -1251,6 +1451,7 @@ function LayerGeometryWizard({
                 value={state.draft.code}
                 onChange={(event) => onDraftChange({ code: event.target.value })}
               />
+              {fieldErrors?.code ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.code}</p> : null}
             </label>
             <label>
               <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Название</span>
@@ -1259,6 +1460,7 @@ function LayerGeometryWizard({
                 value={state.draft.name}
                 onChange={(event) => onDraftChange({ name: event.target.value })}
               />
+              {fieldErrors?.name ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.name}</p> : null}
             </label>
             <label>
               <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Внутренний радиус, км</span>
@@ -1270,6 +1472,7 @@ function LayerGeometryWizard({
                 value={metersToKilometers(state.draft.innerRadiusM)}
                 onChange={(event) => onDraftChange({ innerRadiusM: kilometersToMeters(event.target.value) })}
               />
+              {fieldErrors?.innerRadiusM ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.innerRadiusM}</p> : null}
             </label>
             <label>
               <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Ширина, км</span>
@@ -1281,17 +1484,28 @@ function LayerGeometryWizard({
                 value={metersToKilometers(state.draft.widthM)}
                 onChange={(event) => onDraftChange({ widthM: kilometersToMeters(event.target.value) })}
               />
+              {fieldErrors?.widthM ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.widthM}</p> : null}
             </label>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Preview диапазона</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Диапазон эшелона</p>
             <p className="mt-2 text-2xl font-semibold text-slate-950">
-              {formatDistance(state.draft.innerRadiusM)}-{formatDistance(outerRadiusM)}
+              {formatLayerRange(state.draft.innerRadiusM, outerRadiusM)}
             </p>
-            <p className="mt-1 text-xs text-slate-500">
-              outerRadiusM вычисляется автоматически: {outerRadiusM.toLocaleString("ru-RU")} м
+            <p className="mt-1 text-sm text-slate-500">
+              {formatLayerRange(state.draft.innerRadiusM, outerRadiusM)} от объекта
             </p>
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
+              <div className="h-2 rounded-full bg-slate-100">
+                <div className="h-2 rounded-full bg-gradient-to-r from-sky-400 via-blue-500 to-slate-900" style={{ width: "100%" }} />
+              </div>
+              <div className="mt-3 grid gap-2 text-xs text-slate-600">
+                <p>Внутренний радиус: {formatDistance(state.draft.innerRadiusM)}</p>
+                <p>Ширина кольца: {formatDistance(state.draft.widthM)}</p>
+                <p>Внешний радиус: {formatDistance(outerRadiusM)}</p>
+              </div>
+            </div>
             {validationMessage ? (
               <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
                 {validationMessage}

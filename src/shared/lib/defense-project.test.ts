@@ -31,6 +31,7 @@ import {
   getLayerRadii,
   findLayerInsertOptions,
   getAssetCatalogItems,
+  validateLayerDraft,
   validateLayerGeometry,
   validateObjectPlacement,
 } from "@/shared/lib/defense-project";
@@ -160,6 +161,37 @@ const negativeInnerLayer = {
 };
 const negativeInnerValidation = validateLayerGeometry(project, negativeInnerLayer);
 assert(!negativeInnerValidation.isValid && negativeInnerValidation.message?.toLowerCase().includes("внутренний"), "validateLayerGeometry must reject negative inner radius");
+
+const emptyDraftValidation = validateLayerDraft(project, {
+  name: "   ",
+  code: "   ",
+  innerRadiusM: 120000,
+  widthM: 5000,
+});
+assert(!emptyDraftValidation.isValid, "validateLayerDraft must reject blank name/code");
+assert(emptyDraftValidation.fieldErrors?.name, "validateLayerDraft must explain blank name inline");
+assert(emptyDraftValidation.fieldErrors?.code, "validateLayerDraft must explain blank code inline");
+
+const duplicateDraftValidation = validateLayerDraft(project, {
+  name: "Дубль L2",
+  code: "L2",
+  innerRadiusM: 120000,
+  widthM: 5000,
+});
+assert(!duplicateDraftValidation.isValid, "validateLayerDraft must reject duplicate layer code");
+assert(duplicateDraftValidation.fieldErrors?.code?.toLowerCase().includes("уник"), "duplicate layer code must mention uniqueness");
+
+const editDraftValidation = validateLayerDraft(
+  project,
+  {
+    name: l2.name,
+    code: l2.code,
+    innerRadiusM: 30000,
+    widthM: 30000,
+  },
+  l2.id,
+);
+assert(editDraftValidation.isValid, "validateLayerDraft must allow the current layer to keep its own code");
 
 const editValidation = validateLayerGeometry(project, updateLayerGeometryFromRadii(l2, { innerRadiusM: 30000, widthM: 30000 }), l2.id);
 assert(editValidation.isValid, "validateLayerGeometry must ignore the current layer while editing");

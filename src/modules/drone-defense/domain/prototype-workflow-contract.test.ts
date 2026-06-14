@@ -4,6 +4,7 @@ import { createDefaultDefenseProject } from "@/shared/lib/defense-project";
 import {
   buildWizardLayer,
   formatDistance,
+  formatLayerRange,
   layerInsertOptionKey,
   parseCoordinatePlacementInput,
   projectLayerToMapLayer,
@@ -14,6 +15,9 @@ const project = createDefaultDefenseProject();
 
 assert.equal(formatDistance(500), "500 м");
 assert.equal(formatDistance(2500), "2,5 км");
+assert.equal(formatLayerRange(30000, 60000), "30–60 км");
+assert.equal(formatLayerRange(500, 1500), "0,5–1,5 км");
+assert.equal(formatLayerRange(0, 900), "0–900 м");
 
 const option: LayerInsertOption = {
   kind: "between",
@@ -42,7 +46,7 @@ assert.equal(mapLayer.shortName, "LT");
 assert.deepEqual(mapLayer.distanceBandM, {
   min: 1000,
   max: 3000,
-  label: "1 км-3 км",
+  label: "1–3 км",
 });
 
 const parsed = parseCoordinatePlacementInput({

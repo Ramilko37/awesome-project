@@ -9,9 +9,9 @@ import {
   EnvironmentOutlined,
   ExportOutlined,
   RadarChartOutlined,
-  SaveOutlined,
 } from "@ant-design/icons";
 import { useDefenseStudioStore } from "@/modules/drone-defense/domain/use-defense-studio-store";
+import { VariantSaveButton, VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
 
 type DefenseStudioShellProps = {
   children: React.ReactNode;
@@ -87,9 +87,10 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
             </Link>
           </nav>
           <div className="space-y-2 border-t border-slate-100 px-2 py-3">
-            <button className="flex h-12 w-full items-center justify-center rounded-xl text-lg text-slate-400 hover:bg-slate-100" type="button" title="Сохранить">
-              <SaveOutlined />
-            </button>
+            <VariantSaveButton
+              iconOnly
+              className="flex h-12 w-full items-center justify-center rounded-xl text-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60"
+            />
             <button className="flex h-12 w-full items-center justify-center rounded-xl text-lg text-slate-400 hover:bg-slate-100" type="button" title="Экспорт">
               <ExportOutlined />
             </button>
@@ -113,6 +114,12 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
                 <p className="truncate text-sm font-semibold text-slate-950">{mobileTitle}</p>
                 <p className="truncate text-xs text-slate-500">{mobileSubtitle}</p>
               </div>
+              <div className="ml-auto">
+                <VariantSaveButton />
+              </div>
+            </div>
+            <div className="mt-2">
+              <VariantStatusButton fullWidth />
             </div>
 
             <nav className="mt-2 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">

@@ -35,6 +35,18 @@ export function formatDistance(meters: number): string {
   return `${Math.round(meters).toLocaleString("ru-RU")} м`;
 }
 
+function formatDistanceValue(meters: number, unit: "m" | "km"): string {
+  if (unit === "km") {
+    return (meters / 1000).toLocaleString("ru-RU", { maximumFractionDigits: 1 });
+  }
+  return Math.round(meters).toLocaleString("ru-RU");
+}
+
+export function formatLayerRange(innerRadiusM: number, outerRadiusM: number): string {
+  const unit: "m" | "km" = outerRadiusM >= 1000 ? "km" : "m";
+  return `${formatDistanceValue(innerRadiusM, unit)}–${formatDistanceValue(outerRadiusM, unit)} ${unit === "km" ? "км" : "м"}`;
+}
+
 export function formatWizardRange(option: LayerInsertOption): string {
   const min = formatDistance(option.minInnerRadiusM);
   if (option.maxOuterRadiusM === null) return `от ${min}`;
@@ -85,7 +97,7 @@ export function projectLayerToMapLayer(layer: EditableDefenseLayer): DefenseLaye
     distanceBandM: {
       min: radii.innerRadiusM,
       max: radii.outerRadiusM,
-      label: `${formatDistance(radii.innerRadiusM)}-${formatDistance(radii.outerRadiusM)}`,
+      label: formatLayerRange(radii.innerRadiusM, radii.outerRadiusM),
     },
   };
 }

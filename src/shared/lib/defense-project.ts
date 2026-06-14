@@ -104,6 +104,7 @@ export type LayerGeometryValidationResult = {
   isValid: boolean;
   level: "success" | "warning" | "error";
   message?: string;
+  fieldErrors?: Partial<Record<"name" | "code" | "innerRadiusM" | "widthM" | "geometry", string>>;
   conflicts?: Array<{
     layerId: string;
     layerCode: string;
@@ -357,6 +358,74 @@ function layerRadii(layer: EditableDefenseLayer) {
 
 function layersOverlap(first: LayerRadii, second: LayerRadii) {
   return first.innerRadiusM < second.outerRadiusM && first.outerRadiusM > second.innerRadiusM;
+}
+
+export function validateLayerDraft(
+  project: DefenseProject,
+  draft: { name: string; code: string; innerRadiusM: number; widthM: number },
+  ignoredLayerId?: string,
+): LayerGeometryValidationResult {
+  const fieldErrors: Partial<Record<"name" | "code" | "innerRadiusM" | "widthM" | "geometry", string>> = {};
+  const name = draft.name.trim();
+  const code = draft.code.trim();
+
+  if (!name) {
+    fieldErrors.name = "Введите название эшелона.";
+  }
+  if (!code) {
+    fieldErrors.code = "Введите код эшелона.";
+  } else {
+    const duplicate = project.layers.find(
+      (layer) => layer.id !== ignoredLayerId && layer.code.trim().toLowerCase() === code.toLowerCase(),
+    );
+    if (duplicate) {
+      fieldErrors.code = `Код ${code} уже используется. Код должен быть уникальным.`;
+    }
+  }
+  if (!Number.isFinite(draft.innerRadiusM) || draft.innerRadiusM < 0) {
+    fieldErrors.innerRadiusM = "Внутренний радиус должен быть больше или равен 0.";
+  }
+  if (!Number.isFinite(draft.widthM) || draft.widthM <= 0) {
+    fieldErrors.widthM = "Ширина эшелона должна быть больше 0.";
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return {
+      isValid: false,
+      level: "error",
+      message:
+        fieldErrors.name ??
+        fieldErrors.code ??
+        fieldErrors.innerRadiusM ??
+        fieldErrors.widthM,
+      fieldErrors,
+    };
+  }
+
+  const candidateLayer = createRingLayer(project, {
+    id: ignoredLayerId,
+    name,
+    code,
+    innerRadiusM: draft.innerRadiusM,
+    widthM: draft.widthM,
+    isActive: true,
+  });
+  const geometryValidation = validateLayerGeometry(project, candidateLayer, ignoredLayerId);
+  if (!geometryValidation.isValid) {
+    return {
+      ...geometryValidation,
+      fieldErrors: {
+        ...(geometryValidation.fieldErrors ?? {}),
+        geometry: geometryValidation.message ?? "Проверьте диапазон эшелона.",
+      },
+    };
+  }
+
+  return {
+    isValid: true,
+    level: "success",
+    fieldErrors: {},
+  };
 }
 
 export function validateLayerGeometry(

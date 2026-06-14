@@ -52,10 +52,12 @@ type GisBoardProps = {
   mapLayers: DefenseLayer[];
   previewLayer?: DefenseLayer | null;
   selectedLayerId: string;
+  hoveredLayerId?: string | null;
   selectedSlotId: string | null;
   activeToolId: string | null;
   placementHint: string;
   onSelectLayer: (layerId: string) => void;
+  onHoverLayerChange?: (layerId: string | null) => void;
   onSelectSlot: (slot: EchelonMapSlot) => void;
   onSelectTool: (groupId: string) => void;
   onPlaceActiveTool?: (coordinate: { lng: number; lat: number }) => void;
@@ -165,10 +167,12 @@ export function GisBoard({
   mapLayers,
   previewLayer,
   selectedLayerId,
+  hoveredLayerId = null,
   selectedSlotId,
   activeToolId,
   placementHint,
   onSelectLayer,
+  onHoverLayerChange,
   onSelectSlot,
   onSelectTool,
   onPlaceActiveTool,
@@ -467,18 +471,23 @@ export function GisBoard({
         ...echelonModel.zones.flatMap((zone) => {
           const layerSlug = zone.shortName.toLowerCase();
           const isActive = zone.layerId === selectedLayerId;
+          const isHoveredLayer = zone.layerId === hoveredLayerId;
           const isPreview = previewLayer?.id === zone.layerId;
           const zoneLayer = visibleMapLayers.find((layer) => layer.id === zone.layerId);
           const isFilledDiskZone = (zoneLayer?.distanceBandM.min ?? 0) <= 0;
           const zoneFillColor = (item: EchelonZone) =>
             isPreview
               ? ([14, 165, 233, 54] as [number, number, number, number])
+              : isHoveredLayer
+                ? ([item.fillColor[0], item.fillColor[1], item.fillColor[2], Math.max(item.fillColor[3], 168)] as [number, number, number, number])
               : isActive
                 ? ([item.fillColor[0], item.fillColor[1], item.fillColor[2], Math.max(item.fillColor[3], 132)] as [number, number, number, number])
                 : ([item.fillColor[0], item.fillColor[1], item.fillColor[2], 0] as [number, number, number, number]);
           const zoneLineColor = () =>
             isPreview
               ? ([2, 132, 199, 245] as [number, number, number, number])
+              : isHoveredLayer
+                ? ([255, 255, 255, 255] as [number, number, number, number])
               : isActive
                 ? ([15, 23, 42, 255] as [number, number, number, number])
                 : ([100, 116, 139, 95] as [number, number, number, number]);
@@ -488,11 +497,14 @@ export function GisBoard({
             onSelectLayer(object.layerId);
           };
           const handleZoneHover = (object: EchelonZone | null | undefined) =>
-            setHoverLabel(
-              object
-                ? `${object.shortName}: ${object.name}, ${object.distanceLabel}`
-                : null,
-            );
+            {
+              onHoverLayerChange?.(object?.layerId ?? null);
+              setHoverLabel(
+                object
+                  ? `${object.shortName}: ${object.name}, ${object.distanceLabel}`
+                  : null,
+              );
+            };
           const handleSlotClick = (object: EchelonMapSlot | null | undefined) => {
             if (!object) return;
 
@@ -511,7 +523,7 @@ export function GisBoard({
                   radiusUnits: "meters",
                   getFillColor: zoneFillColor,
                   getLineColor: zoneLineColor,
-                  getLineWidth: () => (isPreview ? 3 : isActive ? 4 : 1.5),
+                  getLineWidth: () => (isPreview ? 3 : isHoveredLayer ? 5 : isActive ? 4 : 1.5),
                   lineWidthUnits: "pixels",
                   onClick: ({ object }) => handleZoneClick(object),
                   onHover: ({ object }) => handleZoneHover(object),
@@ -526,7 +538,7 @@ export function GisBoard({
                   getPolygon: (item) => item.polygon,
                   getFillColor: zoneFillColor,
                   getLineColor: zoneLineColor,
-                  getLineWidth: () => (isPreview ? 3 : isActive ? 4 : 1.5),
+                  getLineWidth: () => (isPreview ? 3 : isHoveredLayer ? 5 : isActive ? 4 : 1.5),
                   lineWidthUnits: "pixels",
                   onClick: ({ object }) => handleZoneClick(object),
                   onHover: ({ object }) => handleZoneHover(object),
@@ -627,6 +639,7 @@ export function GisBoard({
           },
           onHover: ({ object }) => {
             setHoveredPlacementId(object ? object.id.split(":")[0] : null);
+            onHoverLayerChange?.(object?.layerId ?? null);
             setHoverLabel(
               object
                 ? `${object.label} · ${visibleMapLayers.find((layer) => layer.id === object.layerId)?.shortName ?? ""}`
@@ -698,9 +711,11 @@ export function GisBoard({
       onSelectLayer,
       onSelectPlacement,
       onSelectSlot,
+      onHoverLayerChange,
       previewLayer,
       visibleMapLayers,
       resolveMarkerState,
+      hoveredLayerId,
       selectedFacility?.center.lat,
       selectedFacility?.center.lon,
       selectedLayerId,
@@ -843,6 +858,7 @@ export function GisBoard({
               }}
               onHover={(nextPlacement) => {
                 setHoveredPlacementId(nextPlacement?.id ?? null);
+                onHoverLayerChange?.(nextPlacement?.layerId ?? null);
                 setHoverLabel(nextPlacement ? nextPlacement.label : null);
               }}
             />

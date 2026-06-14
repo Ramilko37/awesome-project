@@ -1,30 +1,44 @@
 "use client";
 
 import { useState } from "react";
+import { SaveOutlined } from "@ant-design/icons";
 import { Button, theme } from "antd";
 import { useDefenseVariantsStore } from "@/modules/drone-defense/domain/use-defense-variants-store";
 import { VariantsModal } from "@/modules/drone-defense/ui/variants-modal";
 
-export function VariantSelector() {
+function useVariantMeta() {
   const { token } = theme.useToken();
   const { activeVariantId, activeVariantName, saveStatus, overwriteActiveVariant } =
     useDefenseVariantsStore();
-  const [open, setOpen] = useState(false);
 
   const isDraft = !activeVariantId;
   const saving = saveStatus === "saving";
   const label = isDraft ? "Черновик (не сохранён)" : activeVariantName;
   const dotColor = isDraft ? token.colorWarning : token.colorSuccess;
 
+  return {
+    token,
+    activeVariantId,
+    activeVariantName,
+    saveStatus,
+    overwriteActiveVariant,
+    isDraft,
+    saving,
+    label,
+    dotColor,
+  };
+}
+
+export function VariantStatusButton({
+  fullWidth = false,
+}: {
+  fullWidth?: boolean;
+}) {
+  const { token, isDraft, label, dotColor } = useVariantMeta();
+  const [open, setOpen] = useState(false);
+
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: token.marginXS,
-        flexWrap: "wrap",
-      }}
-    >
+    <>
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -35,17 +49,19 @@ export function VariantSelector() {
           display: "inline-flex",
           alignItems: "center",
           gap: token.marginXS,
+          width: fullWidth ? "100%" : undefined,
+          justifyContent: fullWidth ? "space-between" : undefined,
           minWidth: 0,
-          maxWidth: 200,
-          height: token.controlHeightSM,
+          maxWidth: fullWidth ? undefined : 200,
+          height: token.controlHeight,
           paddingInline: token.paddingSM,
           background: token.colorFillQuaternary,
           border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: token.borderRadius,
+          borderRadius: token.borderRadiusLG,
           color: token.colorText,
           cursor: "pointer",
           font: "inherit",
-          fontSize: token.fontSizeSM,
+          fontSize: token.fontSize,
           lineHeight: 1,
           transition: `border-color ${token.motionDurationMid}, background ${token.motionDurationMid}`,
         }}
@@ -72,6 +88,7 @@ export function VariantSelector() {
         <span
           style={{
             minWidth: 0,
+            flex: 1,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -88,20 +105,74 @@ export function VariantSelector() {
           ▾
         </span>
       </button>
+      <VariantsModal open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
 
-      <Button
-        size="small"
-        type="primary"
-        disabled={isDraft || saving}
-        loading={saving}
-        onClick={() => void overwriteActiveVariant()}
-      >
-        Сохранить
-      </Button>
-      <Button size="small" onClick={() => setOpen(true)}>
+export function VariantSaveButton({
+  iconOnly = false,
+  className,
+}: {
+  iconOnly?: boolean;
+  className?: string;
+}) {
+  const { activeVariantName, overwriteActiveVariant, isDraft, saving } = useVariantMeta();
+  const [open, setOpen] = useState(false);
+
+  const handleSave = () => {
+    if (isDraft) {
+      setOpen(true);
+      return;
+    }
+    void overwriteActiveVariant();
+  };
+
+  return (
+    <>
+      {iconOnly ? (
+        <button
+          className={className}
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          title={
+            isDraft
+              ? "Сохранить карту как новый вариант"
+              : `Сохранить вариант «${activeVariantName ?? "текущий"}»`
+          }
+          aria-label={isDraft ? "Сохранить карту как новый вариант" : "Сохранить текущий вариант"}
+        >
+          <SaveOutlined />
+        </button>
+      ) : (
+        <Button type="primary" onClick={handleSave} loading={saving}>
+          Сохранить
+        </Button>
+      )}
+      <VariantsModal open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
+export function VariantSelector() {
+  const { saving } = useVariantMeta();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        flexWrap: "wrap",
+      }}
+    >
+      <VariantStatusButton />
+      <VariantSaveButton />
+      <Button size="small" onClick={() => setOpen(true)} disabled={saving}>
         Сохранить как…
       </Button>
-
       <VariantsModal open={open} onClose={() => setOpen(false)} />
     </div>
   );

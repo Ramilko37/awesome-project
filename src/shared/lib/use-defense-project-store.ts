@@ -19,6 +19,7 @@ import {
   setAssetQuantityInProject,
   syncPlacedObjectConflictFlags,
   transferPlacedObjectToLayerInProject,
+  validateLayerDraft,
   updateLayerGeometryFromRadii,
   updateLayerOrder,
   updatePlacedObjectInProject,
@@ -60,6 +61,10 @@ type DefenseProjectState = {
   selectedObjectId?: string;
   createLayer: (data: Partial<EditableDefenseLayer>) => void;
   createLayerFromDraft: (
+    draft: Partial<EditableDefenseLayer> & { innerRadiusM: number; widthM: number },
+  ) => { ok: true; layer: EditableDefenseLayer } | { ok: false; validation: LayerGeometryValidationResult };
+  updateLayerFromDraft: (
+    layerId: string,
     draft: Partial<EditableDefenseLayer> & { innerRadiusM: number; widthM: number },
   ) => { ok: true; layer: EditableDefenseLayer } | { ok: false; validation: LayerGeometryValidationResult };
   updateLayer: (layerId: string, patch: Partial<EditableDefenseLayer>) => void;
@@ -222,9 +227,19 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
           },
         };
       }
-      const layer = createRingLayer(get().project, { ...draft, isActive: true });
-      const validation = validateLayerGeometry(get().project, layer);
+      const validation = validateLayerDraft(get().project, {
+        name: draft.name ?? "",
+        code: draft.code ?? "",
+        innerRadiusM: draft.innerRadiusM,
+        widthM: draft.widthM,
+      });
       if (!validation.isValid) return { ok: false, validation };
+      const layer = createRingLayer(get().project, {
+        ...draft,
+        name: draft.name?.trim(),
+        code: draft.code?.trim(),
+        isActive: true,
+      });
       const project = {
         ...get().project,
         layers: [
@@ -236,6 +251,55 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
       };
       applyProject(project, set);
       return { ok: true, layer };
+    },
+    updateLayerFromDraft: (layerId, draft) => {
+      if (!canEditLayer(get().project, layerId)) {
+        return {
+          ok: false,
+          validation: {
+            isValid: false,
+            level: "error",
+            message: "Эшелон заблокирован. Сначала снимите блокировку.",
+          },
+        };
+      }
+      const layer = get().project.layers.find((item) => item.id === layerId);
+      if (!layer) {
+        return {
+          ok: false,
+          validation: {
+            isValid: false,
+            level: "error",
+            message: "Эшелон не найден.",
+          },
+        };
+      }
+      const validation = validateLayerDraft(
+        get().project,
+        {
+          name: draft.name ?? layer.name,
+          code: draft.code ?? layer.code,
+          innerRadiusM: draft.innerRadiusM,
+          widthM: draft.widthM,
+        },
+        layerId,
+      );
+      if (!validation.isValid) return { ok: false, validation };
+      const updatedLayer = {
+        ...updateLayerGeometryFromRadii(layer, {
+          innerRadiusM: draft.innerRadiusM,
+          widthM: draft.widthM,
+        }),
+        name: (draft.name ?? layer.name).trim(),
+        code: (draft.code ?? layer.code).trim(),
+      };
+      const project = syncPlacedObjectConflictFlags({
+        ...get().project,
+        layers: get().project.layers.map((item) => (item.id === layerId ? updatedLayer : item)),
+        updatedAt: new Date().toISOString(),
+      });
+      applyProject(project, set);
+      return { ok: true, layer: updatedLayer };
     },
     updateLayer: (layerId, patch) => {
       if (!canEditLayer(get().project, layerId)) return;

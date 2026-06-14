@@ -177,6 +177,22 @@ const draftRejected = useDefenseProjectStore.getState().createLayerFromDraft({
 assert(!draftRejected.ok, "createLayerFromDraft must reject overlapping geometry");
 assert(!useDefenseProjectStore.getState().project.layers.some((layer) => layer.code === "LO"), "rejected draft must not mutate project");
 
+const duplicateDraft = useDefenseProjectStore.getState().createLayerFromDraft({
+  name: "Дублирующий код",
+  code: "L2",
+  innerRadiusM: 150000,
+  widthM: 5000,
+});
+assert(!duplicateDraft.ok, "createLayerFromDraft must reject duplicate layer codes");
+
+const blankDraft = useDefenseProjectStore.getState().createLayerFromDraft({
+  name: "   ",
+  code: "   ",
+  innerRadiusM: 150000,
+  widthM: 5000,
+});
+assert(!blankDraft.ok, "createLayerFromDraft must reject blank layer name/code");
+
 const l2ForEdit = useDefenseProjectStore.getState().project.layers.find((layer) => layer.code === "L2");
 assert(l2ForEdit, "store project must include L2 before geometry edit");
 const editResult = useDefenseProjectStore.getState().updateLayerGeometry(l2ForEdit.id, {
