@@ -1,400 +1,649 @@
 "use client";
 
-import { DragOutlined } from "@ant-design/icons";
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { AlertTriangle, Info, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  buildMogCoverageInputMap,
+  buildMogCostSummary,
+  clampMogAzimuth,
+  clampMogSector,
+  formatMogMoney,
+  formatMogOption,
+  formatMogRange,
+  hasMogErrors,
+  isMogDirty,
+  MOG_ACCOUNTABILITY_OPTIONS,
+  MOG_POST_TYPE_OPTIONS,
+  type MogCoverageInputMap,
+  parseMogCount,
+  sanitizeMogCountInput,
+  syncMogDraft,
+  validateMogDraft,
+} from "@/modules/drone-defense/domain/mog-editor";
+import {
+  getVisibleMogCoverageWeapons,
+  MOG_WEAPON_COVERAGE_COLORS,
+} from "@/modules/drone-defense/domain/mog-coverage";
 import type { DefenseAsset, PlacedDefenseObject } from "@/shared/types/defense-project";
-import type {
-  MogEquipmentId,
-  MogEquipmentItem,
-  MogWeaponId,
-  MogWeaponItem,
-  PlacedDefenseCompoundProfile,
-} from "@/shared/types/defense-configuration";
+import type { MogEquipmentId, MogWeaponId, PlacedDefenseCompoundProfile } from "@/shared/types/defense-configuration";
 
 type MogCompositionEditorProps = {
+  objectId: string;
   asset: DefenseAsset;
   layerLabel: string;
   profile: PlacedDefenseCompoundProfile;
-  onChange: (patch: Partial<PlacedDefenseObject>) => void;
-  onClose: () => void;
+  onPreviewChange: (patch: Partial<PlacedDefenseObject>) => void;
+  onSave: (patch: Partial<PlacedDefenseObject>) => void;
+  onCancel: (patch: Partial<PlacedDefenseObject>) => void;
 };
 
-const editorMaxSize = 720;
-const editorViewportInset = 16;
-const editorSquareSize = `min(${editorMaxSize}px, calc(100vw - 2rem), calc(100vh - 2rem))`;
-
-const postTypeOptions = ["МОГ", "ПВН", "ГОР", "КПП", "Другой пост"];
-const accountabilityOptions = ["Росгвардия", "МО", "ЧОП"];
-const sectorWidthOptions = [90, 180, 360];
-
-const defaultEquipment: MogEquipmentItem[] = [
-  { id: "binoculars", label: "Бинокль", quantity: "2" },
-  { id: "nightVision", label: "Прибор ночного видения", quantity: "1" },
-  { id: "vehicle", label: "Автомобиль", quantity: "1" },
-  { id: "searchlight", label: "Прожектор", quantity: "1" },
-  { id: "droneDetectors", label: "Детекторы дронов", quantity: "1" },
-];
-
-const defaultWeapons: MogWeaponItem[] = [
-  { id: "firearms", label: "Огнестрел", quantity: "2", rangeM: 8000 },
-  { id: "antiDroneRifles", label: "Антидроновые ружья", quantity: "1", rangeM: 2000 },
-  { id: "interceptorDrones", label: "Дроны-перехватчики", quantity: "0", rangeM: 5000 },
-];
-
-function formatCost(pricePerUnitMln: number | null): string {
-  if (pricePerUnitMln === null) return "без CAPEX";
-  return `Базовая стоимость поста: ${pricePerUnitMln.toLocaleString("ru-RU")} млн ₽/шт`;
-}
-
-function clampAzimuth(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  const normalized = value % 360;
-  return normalized < 0 ? normalized + 360 : normalized;
-}
-
-function sanitizeCount(value: string): string {
-  const sanitized = value.replace(/\D/g, "");
-  return sanitized === "" ? "0" : sanitized;
-}
-
-function formatRange(rangeM: number): string {
-  return rangeM >= 1000 ? `${rangeM / 1000} км` : `${rangeM} м`;
-}
-
-function coverageLabelForWeapon(weapon: MogWeaponItem | undefined, sectorWidthDeg: number): string {
-  return weapon ? `до ${formatRange(weapon.rangeM)}, сектор ${sectorWidthDeg}°` : `сектор ${sectorWidthDeg}°`;
-}
-
-function mergeRows<T extends { id: string }>(defaults: T[], rows: T[] | undefined): T[] {
-  const rowsById = new Map((rows ?? []).map((row) => [row.id, row]));
-  return defaults.map((row) => ({ ...row, ...rowsById.get(row.id) }));
-}
-
-function quantityNumber(value: string | undefined): number {
-  return Number(value ?? 0) || 0;
-}
-
-function getInitialDragPosition() {
-  if (typeof window === "undefined") {
-    return { left: editorViewportInset, top: editorViewportInset };
-  }
-  const size = Math.min(
-    editorMaxSize,
-    Math.max(0, window.innerWidth - editorViewportInset * 2),
-    Math.max(0, window.innerHeight - editorViewportInset * 2),
+function EditorSection({
+  title,
+  eyebrow,
+  tone = "default",
+  children,
+}: {
+  title: string;
+  eyebrow?: string;
+  tone?: "default" | "muted" | "accent";
+  children: ReactNode;
+}) {
+  return (
+    <section
+      className={cn(
+        "rounded-3xl border p-4 sm:p-5",
+        tone === "accent" && "border-amber-200 bg-amber-50/80",
+        tone === "muted" && "border-slate-200 bg-white",
+        tone === "default" && "border-slate-200 bg-slate-50/85",
+      )}
+    >
+      <div className="mb-4">
+        {eyebrow ? <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p> : null}
+        <h3 className="mt-1 text-sm font-semibold text-slate-950">{title}</h3>
+      </div>
+      {children}
+    </section>
   );
-  return {
-    left: Math.max(editorViewportInset, window.innerWidth - size - editorViewportInset),
-    top: editorViewportInset,
-  };
 }
 
-export function MogCompositionEditor({ asset, layerLabel, profile, onChange, onClose }: MogCompositionEditorProps) {
-  const equipment = mergeRows(defaultEquipment, profile.equipment);
-  const weapons = mergeRows(defaultWeapons, profile.weapons);
-  const sectorWidthDeg = profile.sectorWidthDeg ?? 90;
-  const firstActiveWeapon = weapons.find((weapon) => quantityNumber(weapon.quantity) > 0) ?? weapons[0];
-  const coverageWeaponId = profile.coverageWeaponId ?? firstActiveWeapon.id;
-  const coverageWeapon = weapons.find((weapon) => weapon.id === coverageWeaponId) ?? firstActiveWeapon;
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="text-xs font-medium text-rose-600">{message}</p>;
+}
 
-  const updateField = (patch: Partial<PlacedDefenseCompoundProfile>) => {
-    onChange({ compoundProfile: { ...profile, equipment, weapons, sectorWidthDeg, coverageWeaponId, ...patch } });
-  };
+function Stepper({
+  value,
+  onDecrease,
+  onIncrease,
+  ariaLabel,
+}: {
+  value: number;
+  onDecrease: () => void;
+  onIncrease: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1">
+      <button
+        type="button"
+        onClick={onDecrease}
+        disabled={value <= 0}
+        aria-label={`${ariaLabel}: уменьшить`}
+        className="grid h-9 w-9 place-items-center rounded-full text-lg text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+      >
+        −
+      </button>
+      <output
+        aria-label={`${ariaLabel}: текущее значение`}
+        className="min-w-10 text-center text-sm font-semibold text-slate-950"
+      >
+        {value}
+      </output>
+      <button
+        type="button"
+        onClick={onIncrease}
+        aria-label={`${ariaLabel}: увеличить`}
+        className="grid h-9 w-9 place-items-center rounded-full text-lg text-slate-700 transition hover:bg-slate-100"
+      >
+        +
+      </button>
+    </div>
+  );
+}
 
-  const updateAzimuth = (value: string) => {
-    const numeric = Number(value.replace(",", "."));
-    updateField({ azimuth: clampAzimuth(numeric) });
-  };
-
-  const updateEquipmentQuantity = (id: MogEquipmentId, value: string) => {
-    updateField({
-      equipment: equipment.map((item) => (item.id === id ? { ...item, quantity: sanitizeCount(value) } : item)),
-    });
-  };
-
-  const updateWeaponQuantity = (id: MogWeaponId, value: string) => {
-    const nextWeapons = weapons.map((item) => (item.id === id ? { ...item, quantity: sanitizeCount(value) } : item));
-    const nextCoverageWeapon = nextWeapons.find((item) => item.id === coverageWeaponId) ?? coverageWeapon;
-    updateField({
-      weapons: nextWeapons,
-      armament: nextCoverageWeapon.label,
-      weaponUnits: nextCoverageWeapon.quantity,
-      sectorOrRange: coverageLabelForWeapon(nextCoverageWeapon, sectorWidthDeg),
-    });
-  };
-
-  const updateCoverageWeapon = (id: MogWeaponId) => {
-    const nextWeapons = weapons.map((item) =>
-      item.id === id && quantityNumber(item.quantity) === 0 ? { ...item, quantity: "1" } : item,
-    );
-    const nextCoverageWeapon = nextWeapons.find((item) => item.id === id);
-    updateField({
-      weapons: nextWeapons,
-      coverageWeaponId: id,
-      armament: nextCoverageWeapon?.label ?? profile.armament,
-      weaponUnits: nextCoverageWeapon?.quantity ?? profile.weaponUnits,
-      sectorOrRange: coverageLabelForWeapon(nextCoverageWeapon, sectorWidthDeg),
-    });
-  };
-
-  const updateSectorWidth = (value: string) => {
-    const nextSectorWidth = Math.min(360, Math.max(1, Number(value) || 90));
-    updateField({
-      sectorWidthDeg: nextSectorWidth,
-      sectorOrRange: coverageLabelForWeapon(coverageWeapon, nextSectorWidth),
-    });
-  };
-
-  const editorRef = useRef<HTMLDivElement | null>(null);
-  const dragState = useRef<{ startX: number; startY: number; startLeft: number; startTop: number } | null>(null);
-  const [dragPosition, setDragPosition] = useState(getInitialDragPosition);
-  const [isDragging, setIsDragging] = useState(false);
+export function MogCompositionEditor({
+  objectId,
+  asset,
+  layerLabel,
+  profile,
+  onPreviewChange,
+  onSave,
+  onCancel,
+}: MogCompositionEditorProps) {
+  const initialProfile = syncMogDraft(profile);
+  const lastObjectIdRef = useRef(objectId);
+  const [baselineProfile, setBaselineProfile] = useState(initialProfile);
+  const [draft, setDraft] = useState(initialProfile);
+  const [coverageInputs, setCoverageInputs] = useState<MogCoverageInputMap>(() =>
+    buildMogCoverageInputMap(initialProfile),
+  );
 
   useEffect(() => {
-    const handleResize = () => {
-      const editor = editorRef.current;
-      const fallbackSize = Math.min(
-        editorMaxSize,
-        Math.max(0, window.innerWidth - editorViewportInset * 2),
-        Math.max(0, window.innerHeight - editorViewportInset * 2),
+    if (lastObjectIdRef.current === objectId) return;
+    lastObjectIdRef.current = objectId;
+    const nextInitialProfile = syncMogDraft(profile);
+    setBaselineProfile(nextInitialProfile);
+    setDraft(nextInitialProfile);
+    setCoverageInputs(buildMogCoverageInputMap(nextInitialProfile));
+  }, [objectId, profile]);
+
+  const costSummary = useMemo(() => buildMogCostSummary(asset), [asset]);
+  const visibleCoverageWeapons = useMemo(() => getVisibleMogCoverageWeapons(draft), [draft]);
+  const visibleCoverageWeaponIds = useMemo(
+    () => new Set(visibleCoverageWeapons.map((weapon) => weapon.id)),
+    [visibleCoverageWeapons],
+  );
+  const errors = useMemo(
+    () =>
+      validateMogDraft({
+        draft,
+        coverageInputs,
+      }),
+    [coverageInputs, draft],
+  );
+  const hasErrors = hasMogErrors(errors);
+  const isDirty = isMogDirty(baselineProfile, draft);
+
+  const applyDraft = (updater: (current: PlacedDefenseCompoundProfile) => PlacedDefenseCompoundProfile) => {
+    setDraft((current) => {
+      const next = syncMogDraft(updater(current));
+      setCoverageInputs(buildMogCoverageInputMap(next));
+      onPreviewChange({ compoundProfile: next });
+      return next;
+    });
+  };
+
+  const setCoverageInputValue = (
+    weaponId: MogWeaponId,
+    patch: Partial<NonNullable<MogCoverageInputMap[MogWeaponId]>>,
+  ) => {
+    setCoverageInputs((current) => ({
+      ...current,
+      [weaponId]: {
+        ...current[weaponId],
+        ...patch,
+      },
+    }));
+  };
+
+  const handleEquipmentStep = (id: MogEquipmentId, delta: number) => {
+    applyDraft((current) => ({
+      ...current,
+      equipment: current.equipment?.map((item) =>
+        item.id === id ? { ...item, quantity: String(Math.max(0, parseMogCount(item.quantity) + delta)) } : item,
+      ),
+    }));
+  };
+
+  const handleWeaponStep = (id: MogWeaponId, delta: number) => {
+    applyDraft((current) => {
+      const nextWeapons = current.weapons?.map((item) =>
+        item.id === id ? { ...item, quantity: String(Math.max(0, parseMogCount(item.quantity) + delta)) } : item,
       );
-      const width = editor?.getBoundingClientRect().width ?? fallbackSize;
-      const height = editor?.getBoundingClientRect().height ?? fallbackSize;
-      const maxLeft = Math.max(editorViewportInset, window.innerWidth - width - editorViewportInset);
-      const maxTop = Math.max(editorViewportInset, window.innerHeight - height - editorViewportInset);
+      const nextVisibleCoverageWeaponIds = (current.visibleCoverageWeaponIds ?? []).filter((weaponId) => {
+        const weapon = nextWeapons?.find((item) => item.id === weaponId);
+        return Boolean(weapon && parseMogCount(weapon.quantity) > 0);
+      });
+      return {
+        ...current,
+        weapons: nextWeapons,
+        visibleCoverageWeaponIds: nextVisibleCoverageWeaponIds,
+      };
+    });
+  };
 
-      setDragPosition((current) => ({
-        left: Math.min(Math.max(current.left, editorViewportInset), maxLeft),
-        top: Math.min(Math.max(current.top, editorViewportInset), maxTop),
+  const handleCoverageToggle = (id: MogWeaponId) => {
+    const selectedWeapon = draft.weapons?.find((item) => item.id === id);
+    if (!selectedWeapon || parseMogCount(selectedWeapon.quantity) === 0) return;
+    applyDraft((current) => {
+      const currentVisible = new Set(current.visibleCoverageWeaponIds ?? []);
+      const nextVisible = new Set(currentVisible);
+      if (nextVisible.has(id)) {
+        nextVisible.delete(id);
+      } else {
+        nextVisible.add(id);
+      }
+
+      const nextVisibleCoverageWeaponIds = (current.weapons ?? [])
+        .map((weapon) => weapon.id)
+        .filter((weaponId) => nextVisible.has(weaponId));
+
+      return {
+        ...current,
+        coverageWeaponId: id,
+        visibleCoverageWeaponIds: nextVisibleCoverageWeaponIds,
+      };
+    });
+  };
+
+  const handleWeaponAzimuthInput = (weaponId: MogWeaponId, value: string) => {
+    setCoverageInputValue(weaponId, { azimuth: value });
+    const parsed = Number(value.replace(",", "."));
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 359) return;
+    applyDraft((current) => ({
+      ...current,
+      weapons: current.weapons?.map((weapon) =>
+        weapon.id === weaponId ? { ...weapon, coverageAzimuth: clampMogAzimuth(parsed) } : weapon,
+      ),
+    }));
+  };
+
+  const commitWeaponAzimuthInput = (weaponId: MogWeaponId) => {
+    const weapon = draft.weapons?.find((item) => item.id === weaponId);
+    if (!weapon) return;
+    const parsed = Number((coverageInputs[weaponId]?.azimuth ?? "").replace(",", "."));
+    const nextValue =
+      Number.isInteger(parsed) && parsed >= 0 && parsed <= 359
+        ? clampMogAzimuth(parsed)
+        : clampMogAzimuth(weapon.coverageAzimuth ?? draft.azimuth);
+    setCoverageInputValue(weaponId, { azimuth: String(nextValue) });
+    if (nextValue !== (weapon.coverageAzimuth ?? draft.azimuth)) {
+      applyDraft((current) => ({
+        ...current,
+        weapons: current.weapons?.map((item) =>
+          item.id === weaponId ? { ...item, coverageAzimuth: nextValue } : item,
+        ),
       }));
-    };
+    }
+  };
 
-    window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
+  const handleWeaponSectorInput = (weaponId: MogWeaponId, value: string) => {
+    setCoverageInputValue(weaponId, { sectorWidthDeg: value });
+    const parsed = Number(value.replace(",", "."));
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 360) return;
+    applyDraft((current) => ({
+      ...current,
+      weapons: current.weapons?.map((weapon) =>
+        weapon.id === weaponId ? { ...weapon, coverageSectorWidthDeg: clampMogSector(parsed) } : weapon,
+      ),
+    }));
+  };
 
-  useEffect(() => {
-    if (!isDragging) return;
+  const commitWeaponSectorInput = (weaponId: MogWeaponId) => {
+    const weapon = draft.weapons?.find((item) => item.id === weaponId);
+    if (!weapon) return;
+    const parsed = Number((coverageInputs[weaponId]?.sectorWidthDeg ?? "").replace(",", "."));
+    const nextValue =
+      Number.isInteger(parsed) && parsed >= 1 && parsed <= 360
+        ? clampMogSector(parsed)
+        : clampMogSector(weapon.coverageSectorWidthDeg ?? draft.sectorWidthDeg ?? 90);
+    setCoverageInputValue(weaponId, { sectorWidthDeg: String(nextValue) });
+    if (nextValue !== (weapon.coverageSectorWidthDeg ?? draft.sectorWidthDeg ?? 90)) {
+      applyDraft((current) => ({
+        ...current,
+        weapons: current.weapons?.map((item) =>
+          item.id === weaponId ? { ...item, coverageSectorWidthDeg: nextValue } : item,
+        ),
+      }));
+    }
+  };
 
-    const handlePointerMove = (event: PointerEvent) => {
-      if (!dragState.current) return;
-      const editor = editorRef.current;
-      if (!editor) return;
+  const handleCancel = () => {
+    onCancel({ compoundProfile: baselineProfile });
+  };
 
-      const width = editor.getBoundingClientRect().width;
-      const height = editor.getBoundingClientRect().height;
-      const maxLeft = Math.max(editorViewportInset, window.innerWidth - width - editorViewportInset);
-      const maxTop = Math.max(editorViewportInset, window.innerHeight - height - editorViewportInset);
-      const nextLeft = Math.min(Math.max(dragState.current.startLeft + (event.clientX - dragState.current.startX), editorViewportInset), maxLeft);
-      const nextTop = Math.min(Math.max(dragState.current.startTop + (event.clientY - dragState.current.startY), editorViewportInset), maxTop);
-
-      setDragPosition({ left: nextLeft, top: nextTop });
-    };
-
-    const stopDrag = () => {
-      setIsDragging(false);
-      dragState.current = null;
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", stopDrag);
-    window.addEventListener("pointercancel", stopDrag);
-
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", stopDrag);
-      window.removeEventListener("pointercancel", stopDrag);
-    };
-  }, [isDragging]);
-
-  const handleDragStart = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-
-    dragState.current = {
-      startX: event.clientX,
-      startY: event.clientY,
-      startLeft: dragPosition.left,
-      startTop: dragPosition.top,
-    };
-    setIsDragging(true);
+  const handleSave = () => {
+    if (hasErrors) return;
+    const finalizedDraft = syncMogDraft({
+      ...draft,
+      personnelCount: sanitizeMogCountInput(draft.personnelCount),
+    });
+    onSave({ compoundProfile: finalizedDraft });
   };
 
   return (
-    <aside
-      ref={editorRef}
-      className="pointer-events-none fixed z-30 overflow-hidden rounded-lg border border-slate-200 bg-white/95 p-3 shadow-2xl shadow-slate-900/20 backdrop-blur"
-      style={{ left: dragPosition.left, top: dragPosition.top, width: editorSquareSize, height: editorSquareSize }}
-    >
-      <div className="pointer-events-auto flex h-full min-h-0 flex-col">
-        <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
-          <button
-            type="button"
-            title="Перетащить редактор"
-            onPointerDown={handleDragStart}
-            onClick={(event) => event.preventDefault()}
-            className={`flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md pr-1 text-left select-none ${
-              isDragging ? "cursor-grabbing" : "cursor-grab"
-            }`}
-          >
-            <DragOutlined className="shrink-0 text-slate-400" />
-            <span className="min-w-0">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-500">Редактор МОГ</span>
-              <span className="block truncate text-sm font-semibold text-slate-950">Верхний уровень настроек</span>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-slate-100 text-sm font-bold text-slate-600 transition hover:bg-slate-200"
-            aria-label="Закрыть редактор МОГ"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          <section className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-            <p className="font-semibold">Средство: {asset.name}</p>
-            <p className="mt-1 text-slate-500">Пометка эшелона: {layerLabel}</p>
-            <p className="mt-1 text-slate-500">{formatCost(asset.pricePerUnitMln)}</p>
-          </section>
-
-          <section className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
-            <label className="grid gap-1 text-xs font-semibold text-slate-600">
-              Тип поста
-              <select
-                value={postTypeOptions.includes(profile.postType) ? profile.postType : postTypeOptions[0]}
-                onChange={(event) => updateField({ postType: event.target.value })}
-                className="h-10 rounded-md border border-slate-200 bg-white px-2 text-sm outline-none focus:border-blue-400"
-              >
-                {postTypeOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs font-semibold text-slate-600">
-              Количество личного состава
-              <input
-                type="number"
-                min={0}
-                step={1}
-                inputMode="numeric"
-                value={sanitizeCount(profile.personnelCount)}
-                onChange={(event) => updateField({ personnelCount: sanitizeCount(event.target.value) })}
-                className="h-10 rounded-md border border-slate-200 bg-white px-2 text-sm outline-none focus:border-blue-400"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-semibold text-slate-600">
-              Подотчётность
-              <select
-                value={accountabilityOptions.includes(profile.accountability) ? profile.accountability : accountabilityOptions[0]}
-                onChange={(event) => updateField({ accountability: event.target.value })}
-                className="h-10 rounded-md border border-slate-200 bg-white px-2 text-sm outline-none focus:border-blue-400"
-              >
-                {accountabilityOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </section>
-
-          <section className="mt-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Обмундирование и оснащение</p>
-            <div className="mt-2 grid grid-cols-1 gap-1.5 md:grid-cols-2">
-              {equipment.map((item) => (
-                <label key={item.id} className="flex min-h-10 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700">
-                  <span className="min-w-0 truncate">{item.label}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    inputMode="numeric"
-                    value={item.quantity}
-                    onChange={(event) => updateEquipmentQuantity(item.id, event.target.value)}
-                    className="h-8 w-16 rounded-md border border-slate-200 px-2 text-right text-sm outline-none focus:border-blue-400"
-                    aria-label={`${item.label}: количество`}
-                  />
-                </label>
-              ))}
+    <div className="pointer-events-none fixed inset-y-2 right-2 z-30 flex justify-end sm:inset-y-3 sm:right-3">
+      <aside className="pointer-events-auto flex h-full w-[min(100vw-1rem,35rem)] max-w-[35rem] flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.22)]">
+        <header className="border-b border-slate-200 px-4 pb-4 pt-5 sm:px-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                  {asset.name}
+                </span>
+                {isDirty ? (
+                  <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+                    Есть несохраненные изменения
+                  </span>
+                ) : null}
+              </div>
+              <h2 className="mt-3 text-xl font-semibold text-slate-950">Настройка МОГ</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                {draft.postType} · {layerLabel} · {formatMogMoney(costSummary.baseMln)}
+              </p>
             </div>
-          </section>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
+              aria-label="Закрыть редактор МОГ"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </header>
 
-          <section className="mt-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Оружие и покрытие карты</p>
-            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
-              {weapons.map((weapon) => (
-                <div key={weapon.id} className="flex min-h-[132px] flex-col justify-between rounded-md border border-slate-200 bg-white px-2 py-2 text-sm text-slate-700">
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold">{weapon.label}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">Дальность: {formatRange(weapon.rangeM)}</p>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-slate-500">Кол-во</span>
-                    <input
-                      type="number"
-                      min={0}
-                      step={1}
-                      inputMode="numeric"
-                      value={weapon.quantity}
-                      onChange={(event) => updateWeaponQuantity(weapon.id, event.target.value)}
-                      className="h-8 w-16 rounded-md border border-slate-200 px-2 text-right text-sm outline-none focus:border-blue-400"
-                      aria-label={`${weapon.label}: количество`}
-                    />
-                  </div>
-                  <label className="mt-2 flex min-h-9 items-center gap-2 text-xs font-semibold text-slate-600">
-                    <input
-                      type="radio"
-                      name="mog-coverage-weapon"
-                      checked={coverageWeaponId === weapon.id}
-                      onChange={() => updateCoverageWeapon(weapon.id)}
-                    />
-                    <span>Показывать на карте</span>
+        <div className="flex-1 overflow-y-auto px-4 pb-36 pt-4 sm:px-5">
+          <div className="space-y-4">
+            <EditorSection title="Основные параметры" eyebrow="Пост и контекст">
+              <div className="grid gap-4">
+                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  Тип поста
+                  <select
+                    value={draft.postType}
+                    onChange={(event) => applyDraft((current) => ({ ...current, postType: event.target.value }))}
+                    className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-blue-300"
+                  >
+                    {MOG_POST_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {formatMogOption(option)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="grid gap-2 text-sm font-medium text-slate-700">
+                    Количество личного состава
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        inputMode="numeric"
+                        value={draft.personnelCount}
+                        onChange={(event) =>
+                          applyDraft((current) => ({
+                            ...current,
+                            personnelCount: sanitizeMogCountInput(event.target.value),
+                          }))
+                        }
+                        className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 pr-14 text-sm text-slate-950 outline-none transition focus:border-blue-300"
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
+                        чел.
+                      </span>
+                    </div>
+                    <FieldError message={errors.personnelCount} />
+                  </label>
+
+                  <label className="grid gap-2 text-sm font-medium text-slate-700">
+                    Подотчётность
+                    <select
+                      value={draft.accountability}
+                      onChange={(event) => applyDraft((current) => ({ ...current, accountability: event.target.value }))}
+                      className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-blue-300"
+                    >
+                      {MOG_ACCOUNTABILITY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {formatMogOption(option)}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 </div>
-              ))}
-            </div>
-          </section>
+              </div>
+            </EditorSection>
 
-          <section className="mt-4 grid grid-cols-2 gap-2">
-            <label className="grid gap-1 text-xs font-semibold text-slate-600">
-              Азимут
-              <input
-                type="number"
-                min={0}
-                max={359}
-                step={1}
-                value={profile.azimuth}
-                onChange={(event) => updateAzimuth(event.target.value)}
-                className="h-10 rounded-md border border-slate-200 bg-white px-2 text-sm outline-none focus:border-blue-400"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-semibold text-slate-600">
-              Сектор
-              <select
-                value={sectorWidthOptions.includes(sectorWidthDeg) ? sectorWidthDeg : 90}
-                onChange={(event) => updateSectorWidth(event.target.value)}
-                className="h-10 rounded-md border border-slate-200 bg-white px-2 text-sm outline-none focus:border-blue-400"
-              >
-                {sectorWidthOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}°
-                  </option>
+            <EditorSection title="Оснащение" eyebrow="Штатный комплект" tone="muted">
+              <div className="space-y-2">
+                {draft.equipment?.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-slate-900">{item.label}</p>
+                      <FieldError message={errors.equipment[item.id]} />
+                    </div>
+                    <Stepper
+                      value={parseMogCount(item.quantity)}
+                      onDecrease={() => handleEquipmentStep(item.id, -1)}
+                      onIncrease={() => handleEquipmentStep(item.id, 1)}
+                      ariaLabel={`${item.label}: количество`}
+                    />
+                  </div>
                 ))}
-              </select>
-            </label>
-            <p className="col-span-2 rounded-md bg-blue-50 px-2 py-2 text-xs font-semibold text-blue-700">
-              На карте: {coverageWeapon.label}, {coverageLabelForWeapon(coverageWeapon, sectorWidthDeg)}
-            </p>
-          </section>
+              </div>
+            </EditorSection>
+
+            <EditorSection title="Оружие и покрытия" eyebrow="Покрытия на карте" tone="default">
+              <div className="space-y-3">
+                {draft.weapons?.map((weapon) => {
+                  const quantity = parseMogCount(weapon.quantity);
+                  const isActive = visibleCoverageWeaponIds.has(weapon.id);
+                  const isDisabled = quantity === 0;
+                  const color = MOG_WEAPON_COVERAGE_COLORS[weapon.id];
+
+                  return (
+                    <article
+                      key={weapon.id}
+                      className={cn(
+                        "rounded-3xl border p-4 transition",
+                        isActive && "border-blue-300 bg-blue-50/60 shadow-[0_12px_32px_rgba(59,130,246,0.12)]",
+                        !isActive && "border-slate-200 bg-white",
+                        isDisabled && "opacity-65",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              aria-hidden="true"
+                              className="h-2.5 w-2.5 rounded-full"
+                              style={{ backgroundColor: color.stroke }}
+                            />
+                            <h4 className="truncate text-sm font-semibold text-slate-950">{weapon.label}</h4>
+                            {isActive ? (
+                              <span className="rounded-full border px-2 py-0.5 text-[11px] font-semibold" style={{ borderColor: color.stroke, color: color.stroke }}>
+                                На карте
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">Дальность: {formatMogRange(weapon.rangeM)}</p>
+                        </div>
+                        <Stepper
+                          value={quantity}
+                          onDecrease={() => handleWeaponStep(weapon.id, -1)}
+                          onIncrease={() => handleWeaponStep(weapon.id, 1)}
+                          ariaLabel={`${weapon.label}: количество`}
+                        />
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                        <div className="text-xs font-medium text-slate-500">
+                          Кол-во: <span className="font-semibold text-slate-700">{quantity}</span>
+                        </div>
+                        <label
+                          className={cn(
+                            "flex min-h-11 items-center gap-3 rounded-full border px-4 text-sm font-semibold transition",
+                            isActive && "bg-white",
+                            !isActive && "bg-white text-slate-700",
+                            isDisabled && "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400",
+                          )}
+                          style={!isDisabled && isActive ? { borderColor: color.stroke, color: color.stroke } : undefined}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isActive}
+                            disabled={isDisabled}
+                            onChange={() => handleCoverageToggle(weapon.id)}
+                            className="h-4 w-4 rounded border-slate-300 accent-slate-900"
+                          />
+                          <span>{isActive ? "Покрытие на карте" : "Показать покрытие"}</span>
+                        </label>
+                      </div>
+
+                      {!isDisabled ? (
+                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                          <label className="grid gap-2 text-sm font-medium text-slate-700">
+                            Азимут
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min={0}
+                                max={359}
+                                step={1}
+                                inputMode="numeric"
+                                value={coverageInputs[weapon.id]?.azimuth ?? String(weapon.coverageAzimuth ?? draft.azimuth)}
+                                onChange={(event) => handleWeaponAzimuthInput(weapon.id, event.target.value)}
+                                onBlur={() => commitWeaponAzimuthInput(weapon.id)}
+                                className={cn(
+                                  "h-11 w-full rounded-2xl border bg-white px-3 pr-10 text-sm text-slate-950 outline-none transition",
+                                  errors.weaponCoverageAzimuth[weapon.id]
+                                    ? "border-rose-300 focus:border-rose-400"
+                                    : "border-slate-200 focus:border-blue-300",
+                                )}
+                              />
+                              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
+                                °
+                              </span>
+                            </div>
+                            <FieldError message={errors.weaponCoverageAzimuth[weapon.id]} />
+                          </label>
+
+                          <label className="grid gap-2 text-sm font-medium text-slate-700">
+                            Сектор
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min={1}
+                                max={360}
+                                step={1}
+                                inputMode="numeric"
+                                value={
+                                  coverageInputs[weapon.id]?.sectorWidthDeg ??
+                                  String(weapon.coverageSectorWidthDeg ?? draft.sectorWidthDeg ?? 90)
+                                }
+                                onChange={(event) => handleWeaponSectorInput(weapon.id, event.target.value)}
+                                onBlur={() => commitWeaponSectorInput(weapon.id)}
+                                className={cn(
+                                  "h-11 w-full rounded-2xl border bg-white px-3 pr-10 text-sm text-slate-950 outline-none transition",
+                                  errors.weaponCoverageSectorWidthDeg[weapon.id]
+                                    ? "border-rose-300 focus:border-rose-400"
+                                    : "border-slate-200 focus:border-blue-300",
+                                )}
+                              />
+                              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
+                                °
+                              </span>
+                            </div>
+                            <FieldError message={errors.weaponCoverageSectorWidthDeg[weapon.id]} />
+                          </label>
+                        </div>
+                      ) : null}
+
+                      {!isDisabled ? (
+                        <p className="mt-3 text-xs text-slate-500">
+                          Это покрытие использует собственные азимут и сектор независимо от остальных типов оружия.
+                        </p>
+                      ) : null}
+
+                      {isDisabled ? (
+                        <p className="mt-3 text-xs text-slate-500">
+                          Добавьте количество, чтобы показать покрытие на карте.
+                        </p>
+                      ) : null}
+                      <FieldError message={errors.weapons[weapon.id]} />
+                    </article>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Легенда покрытий</p>
+                {visibleCoverageWeapons.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {visibleCoverageWeapons.map((weapon) => (
+                      <div key={weapon.id} className="flex items-center gap-2 text-sm text-slate-700">
+                        <span
+                          aria-hidden="true"
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: MOG_WEAPON_COVERAGE_COLORS[weapon.id].stroke }}
+                        />
+                        <span>
+                          {weapon.label} — {formatMogRange(weapon.rangeM)} · {weapon.coverageAzimuth ?? draft.azimuth}° /{" "}
+                          {weapon.coverageSectorWidthDeg ?? draft.sectorWidthDeg ?? 90}°
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-500">Покрытия на карте не выбраны.</p>
+                )}
+              </div>
+            </EditorSection>
+
+            <EditorSection title="Стоимость" eyebrow="Текущая оценка" tone="accent">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                  <span>База поста</span>
+                  <strong className="text-slate-950">{formatMogMoney(costSummary.baseMln)}</strong>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                  <span>Оснащение</span>
+                  <strong className="text-slate-950">{formatMogMoney(costSummary.equipmentMln)}</strong>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                  <span>Оружие</span>
+                  <strong className="text-slate-950">{formatMogMoney(costSummary.weaponsMln)}</strong>
+                </div>
+                <div className="border-t border-amber-200 pt-3">
+                  <div className="flex items-center justify-between gap-3 text-base font-semibold text-slate-950">
+                    <span>Итого</span>
+                    <span>{formatMogMoney(costSummary.totalMln)}</span>
+                  </div>
+                  {costSummary.isEstimate ? (
+                    <p className="mt-2 text-xs text-slate-600">
+                      Итог пока учитывает базовую стоимость поста. Стоимость оснащения и оружия подключим отдельно, когда она появится в данных.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </EditorSection>
+          </div>
         </div>
-      </div>
-    </aside>
+
+        <footer className="border-t border-slate-200 bg-white px-4 py-4 sm:px-5">
+          <div className="flex items-start gap-2 rounded-2xl bg-slate-50 px-3 py-3 text-xs text-slate-600">
+            {hasErrors ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" /> : <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />}
+            <p>
+              {hasErrors
+                ? "Исправьте ошибки в форме, прежде чем сохранять объект."
+                : "Каждое покрытие на карте обновляется сразу со своим азимутом и сектором. Сохранение фиксирует текущую конфигурацию, отмена возвращает исходный вариант."}
+            </p>
+          </div>
+
+          <div className="mt-4 flex gap-3">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="min-h-11 flex-1 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={hasErrors || !isDirty}
+              className="min-h-11 flex-1 rounded-full bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              Сохранить изменения
+            </button>
+          </div>
+        </footer>
+      </aside>
+    </div>
   );
 }

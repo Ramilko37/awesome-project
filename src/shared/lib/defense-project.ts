@@ -37,6 +37,8 @@ const defaultMogWeapons: MogWeaponItem[] = [
   { id: "interceptorDrones", label: "Дроны-перехватчики", quantity: "0", rangeM: 5000 },
 ];
 
+const DEFAULT_MOG_COVERAGE_SECTOR_WIDTH_DEG = 90;
+
 function mergeProfileRows<T extends { id: string }>(defaults: T[], rows: T[] | undefined): T[] {
   const rowsById = new Map((rows ?? []).map((row) => [row.id, row]));
   return defaults.map((row) => ({ ...row, ...rowsById.get(row.id) }));
@@ -44,6 +46,52 @@ function mergeProfileRows<T extends { id: string }>(defaults: T[], rows: T[] | u
 
 function isMogWeaponId(value: string | undefined): value is MogWeaponId {
   return defaultMogWeapons.some((weapon) => weapon.id === value);
+}
+
+export function getVisibleMogCoverageWeaponIds(
+  profile: Pick<PlacedDefenseCompoundProfile, "coverageWeaponId" | "visibleCoverageWeaponIds">,
+): MogWeaponId[] {
+  if (Array.isArray(profile.visibleCoverageWeaponIds)) {
+    return profile.visibleCoverageWeaponIds.filter(isMogWeaponId);
+  }
+  return isMogWeaponId(profile.coverageWeaponId) ? [profile.coverageWeaponId] : [];
+}
+
+function normalizeMogCoverageAzimuth(value: number | undefined, fallback: number): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  if (numeric < 0) return 0;
+  if (numeric > 359) return 359;
+  return Math.trunc(numeric);
+}
+
+function normalizeMogCoverageSectorWidth(value: number | undefined, fallback: number): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  if (numeric < 1) return 1;
+  if (numeric > 360) return 360;
+  return Math.trunc(numeric);
+}
+
+export function getMogWeaponCoverageSettings(
+  profile: Pick<PlacedDefenseCompoundProfile, "azimuth" | "sectorWidthDeg"> & {
+    weapons?: Array<Pick<MogWeaponItem, "id" | "coverageAzimuth" | "coverageSectorWidthDeg">>;
+  },
+  weaponId: MogWeaponId,
+): { azimuth: number; sectorWidthDeg: number } {
+  const fallbackAzimuth = normalizeMogCoverageAzimuth(profile.azimuth, 0);
+  const fallbackSectorWidthDeg = normalizeMogCoverageSectorWidth(
+    profile.sectorWidthDeg,
+    DEFAULT_MOG_COVERAGE_SECTOR_WIDTH_DEG,
+  );
+  const weapon = profile.weapons?.find((item) => item.id === weaponId);
+  return {
+    azimuth: normalizeMogCoverageAzimuth(weapon?.coverageAzimuth, fallbackAzimuth),
+    sectorWidthDeg: normalizeMogCoverageSectorWidth(
+      weapon?.coverageSectorWidthDeg,
+      fallbackSectorWidthDeg,
+    ),
+  };
 }
 
 export type LayerRadii = {
@@ -980,14 +1028,37 @@ export function buildPlacedDefenseCompoundProfile(
 export function normalizePlacedDefenseCompoundProfile(
   profile: PlacedDefenseCompoundProfile,
 ): PlacedDefenseCompoundProfile {
-  const weapons = mergeProfileRows(defaultMogWeapons, profile.weapons);
-  const fallbackCoverageWeaponId = weapons.find((weapon) => Number(weapon.quantity) > 0)?.id ?? defaultMogWeapons[0].id;
+  const normalizedAzimuth = normalizeMogCoverageAzimuth(profile.azimuth, 0);
+  const normalizedSectorWidthDeg = normalizeMogCoverageSectorWidth(
+    profile.sectorWidthDeg,
+    DEFAULT_MOG_COVERAGE_SECTOR_WIDTH_DEG,
+  );
+  const weapons = mergeProfileRows(defaultMogWeapons, profile.weapons).map((weapon) => ({
+    ...weapon,
+    coverageAzimuth: normalizeMogCoverageAzimuth(weapon.coverageAzimuth, normalizedAzimuth),
+    coverageSectorWidthDeg: normalizeMogCoverageSectorWidth(
+      weapon.coverageSectorWidthDeg,
+      normalizedSectorWidthDeg,
+    ),
+  }));
+  const firstAvailableCoverageWeaponId =
+    weapons.find((weapon) => Number(weapon.quantity) > 0)?.id ?? defaultMogWeapons[0].id;
+  const visibleCoverageWeaponIds = getVisibleMogCoverageWeaponIds(profile).filter((weaponId) => {
+    const weapon = weapons.find((item) => item.id === weaponId);
+    return Boolean(weapon && Number(weapon.quantity) > 0);
+  });
+  const normalizedLegacyCoverageWeaponId = isMogWeaponId(profile.coverageWeaponId)
+    ? profile.coverageWeaponId
+    : firstAvailableCoverageWeaponId;
   return {
     ...profile,
+    azimuth: normalizedAzimuth,
     equipment: mergeProfileRows(defaultMogEquipment, profile.equipment),
     weapons,
-    coverageWeaponId: isMogWeaponId(profile.coverageWeaponId) ? profile.coverageWeaponId : fallbackCoverageWeaponId,
-    sectorWidthDeg: Number.isFinite(profile.sectorWidthDeg) ? profile.sectorWidthDeg : 90,
+    coverageWeaponId:
+      visibleCoverageWeaponIds.at(-1) ?? normalizedLegacyCoverageWeaponId ?? firstAvailableCoverageWeaponId,
+    visibleCoverageWeaponIds,
+    sectorWidthDeg: normalizedSectorWidthDeg,
   };
 }
 

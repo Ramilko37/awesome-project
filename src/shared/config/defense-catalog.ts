@@ -88,6 +88,7 @@ const mapOnlyDefenseItems: DefenseItem[] = [
         { id: "interceptorDrones", label: "Дроны-перехватчики", quantity: "0", rangeM: 5000 },
       ],
       coverageWeaponId: "firearms",
+      visibleCoverageWeaponIds: ["firearms"],
       sectorWidthDeg: 90,
     },
   }),

@@ -70,8 +70,13 @@ function getMogLineByObjectId(lines: ReturnType<typeof buildProjectReportObjectL
       weaponUnits: "6",
       armament: "Дроны-перехватчики",
       coverageWeaponId: "interceptorDrones",
+      visibleCoverageWeaponIds: ["firearms", "interceptorDrones"],
       weapons: placed.compoundProfile.weapons?.map((item) =>
-        item.id === "interceptorDrones" ? { ...item, quantity: "6" } : item,
+        item.id === "firearms"
+          ? { ...item, coverageAzimuth: 15, coverageSectorWidthDeg: 120 }
+          : item.id === "interceptorDrones"
+            ? { ...item, quantity: "6", coverageAzimuth: 235, coverageSectorWidthDeg: 40 }
+            : item,
       ),
     },
   });
@@ -80,8 +85,12 @@ function getMogLineByObjectId(lines: ReturnType<typeof buildProjectReportObjectL
   const updatedLine = getMogLineByObjectId(updatedLines, placed.id);
   assert(updatedLine.isCompoundPost, "updated object must remain compound");
   assert((updatedLine.weaponSummary ?? "").includes("Дроны-перехватчики: 6"), "updated weapon units must be reflected in weapon summary");
-  assert((updatedLine.azimuthSectorSummary ?? "").includes("180°"), "updated azimuth must be reflected in report line");
-  assert((updatedLine.azimuthSectorSummary ?? "").includes("Дроны-перехватчики"), "coverage weapon must be reflected in report line");
+  assert((updatedLine.azimuthSectorSummary ?? "").includes("Огнестрел"), "multiple visible coverage weapons must be reflected in report line");
+  assert((updatedLine.azimuthSectorSummary ?? "").includes("Дроны-перехватчики"), "multiple visible coverage weapons must be reflected in report line");
+  assert((updatedLine.azimuthSectorSummary ?? "").includes("15°"), "firearms azimuth must be reflected in report line");
+  assert((updatedLine.azimuthSectorSummary ?? "").includes("235°"), "interceptor azimuth must be reflected in report line");
+  assert((updatedLine.azimuthSectorSummary ?? "").includes("120°"), "firearms sector must be reflected in report line");
+  assert((updatedLine.azimuthSectorSummary ?? "").includes("40°"), "interceptor sector must be reflected in report line");
 }
 
 // Non-compound object should not receive compound summaries.

@@ -18,6 +18,8 @@ export type MogWeaponItem = {
   label: string;
   quantity: string;
   rangeM: number;
+  coverageAzimuth?: number;
+  coverageSectorWidthDeg?: number;
 };
 
 export type DefenseAssetCompoundProfile = {
@@ -31,6 +33,7 @@ export type DefenseAssetCompoundProfile = {
   equipment?: MogEquipmentItem[];
   weapons?: MogWeaponItem[];
   coverageWeaponId?: MogWeaponId;
+  visibleCoverageWeaponIds?: MogWeaponId[];
   sectorWidthDeg?: number;
 };
 

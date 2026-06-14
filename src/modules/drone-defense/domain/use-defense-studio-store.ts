@@ -32,9 +32,7 @@ type StudioState = {
   layers: DefenseLayersResponse | null;
   localPlacementsByScenario: Partial<Record<DefenseScenarioId, Placement[]>>;
   selectedPlacementId: string | null;
-  coverageVisible: boolean;
   selectPlacement: (placementId: string | null) => void;
-  setCoverageVisible: (visible: boolean) => void;
   placeAssetInSlot: (args: { groupId: string; layerId: DefenseLayerId; slotId: string; mapRef: { lon: number; lat: number } }) => Promise<boolean>;
   removePlacement: (placementId: string) => Promise<void>;
   init: () => Promise<void>;
@@ -88,7 +86,6 @@ export const useDefenseStudioStore = create<StudioState>((set, get) => ({
   layers: null,
   localPlacementsByScenario: {},
   selectedPlacementId: null,
-  coverageVisible: false,
   init: async () => {
     set({ loading: true, error: null });
     try {
@@ -209,7 +206,6 @@ export const useDefenseStudioStore = create<StudioState>((set, get) => ({
     }
   },
   selectPlacement: (placementId) => set({ selectedPlacementId: placementId }),
-  setCoverageVisible: (visible) => set({ coverageVisible: visible }),
   placeAssetInSlot: async ({ groupId, layerId, slotId, mapRef }) => {
     const { facilityId, scenarioId } = get();
     const current = get().localPlacementsByScenario[scenarioId] ?? [];

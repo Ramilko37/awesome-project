@@ -1,4 +1,8 @@
-import { priceForPlacedObject } from "@/shared/lib/defense-project";
+import {
+  getMogWeaponCoverageSettings,
+  getVisibleMogCoverageWeaponIds,
+  priceForPlacedObject,
+} from "@/shared/lib/defense-project";
 import type { DefenseProject } from "@/shared/types/defense-project";
 import type { PlacedDefenseCompoundProfile } from "@/shared/types/defense-configuration";
 
@@ -42,8 +46,15 @@ function buildCompoundWeaponSummary(profile: PlacedDefenseCompoundProfile) {
 
 function buildCompoundAzimuthSummary(profile: PlacedDefenseCompoundProfile) {
   const azimuth = Number.isFinite(profile.azimuth) ? `${profile.azimuth}°` : "—";
-  const coverageWeapon = profile.weapons?.find((item) => item.id === profile.coverageWeaponId);
-  const coverageWeaponLabel = coverageWeapon ? ` · На карте: ${coverageWeapon.label}` : "";
+  const visibleCoverageIds = new Set(getVisibleMogCoverageWeaponIds(profile));
+  const visibleCoverageWeapons = profile.weapons
+    ?.filter((item) => visibleCoverageIds.has(item.id) && Number(item.quantity) > 0)
+    .map((item) => {
+      const coverageSettings = getMogWeaponCoverageSettings(profile, item.id);
+      return `${item.label} (${coverageSettings.azimuth}°/${coverageSettings.sectorWidthDeg}°)`;
+    })
+    .join(", ");
+  const coverageWeaponLabel = visibleCoverageWeapons ? ` · На карте: ${visibleCoverageWeapons}` : "";
   return `Азимут: ${azimuth} · Дальность/сектор: ${normalizeOptionalText(profile.sectorOrRange)}${coverageWeaponLabel}`;
 }
 

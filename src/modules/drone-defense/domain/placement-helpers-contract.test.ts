@@ -1,4 +1,4 @@
-import { describePlacement, placementStatus, getMarkerState, buildSectorPolygon, getCoverageShape, screenPointToSlot } from "@/modules/drone-defense/domain/placement-helpers";
+import { describePlacement, placementStatus, getMarkerState, buildSectorPolygon, getCoverageShape, getCoverageShapes, screenPointToSlot } from "@/modules/drone-defense/domain/placement-helpers";
 import {
   buildCatalogPlacement,
   buildCatalogResponse,
@@ -124,11 +124,12 @@ const mogPlacement: Placement = {
     weaponUnits: "2",
     sectorOrRange: "до 4–8 км, сектор 90–360°",
     weapons: [
-      { id: "firearms", label: "Огнестрел", quantity: "2", rangeM: 8000 },
-      { id: "antiDroneRifles", label: "Антидроновые ружья", quantity: "1", rangeM: 2000 },
-      { id: "interceptorDrones", label: "Дроны-перехватчики", quantity: "0", rangeM: 5000 },
+      { id: "firearms", label: "Огнестрел", quantity: "2", rangeM: 8000, coverageAzimuth: 25, coverageSectorWidthDeg: 140 },
+      { id: "antiDroneRifles", label: "Антидроновые ружья", quantity: "1", rangeM: 2000, coverageAzimuth: 225, coverageSectorWidthDeg: 60 },
+      { id: "interceptorDrones", label: "Дроны-перехватчики", quantity: "0", rangeM: 5000, coverageAzimuth: 315, coverageSectorWidthDeg: 30 },
     ],
     coverageWeaponId: "antiDroneRifles",
+    visibleCoverageWeaponIds: ["firearms", "antiDroneRifles"],
     sectorWidthDeg: 180,
     azimuth: 180,
   },
@@ -140,11 +141,51 @@ if (mogShape.kind !== "sector") {
 if (mogShape.radiusM !== 2000) {
   throw new Error(`МОГ range should come from selected weapon as 2000m; got ${mogShape.radiusM}`);
 }
-if (mogShape.halfAngleDeg !== 90) {
-  throw new Error(`МОГ coverage should use configured half-angle 90°, got ${mogShape.halfAngleDeg}`);
+if (mogShape.halfAngleDeg !== 30) {
+  throw new Error(`МОГ coverage should use selected weapon half-angle 30°, got ${mogShape.halfAngleDeg}`);
 }
-if (mogShape.azimuthDeg !== 180) {
-  throw new Error(`МОГ azimuth must be preserved from profile; got ${mogShape.azimuthDeg}`);
+if (mogShape.azimuthDeg !== 225) {
+  throw new Error(`МОГ coverage must use selected weapon azimuth; got ${mogShape.azimuthDeg}`);
+}
+
+const mogShapes = getCoverageShapes(mogPlacement);
+if (mogShapes.length !== 2) {
+  throw new Error(`МОГ placement should expose two visible coverage shapes; got ${mogShapes.length}`);
+}
+if (mogShapes[0]?.id !== `mog-coverage:${mogPlacement.id}:firearms`) {
+  throw new Error(`longest МОГ coverage should render first; got ${mogShapes[0]?.id}`);
+}
+if (mogShapes[1]?.id !== `mog-coverage:${mogPlacement.id}:antiDroneRifles`) {
+  throw new Error(`second МОГ coverage should use antiDroneRifles; got ${mogShapes[1]?.id}`);
+}
+if (mogShapes.some((shape) => shape.kind !== "sector")) {
+  throw new Error("МОГ multi coverage should render all visible weapons as sector shapes");
+}
+const firearmsShape = mogShapes[0];
+const antiDroneShape = mogShapes[1];
+if (firearmsShape?.kind !== "sector" || antiDroneShape?.kind !== "sector") {
+  throw new Error("МОГ visible coverage shapes must stay sector-based for orientation checks");
+}
+if (firearmsShape.azimuthDeg !== 25 || firearmsShape.halfAngleDeg !== 70) {
+  throw new Error(`firearms coverage must keep its own orientation; got ${firearmsShape.azimuthDeg} / ${firearmsShape.halfAngleDeg}`);
+}
+if (antiDroneShape.azimuthDeg !== 225 || antiDroneShape.halfAngleDeg !== 30) {
+  throw new Error(`antiDroneRifles coverage must keep its own orientation; got ${antiDroneShape.azimuthDeg} / ${antiDroneShape.halfAngleDeg}`);
+}
+
+const mogWithoutAvailableWeapons: Placement = {
+  ...mogPlacement,
+  compoundProfile: {
+    ...mogPlacement.compoundProfile!,
+    visibleCoverageWeaponIds: ["firearms", "interceptorDrones"],
+    weapons: mogPlacement.compoundProfile!.weapons?.map((weapon) => ({ ...weapon, quantity: "0" })),
+  },
+};
+if (getCoverageShape(mogWithoutAvailableWeapons).kind !== "none") {
+  throw new Error("МОГ coverage must be hidden when every weapon quantity is 0");
+}
+if (getCoverageShapes(mogWithoutAvailableWeapons).length !== 0) {
+  throw new Error("МОГ multi coverage helper must return no shapes when every weapon quantity is 0");
 }
 
 // kinetic group -> circle

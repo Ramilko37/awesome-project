@@ -192,11 +192,13 @@ assert(withMog.placedObjects[0].compoundProfile?.kind === "compound-post", "plac
 assert(withMog.placedObjects[0].compoundProfile?.postType === "МОГ", "МОГ profile must have default post type");
 assert(withMog.placedObjects[0].compoundProfile?.equipment?.some((item) => item.id === "binoculars"), "МОГ profile must include equipment rows");
 assert(withMog.placedObjects[0].compoundProfile?.weapons?.some((item) => item.id === "firearms"), "МОГ profile must include weapon rows");
+assert(withMog.placedObjects[0].compoundProfile?.visibleCoverageWeaponIds?.includes("firearms"), "МОГ profile must expose default visible coverage ids");
 const updatedMog = updatePlacedObjectInProject(withMog, withMog.placedObjects[0].id, {
   compoundProfile: {
     ...withMog.placedObjects[0].compoundProfile,
     azimuth: 180,
     weaponUnits: "6",
+    visibleCoverageWeaponIds: ["firearms", "antiDroneRifles"],
     weapons: withMog.placedObjects[0].compoundProfile?.weapons?.map((item) =>
       item.id === "firearms" ? { ...item, quantity: "6" } : item,
     ),
@@ -205,6 +207,7 @@ const updatedMog = updatePlacedObjectInProject(withMog, withMog.placedObjects[0]
 assert(updatedMog.placedObjects[0].compoundProfile?.azimuth === 180, "editor update must persist MOГ azimuth");
 assert(updatedMog.placedObjects[0].compoundProfile?.weaponUnits === "6", "editor update must persist legacy weapons count");
 assert(updatedMog.placedObjects[0].compoundProfile?.weapons?.find((item) => item.id === "firearms")?.quantity === "6", "editor update must persist МОГ weapon rows");
+assert(updatedMog.placedObjects[0].compoundProfile?.visibleCoverageWeaponIds?.length === 2, "editor update must persist multiple visible coverage ids");
 
 const coordinatePlaced = placeObjectInProject(project, "mobile-radar", l2.id, { ...inside, altitude: 120 }, { notes: "координатный ввод" });
 assert(coordinatePlaced.placedObjects[0].coordinates.altitude === 120, "coordinate placement must persist altitude");

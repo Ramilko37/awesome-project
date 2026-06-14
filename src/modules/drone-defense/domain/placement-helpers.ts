@@ -4,7 +4,13 @@ import type {
   DefenseLayerId,
   Placement,
 } from "@/shared/types/drone-defense";
+import {
+  getMogWeaponCoverageSettings,
+  getVisibleMogCoverageWeaponIds,
+} from "@/shared/lib/defense-project";
 import type { EchelonMapSlot } from "@/modules/drone-defense/domain/echelon-map-model";
+import { getMogWeaponCoverageColor } from "@/modules/drone-defense/domain/mog-coverage";
+import type { MogWeaponId } from "@/shared/types/defense-configuration";
 
 export type PlacementStatus = "ready" | "warning" | "inactive";
 
@@ -79,6 +85,30 @@ export type CoverageShape =
   | { kind: "sector"; azimuthDeg: number; halfAngleDeg: number; radiusM: number }
   | { kind: "zone" };
 
+export type PlacementCoverageShape =
+  | {
+      id: string;
+      placementId: string;
+      label?: string;
+      kind: "circle";
+      radiusM: number;
+      fillColor: [number, number, number, number];
+      lineColor: [number, number, number, number];
+      rangeM: number;
+    }
+  | {
+      id: string;
+      placementId: string;
+      label?: string;
+      kind: "sector";
+      azimuthDeg: number;
+      halfAngleDeg: number;
+      radiusM: number;
+      fillColor: [number, number, number, number];
+      lineColor: [number, number, number, number];
+      rangeM: number;
+    };
+
 const COVERAGE_DEFAULT_RADIUS_M = 1200;
 const COMPOUND_POST_DEFAULT_RADIUS_M = 8000;
 const COMPOUND_POST_HALF_ANGLE_DEG = 45;
@@ -118,10 +148,18 @@ function parseSectorHalfAngle(profile: string): number | null {
 
 function getCoverageWeaponRangeM(profile: {
   coverageWeaponId?: string;
-  weapons?: Array<{ id: string; quantity: string; rangeM: number }>;
+  weapons?: Array<{
+    id: MogWeaponId;
+    quantity: string;
+    rangeM: number;
+    coverageAzimuth?: number;
+    coverageSectorWidthDeg?: number;
+  }>;
 }): number | null {
   const weapons = profile.weapons ?? [];
-  const selectedWeapon = weapons.find((weapon) => weapon.id === profile.coverageWeaponId);
+  const selectedWeapon = weapons.find(
+    (weapon) => weapon.id === profile.coverageWeaponId && Number(weapon.quantity) > 0,
+  );
   const fallbackWeapon = weapons.find((weapon) => Number(weapon.quantity) > 0);
   return selectedWeapon?.rangeM ?? fallbackWeapon?.rangeM ?? null;
 }
@@ -131,11 +169,36 @@ export function getCompoundPostCoverageShape(profile: {
   sectorOrRange: string;
   sectorWidthDeg?: number;
   coverageWeaponId?: string;
-  weapons?: Array<{ id: string; quantity: string; rangeM: number }>;
+  weapons?: Array<{
+    id: MogWeaponId;
+    quantity: string;
+    rangeM: number;
+    coverageAzimuth?: number;
+    coverageSectorWidthDeg?: number;
+  }>;
 }): CoverageShape {
+  const hasWeaponRows = (profile.weapons?.length ?? 0) > 0;
+  const hasAvailableWeapon = (profile.weapons ?? []).some((weapon) => Number(weapon.quantity) > 0);
+  if (hasWeaponRows && !hasAvailableWeapon) {
+    return { kind: "none" };
+  }
   const radiusFromProfile = parseMaxDistanceMFromProfile(profile.sectorOrRange);
-  const azimuthDeg = normalizeAzimuth(profile.azimuth);
-  const halfAngleDeg = profile.sectorWidthDeg ? profile.sectorWidthDeg / 2 : parseSectorHalfAngle(profile.sectorOrRange) ?? COMPOUND_POST_HALF_ANGLE_DEG;
+  const selectedWeapon = (profile.weapons ?? []).find(
+    (weapon) => weapon.id === profile.coverageWeaponId && Number(weapon.quantity) > 0,
+  );
+  const fallbackWeapon = (profile.weapons ?? []).find((weapon) => Number(weapon.quantity) > 0);
+  const coverageWeaponId = selectedWeapon?.id ?? fallbackWeapon?.id;
+  const coverageSettings = coverageWeaponId
+    ? getMogWeaponCoverageSettings(profile, coverageWeaponId)
+    : null;
+  const azimuthDeg = coverageSettings
+    ? coverageSettings.azimuth
+    : normalizeAzimuth(profile.azimuth);
+  const halfAngleDeg = coverageSettings
+    ? coverageSettings.sectorWidthDeg / 2
+    : profile.sectorWidthDeg
+      ? profile.sectorWidthDeg / 2
+      : parseSectorHalfAngle(profile.sectorOrRange) ?? COMPOUND_POST_HALF_ANGLE_DEG;
   const radiusM = getCoverageWeaponRangeM(profile) ?? radiusFromProfile ?? COMPOUND_POST_DEFAULT_RADIUS_M;
   return { kind: "sector", azimuthDeg, halfAngleDeg, radiusM };
 }
@@ -168,6 +231,64 @@ export function getCoverageShape(placement: Placement): CoverageShape {
     return { kind: "circle", radiusM: COVERAGE_DEFAULT_RADIUS_M };
   }
   return { kind: "zone" };
+}
+
+export function getCoverageShapes(placement: Placement): PlacementCoverageShape[] {
+  if (placement.compoundProfile?.kind === "compound-post") {
+    const profile = placement.compoundProfile;
+    const visibleIds = new Set(getVisibleMogCoverageWeaponIds(profile));
+
+    return (profile.weapons ?? [])
+      .filter((weapon) => visibleIds.has(weapon.id) && Number(weapon.quantity) > 0)
+      .sort((left, right) => right.rangeM - left.rangeM)
+      .map((weapon) => {
+        const color = getMogWeaponCoverageColor(weapon.id);
+        const coverageSettings = getMogWeaponCoverageSettings(profile, weapon.id);
+        return {
+          id: `mog-coverage:${placement.id}:${weapon.id}`,
+          placementId: placement.id,
+          label: weapon.label,
+          kind: "sector" as const,
+          azimuthDeg: coverageSettings.azimuth,
+          halfAngleDeg: coverageSettings.sectorWidthDeg / 2,
+          radiusM: weapon.rangeM,
+          rangeM: weapon.rangeM,
+          fillColor: color.fillRgba,
+          lineColor: color.lineRgba,
+        };
+      });
+  }
+
+  const shape = getCoverageShape(placement);
+  if (shape.kind === "circle") {
+    return [
+      {
+        id: `coverage-circle:${placement.id}`,
+        placementId: placement.id,
+        kind: "circle",
+        radiusM: shape.radiusM,
+        rangeM: shape.radiusM,
+        fillColor: [37, 99, 235, 40],
+        lineColor: [37, 99, 235, 200],
+      },
+    ];
+  }
+  if (shape.kind === "sector") {
+    return [
+      {
+        id: `coverage-sector:${placement.id}`,
+        placementId: placement.id,
+        kind: "sector",
+        azimuthDeg: shape.azimuthDeg,
+        halfAngleDeg: shape.halfAngleDeg,
+        radiusM: shape.radiusM,
+        rangeM: shape.radiusM,
+        fillColor: [37, 99, 235, 40],
+        lineColor: [37, 99, 235, 200],
+      },
+    ];
+  }
+  return [];
 }
 
 function projectMeters(

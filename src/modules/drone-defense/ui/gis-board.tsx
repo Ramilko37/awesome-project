@@ -23,7 +23,7 @@ import { MapObjectMarker } from "@/modules/drone-defense/ui/map-object-marker";
 import { withBasePath } from "@/shared/lib/base-path";
 import {
   buildSectorPolygon,
-  getCoverageShape,
+  getCoverageShapes,
   getMarkerState,
   screenPointToSlot,
   type MarkerState,
@@ -60,7 +60,6 @@ type GisBoardProps = {
   onSelectTool: (groupId: string) => void;
   onPlaceActiveTool?: (coordinate: { lng: number; lat: number }) => void;
   selectedPlacementId: string | null;
-  coverageVisible: boolean;
   locateTarget: { lon: number; lat: number; at: number } | null;
   onSelectPlacement: (placementId: string) => void;
   onDropAsset: (args: { groupId: string; layerId: DefenseLayerId; slotId: string; mapRef: { lon: number; lat: number } }) => void;
@@ -174,7 +173,6 @@ export function GisBoard({
   onSelectTool,
   onPlaceActiveTool,
   selectedPlacementId,
-  coverageVisible,
   locateTarget,
   onSelectPlacement,
   onDropAsset,
@@ -401,7 +399,7 @@ export function GisBoard({
   );
 
   const coverageLayers = useMemo(() => {
-    if (!coverageVisible || !selectedFacility) return [];
+    if (!selectedFacility) return [];
 
     const coveredPlacements = (() => {
       if (selectedPlacementId && placementById.has(selectedPlacementId)) {
@@ -417,50 +415,51 @@ export function GisBoard({
     const layers: Layer[] = [];
     for (const placement of visibleCoverage) {
       const center = placement.mapRef ?? selectedFacility.center;
-      const shape = getCoverageShape(placement);
-      if (shape.kind === "circle") {
-        layers.push(
-          new ScatterplotLayer<{ center: { lon: number; lat: number }; radiusM: number }>({
-            id: `coverage-circle-${placement.id}`,
-            data: [{ center, radiusM: shape.radiusM }],
-            getPosition: (item) => [item.center.lon, item.center.lat],
-            getRadius: (item) => item.radiusM,
-            radiusUnits: "meters",
-            filled: true,
-            stroked: true,
-            getFillColor: [37, 99, 235, 40],
-            getLineColor: [37, 99, 235, 200],
-            getLineWidth: 2,
-            lineWidthUnits: "pixels",
-          }),
-        );
-        continue;
-      }
-      if (shape.kind === "sector") {
-        const ring = buildSectorPolygon({
-          center,
-          azimuthDeg: shape.azimuthDeg,
-          halfAngleDeg: shape.halfAngleDeg,
-          radiusM: shape.radiusM,
-        });
-        layers.push(
-          new PolygonLayer<{ ring: Array<[number, number]> }>({
-            id: `coverage-sector-${placement.id}`,
-            data: [{ ring }],
-            getPolygon: (item) => item.ring,
-            filled: true,
-            stroked: true,
-            getFillColor: [37, 99, 235, 40],
-            getLineColor: [37, 99, 235, 200],
-            getLineWidth: 2,
-            lineWidthUnits: "pixels",
-          }),
-        );
-        continue;
+      const shapes = getCoverageShapes(placement);
+      for (const shape of shapes) {
+        if (shape.kind === "circle") {
+          layers.push(
+            new ScatterplotLayer<{ center: { lon: number; lat: number }; radiusM: number }>({
+              id: shape.id,
+              data: [{ center, radiusM: shape.radiusM }],
+              getPosition: (item) => [item.center.lon, item.center.lat],
+              getRadius: (item) => item.radiusM,
+              radiusUnits: "meters",
+              filled: true,
+              stroked: true,
+              getFillColor: shape.fillColor,
+              getLineColor: shape.lineColor,
+              getLineWidth: 2,
+              lineWidthUnits: "pixels",
+            }),
+          );
+          continue;
+        }
+        if (shape.kind === "sector") {
+          const ring = buildSectorPolygon({
+            center,
+            azimuthDeg: shape.azimuthDeg,
+            halfAngleDeg: shape.halfAngleDeg,
+            radiusM: shape.radiusM,
+          });
+          layers.push(
+            new PolygonLayer<{ ring: Array<[number, number]> }>({
+              id: shape.id,
+              data: [{ ring }],
+              getPolygon: (item) => item.ring,
+              filled: true,
+              stroked: true,
+              getFillColor: shape.fillColor,
+              getLineColor: shape.lineColor,
+              getLineWidth: 2,
+              lineWidthUnits: "pixels",
+            }),
+          );
+        }
       }
     }
     return layers;
-  }, [configuration.placements, coverageVisible, placementById, selectedFacility, selectedPlacementId]);
+  }, [configuration.placements, placementById, selectedFacility, selectedPlacementId]);
 
   const deckLayers = useMemo(
     () =>
