@@ -12,6 +12,12 @@ assert(
   "GisBoard zoom controls must update the controlled deck.gl view state",
 );
 assert(
+  gisBoardSource.includes("const deckControllerOptions") &&
+    gisBoardSource.includes("scrollZoom: { speed: 0.00125, smooth: true }") &&
+    gisBoardSource.includes("controller={deckControllerOptions}"),
+  "GisBoard must slow down touchpad wheel zoom through explicit deck.gl controller options",
+);
+assert(
   gisBoardSource.includes("handleMapWheelZoomGuard") &&
     gisBoardSource.includes('addEventListener("wheel", handleMapWheelZoomGuard, { passive: false })'),
   "GisBoard must install a non-passive wheel guard on the map container",

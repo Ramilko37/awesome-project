@@ -12,7 +12,10 @@ import { defenseLayers, type EchelonCatalogGroup } from "@/modules/drone-defense
 import {
   buildEchelonMapModel,
   buildLayerFocusViewState,
+  buildMapScaleBar,
   buildPlacementFocusViewState,
+  buildProtectedObjectInitialViewState,
+  buildProtectedObjectPerimeter,
   type EchelonMapPlacement,
   type EchelonMapSlot,
   type EchelonZone,
@@ -101,6 +104,15 @@ const mapInteractionMinZoom = 6;
 const mapInteractionMaxZoom = 18;
 const mapControlZoomStep = 0.8;
 const browserZoomWheelStep = 0.7;
+const deckControllerOptions = {
+  scrollZoom: { speed: 0.00125, smooth: true },
+  dragPan: true,
+  dragRotate: true,
+  doubleClickZoom: true,
+  touchZoom: true,
+  touchRotate: false,
+  keyboard: true,
+} as const;
 
 function linearEasing(value: number) {
   return value;
@@ -181,19 +193,29 @@ export function GisBoard({
   onSelectPlacement,
   onDropAsset,
 }: GisBoardProps) {
+  const selectedFacility = facilities.find((item) => item.id === selectedFacilityId);
+  const initialViewState = selectedFacility
+    ? buildProtectedObjectInitialViewState({
+        facility: selectedFacility,
+        layers: mapLayers.length ? mapLayers : defenseLayers,
+      })
+    : fallbackViewState;
   const [hoverLabel, setHoverLabel] = useState<string | null>(null);
   const [hoveredPlacementId, setHoveredPlacementId] = useState<string | null>(null);
   const [boardSize, setBoardSize] = useState({ width: 0, height: 0 });
   const [dropPreviewSlotId, setDropPreviewSlotId] = useState<string | null>(null);
-  const [viewState, setViewState] = useState<LayerFocusViewState>(fallbackViewState);
+  const [viewState, setViewState] = useState<LayerFocusViewState>(initialViewState);
   const boardRef = useRef<HTMLElement | null>(null);
-  const viewStateRef = useRef<LayerFocusViewState>(fallbackViewState);
+  const viewStateRef = useRef<LayerFocusViewState>(initialViewState);
   const animationFrameRef = useRef<number | null>(null);
   const isAnimatingFocusRef = useRef(false);
   const skipNextLayerFocusRef = useRef(false);
+  const focusTargetRef = useRef<{ facilityId: string | null; layerId: string | null }>({
+    facilityId: selectedFacility?.id ?? null,
+    layerId: selectedLayerId || null,
+  });
   const deckRef = useRef<DeckGLRef>(null);
 
-  const selectedFacility = facilities.find((item) => item.id === selectedFacilityId);
   const visibleFacilities = useMemo(() => (selectedFacility ? [selectedFacility] : []), [selectedFacility]);
   const layerCoverage = hexCoverageByLayer(layers);
   const visibleMapLayers = useMemo(
@@ -232,6 +254,29 @@ export function GisBoard({
           })
         : fallbackViewState,
     [selectedFacility, selectedLayer],
+  );
+  const protectedObjectInitialViewState = useMemo(
+    () =>
+      selectedFacility
+        ? buildProtectedObjectInitialViewState({
+            facility: selectedFacility,
+            layers: visibleMapLayers.length ? visibleMapLayers : defenseLayers,
+          })
+        : fallbackViewState,
+    [selectedFacility, visibleMapLayers],
+  );
+  const protectedObjectPerimeter = useMemo(
+    () => (selectedFacility ? buildProtectedObjectPerimeter({ center: selectedFacility.center }) : null),
+    [selectedFacility],
+  );
+  const scaleBar = useMemo(
+    () =>
+      buildMapScaleBar({
+        latitude: viewState.latitude,
+        zoom: viewState.zoom,
+        maxWidthPx: 108,
+      }),
+    [viewState.latitude, viewState.zoom],
   );
 
   const stopFocusAnimation = useCallback(() => {
@@ -287,13 +332,37 @@ export function GisBoard({
   useEffect(() => () => stopFocusAnimation(), [stopFocusAnimation]);
 
   useEffect(() => {
-    if (skipNextLayerFocusRef.current) {
-      skipNextLayerFocusRef.current = false;
+    const facilityId = selectedFacility?.id ?? null;
+    const layerId = (selectedLayer?.id ?? selectedLayerId) || null;
+    const previousTarget = focusTargetRef.current;
+
+    if (!facilityId) return;
+
+    if (previousTarget.facilityId !== facilityId) {
+      focusTargetRef.current = { facilityId, layerId };
+      setInteractiveViewState(protectedObjectInitialViewState);
       return;
     }
 
-    animateToViewState(focusedViewState, layerFocusTransitionDurationMs);
-  }, [animateToViewState, focusedViewState]);
+    if (skipNextLayerFocusRef.current) {
+      skipNextLayerFocusRef.current = false;
+      focusTargetRef.current = { facilityId, layerId };
+      return;
+    }
+
+    if (previousTarget.layerId !== layerId) {
+      focusTargetRef.current = { facilityId, layerId };
+      animateToViewState(focusedViewState, layerFocusTransitionDurationMs);
+    }
+  }, [
+    animateToViewState,
+    focusedViewState,
+    protectedObjectInitialViewState,
+    selectedFacility?.id,
+    selectedLayer?.id,
+    selectedLayerId,
+    setInteractiveViewState,
+  ]);
 
   useEffect(() => {
     const boardElement = boardRef.current;
@@ -590,6 +659,22 @@ export function GisBoard({
             }),
           ];
         }),
+        ...(protectedObjectPerimeter
+          ? [
+              new PolygonLayer<{ perimeter: Array<[number, number]> }>({
+                id: "protected-object-perimeter",
+                data: [{ perimeter: protectedObjectPerimeter.polygon }],
+                getPolygon: (item) => item.perimeter,
+                filled: true,
+                stroked: true,
+                getFillColor: [15, 23, 42, 28],
+                getLineColor: [15, 23, 42, 220],
+                getLineWidth: 2,
+                lineWidthUnits: "pixels",
+                pickable: false,
+              }),
+            ]
+          : []),
         new H3HexagonLayer<HexCell>({
           id: "regional-h3-gaps",
           data: filteredHexes,
@@ -676,10 +761,14 @@ export function GisBoard({
           id: "facility-nodes",
           data: visibleFacilities,
           getPosition: (item) => [item.center.lon, item.center.lat],
-          getRadius: 9000,
-          radiusMinPixels: 6,
-          radiusMaxPixels: 20,
-          getFillColor: [0, 174, 255, 255],
+          getRadius: 180,
+          radiusMinPixels: 8,
+          radiusMaxPixels: 16,
+          stroked: true,
+          getFillColor: [14, 165, 233, 255],
+          getLineColor: [255, 255, 255, 245],
+          getLineWidth: 2,
+          lineWidthUnits: "pixels",
           pickable: true,
           onClick: ({ object }) => {
             if (!object) return;
@@ -720,6 +809,7 @@ export function GisBoard({
       selectedFacility?.center.lon,
       selectedLayerId,
       selectedPlacementId,
+      protectedObjectPerimeter,
       visibleFacilities,
     ],
   );
@@ -816,7 +906,7 @@ export function GisBoard({
           viewStateRef.current = normalizedNextViewState;
           setViewState(normalizedNextViewState);
         }}
-        controller
+        controller={deckControllerOptions}
         layers={deckLayers}
         onClick={(info) => {
           if (!activeToolId || !info.coordinate || !onPlaceActiveTool) return;
@@ -960,8 +1050,12 @@ export function GisBoard({
         </button>
       </div>
 
-      <div className="absolute bottom-5 left-4 z-10 rounded bg-white/90 px-3 py-1.5 text-[11px] text-slate-600 shadow">
-        1000 км
+      <div
+        className="absolute bottom-5 left-4 z-10 rounded bg-white/90 px-3 py-1.5 text-[11px] text-slate-600 shadow"
+        aria-label={`Масштаб карты ${scaleBar.label}`}
+      >
+        <div className="mb-1 h-1 rounded-full bg-slate-800" style={{ width: `${scaleBar.widthPx}px` }} />
+        {scaleBar.label}
       </div>
 
       {hoverLabel ? (

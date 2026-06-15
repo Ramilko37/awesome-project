@@ -54,6 +54,17 @@ export type EchelonMapSlot = {
 
 export type LayerFocusViewState = MapViewState;
 
+export type MapScaleBar = {
+  distanceM: number;
+  label: string;
+  widthPx: number;
+};
+
+export type ProtectedObjectPerimeter = {
+  center: [number, number];
+  polygon: Array<[number, number]>;
+};
+
 export type EchelonBuildCatalogGroup = {
   id: string;
   layerId: DefenseLayerId;
@@ -117,8 +128,11 @@ const slotBuildProfiles: Record<DefenseLayerId, SlotBuildProfile> = {
 const earthCircumferenceM = 40_075_016.686;
 const webMercatorTileSizePx = 512;
 const targetLayerDiameterPx = 640;
+const targetProtectedObjectDiameterPx = 640;
 const minLayerFocusZoom = 6;
 const maxLayerFocusZoom = 18;
+const protectedObjectContextMinRadiusM = 4_500;
+const protectedObjectContextMaxRadiusM = 6_000;
 const placementFocusMinZoom = 12.8;
 const placementFocusZoomStep = 2.4;
 
@@ -216,6 +230,105 @@ export function buildLayerFocusViewState({
     transitionEasing: transition.easing,
     transitionInterpolator: transition.interpolator,
     transitionInterruption: transition.interruption,
+  };
+}
+
+function zoomForRadius({ latitude, radiusM, targetDiameterPx }: { latitude: number; radiusM: number; targetDiameterPx: number }) {
+  const diameterM = Math.max(radiusM, 100) * 2;
+  const metersPerPixel = diameterM / targetDiameterPx;
+  const latitudeScale = Math.max(0.2, Math.cos(latitude * (Math.PI / 180)));
+  return Math.log2((earthCircumferenceM * latitudeScale) / (metersPerPixel * webMercatorTileSizePx));
+}
+
+export function buildProtectedObjectInitialViewState({
+  facility,
+  layers,
+}: {
+  facility: Facility;
+  layers: DefenseLayer[];
+}): LayerFocusViewState {
+  const nearLayerRadiusM =
+    layers
+      .map((layer) => layer.distanceBandM.max)
+      .filter((radiusM) => radiusM >= 1_500 && radiusM <= protectedObjectContextMaxRadiusM)
+      .sort((a, b) => b - a)[0] ?? protectedObjectContextMinRadiusM;
+  const contextRadiusM = clamp(
+    Math.max(nearLayerRadiusM, protectedObjectContextMinRadiusM),
+    protectedObjectContextMinRadiusM,
+    protectedObjectContextMaxRadiusM,
+  );
+  const rawZoom = zoomForRadius({
+    latitude: facility.center.lat,
+    radiusM: contextRadiusM,
+    targetDiameterPx: targetProtectedObjectDiameterPx,
+  });
+
+  return {
+    longitude: facility.center.lon,
+    latitude: facility.center.lat,
+    zoom: Number(clamp(rawZoom, minLayerFocusZoom, maxLayerFocusZoom).toFixed(2)),
+    pitch: 28,
+    bearing: 0,
+  };
+}
+
+function formatScaleDistance(distanceM: number) {
+  if (distanceM >= 1000) {
+    return `${(distanceM / 1000).toLocaleString("ru-RU", { maximumFractionDigits: 1 })} км`;
+  }
+  return `${Math.round(distanceM).toLocaleString("ru-RU")} м`;
+}
+
+function niceScaleDistance(distanceM: number) {
+  if (distanceM <= 0) return 1;
+  const magnitude = 10 ** Math.floor(Math.log10(distanceM));
+  const normalized = distanceM / magnitude;
+  const step = normalized >= 5 ? 5 : normalized >= 2 ? 2 : 1;
+  return step * magnitude;
+}
+
+export function buildMapScaleBar({
+  latitude,
+  zoom,
+  maxWidthPx = 108,
+}: {
+  latitude: number;
+  zoom: number | undefined;
+  maxWidthPx?: number;
+}): MapScaleBar {
+  const latitudeScale = Math.max(0.2, Math.cos(latitude * (Math.PI / 180)));
+  const normalizedZoom = clamp(zoom ?? minLayerFocusZoom, minLayerFocusZoom, maxLayerFocusZoom);
+  const metersPerPixel = (earthCircumferenceM * latitudeScale) / (2 ** normalizedZoom * webMercatorTileSizePx);
+  const distanceM = niceScaleDistance(metersPerPixel * maxWidthPx);
+  const widthPx = clamp(distanceM / metersPerPixel, 44, maxWidthPx);
+
+  return {
+    distanceM,
+    label: formatScaleDistance(distanceM),
+    widthPx: Number(widthPx.toFixed(1)),
+  };
+}
+
+export function buildProtectedObjectPerimeter({
+  center,
+  widthM = 900,
+  depthM = 620,
+}: {
+  center: GeoPoint;
+  widthM?: number;
+  depthM?: number;
+}): ProtectedObjectPerimeter {
+  const halfWidthM = widthM / 2;
+  const halfDepthM = depthM / 2;
+
+  return {
+    center: [center.lon, center.lat],
+    polygon: [
+      projectMeters(center, -halfWidthM, -halfDepthM),
+      projectMeters(center, halfWidthM, -halfDepthM),
+      projectMeters(center, halfWidthM, halfDepthM),
+      projectMeters(center, -halfWidthM, halfDepthM),
+    ],
   };
 }
 

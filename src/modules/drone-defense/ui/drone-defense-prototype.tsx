@@ -196,8 +196,13 @@ export function DroneDefensePrototype() {
     [selectedProtectedObject],
   );
   const mapFacilities = useMemo(
-    () => protectedObjects.map(protectedObjectToFacility),
-    [protectedObjects],
+    () => {
+      const options = protectedObjects.some((item) => item.id === selectedProtectedObject.id)
+        ? protectedObjects
+        : [selectedProtectedObject, ...protectedObjects];
+      return options.map(protectedObjectToFacility);
+    },
+    [protectedObjects, selectedProtectedObject],
   );
   const projectMapLayers = useMemo(
     () =>
