@@ -2,18 +2,13 @@
 
 import { EyeInvisibleOutlined, EyeOutlined } from "@ant-design/icons";
 import { describePlacement } from "@/modules/drone-defense/domain/placement-helpers";
+import styles from "./drone-defense-prototype.module.css";
 import type {
   DefenseCatalogResponse,
   DefenseLayer,
   DefenseLayerId,
   Placement,
 } from "@/shared/types/drone-defense";
-
-const statusStyles: Record<string, string> = {
-  ready: "bg-emerald-100 text-emerald-700",
-  warning: "bg-amber-100 text-amber-700",
-  inactive: "bg-slate-200 text-slate-500",
-};
 
 const statusLabel: Record<string, string> = {
   ready: "Готов",
@@ -53,57 +48,57 @@ export function EchelonObjectsList({
 
   if (layerPlacements.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
-        <p className="text-sm font-medium text-slate-600">В этом эшелоне пока нет объектов</p>
-        <p className="mt-1 text-xs text-slate-400">Перетащите средство из каталога на слот эшелона</p>
+      <div className={`${styles.prototypeCard} ${styles.prototypeMutedCard}`}>
+        <p className={styles.prototypeCardTitle}>В этом эшелоне пока нет объектов</p>
+        <p className={styles.prototypeMeta}>Перетащите средство из каталога на карту</p>
       </div>
     );
   }
 
   return (
-    <ul className="space-y-2">
+    <ul className="grid gap-2">
       {layerPlacements.map((placement) => {
         const summary = describePlacement({ placement, catalog, layers });
         const isSelected = placement.id === selectedPlacementId;
         const isHidden = hiddenPlacementIds.has(placement.id);
+        const statusClass =
+          summary.status === "ready"
+            ? styles.prototypeBadgeSuccess
+            : summary.status === "warning"
+              ? styles.prototypeBadgeWarning
+              : styles.prototypeBadgeMuted;
         return (
           <li
             key={placement.id}
-            className={`rounded-lg border p-3 transition ${
-              isSelected ? "border-blue-400 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"
-            }`}
+            className={`${styles.prototypeCard} ${isSelected ? styles.prototypeCardSelected : ""}`}
           >
             <button type="button" className="block w-full text-left" onClick={() => onSelect(placement.id)}>
               <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-medium text-slate-900">{summary.name}</p>
+                <p className={styles.prototypeCardTitle}>{summary.name}</p>
                 {isHidden ? (
-                  <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                  <span className={styles.prototypeBadgeWarning}>
                     скрыт на карте
                   </span>
                 ) : null}
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusStyles[summary.status]}`}>
+                <span className={statusClass}>
                   {statusLabel[summary.status]}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className={styles.prototypeMeta}>
                 {summary.echelonShortName} · {summary.echelonName} · ×{summary.qty} · {formatCostRub(summary.costRub)}
               </p>
             </button>
             <div className="mt-2 flex gap-2">
               <button
                 type="button"
-                className="h-7 rounded-md bg-slate-100 px-2 text-xs font-semibold text-slate-600 hover:bg-slate-200"
+                className={`${styles.prototypeButton} px-2`}
                 onClick={() => onLocate(placement)}
               >
                 На карте
               </button>
               <button
                 type="button"
-                className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold transition ${
-                  isHidden
-                    ? "bg-blue-50 text-blue-700 hover:bg-blue-100"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
+                className={`${isHidden ? styles.prototypeButtonPrimary : styles.prototypeButton} px-2`}
                 onClick={() => onToggleVisibility(placement.id)}
                 title={isHidden ? "Показать на карте" : "Скрыть на карте"}
                 aria-pressed={!isHidden}
@@ -113,7 +108,7 @@ export function EchelonObjectsList({
               </button>
               <button
                 type="button"
-                className="h-7 rounded-md bg-rose-50 px-2 text-xs font-semibold text-rose-600 hover:bg-rose-100"
+                className={`${styles.prototypeButtonDanger} px-2`}
                 onClick={() => onRemove(placement.id)}
               >
                 Удалить

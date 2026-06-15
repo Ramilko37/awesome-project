@@ -27,6 +27,7 @@ import {
 } from "@/modules/drone-defense/domain/mog-coverage";
 import type { DefenseAsset, PlacedDefenseObject } from "@/shared/types/defense-project";
 import type { MogEquipmentId, MogWeaponId, PlacedDefenseCompoundProfile } from "@/shared/types/defense-configuration";
+import styles from "./drone-defense-prototype.module.css";
 
 type MogCompositionEditorProps = {
   objectId: string;
@@ -51,16 +52,12 @@ function EditorSection({
 }) {
   return (
     <section
-      className={cn(
-        "rounded-3xl border p-4 sm:p-5",
-        tone === "accent" && "border-amber-200 bg-amber-50/80",
-        tone === "muted" && "border-slate-200 bg-white",
-        tone === "default" && "border-slate-200 bg-slate-50/85",
-      )}
+      className={styles.prototypeDrawerSection}
+      data-tone={tone}
     >
-      <div className="mb-4">
-        {eyebrow ? <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p> : null}
-        <h3 className="mt-1 text-sm font-semibold text-slate-950">{title}</h3>
+      <div className={styles.prototypeDrawerSectionHeader}>
+        {eyebrow ? <p className={styles.prototypeEyebrow}>{eyebrow}</p> : null}
+        <h3 className={styles.prototypeTitle}>{title}</h3>
       </div>
       {children}
     </section>
@@ -84,19 +81,19 @@ function Stepper({
   ariaLabel: string;
 }) {
   return (
-    <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1">
+    <div className={styles.prototypeCounter}>
       <button
         type="button"
         onClick={onDecrease}
         disabled={value <= 0}
         aria-label={`${ariaLabel}: уменьшить`}
-        className="grid h-9 w-9 place-items-center rounded-full text-lg text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+        className={styles.prototypeCounterButton}
       >
         −
       </button>
       <output
         aria-label={`${ariaLabel}: текущее значение`}
-        className="min-w-10 text-center text-sm font-semibold text-slate-950"
+        className={styles.prototypeCounterValue}
       >
         {value}
       </output>
@@ -104,7 +101,7 @@ function Stepper({
         type="button"
         onClick={onIncrease}
         aria-label={`${ariaLabel}: увеличить`}
-        className="grid h-9 w-9 place-items-center rounded-full text-lg text-slate-700 transition hover:bg-slate-100"
+        className={styles.prototypeCounterButton}
       >
         +
       </button>
@@ -303,30 +300,30 @@ export function MogCompositionEditor({
   };
 
   return (
-    <div className="pointer-events-none fixed inset-y-2 right-2 z-30 flex justify-end sm:inset-y-3 sm:right-3">
-      <aside className="pointer-events-auto flex h-full w-[min(100vw-1rem,35rem)] max-w-[35rem] flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.22)]">
-        <header className="border-b border-slate-200 px-4 pb-4 pt-5 sm:px-5">
+    <div className={styles.prototypeDrawerWrap}>
+      <aside className={styles.prototypeDrawer}>
+        <header className={styles.prototypeDrawerHeader}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                <span className={styles.prototypeBadgeMuted}>
                   {asset.name}
                 </span>
                 {isDirty ? (
-                  <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+                  <span className={styles.prototypeBadge}>
                     Есть несохраненные изменения
                   </span>
                 ) : null}
               </div>
-              <h2 className="mt-3 text-xl font-semibold text-slate-950">Настройка МОГ</h2>
-              <p className="mt-2 text-sm text-slate-600">
+              <h2 className={`${styles.prototypeTitleLarge} mt-3`}>Настройка МОГ</h2>
+              <p className={`${styles.prototypeMeta} mt-2`}>
                 {draft.postType} · {layerLabel} · {formatMogMoney(costSummary.baseMln)}
               </p>
             </div>
             <button
               type="button"
               onClick={handleCancel}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
+              className={`${styles.prototypeIconButton} shrink-0`}
               aria-label="Закрыть редактор МОГ"
             >
               <X className="h-4 w-4" />
@@ -334,16 +331,16 @@ export function MogCompositionEditor({
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-4 pb-36 pt-4 sm:px-5">
-          <div className="space-y-4">
+        <div className={styles.prototypeDrawerBody}>
+          <div className={styles.prototypeDrawerStack}>
             <EditorSection title="Основные параметры" eyebrow="Пост и контекст">
               <div className="grid gap-4">
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                <label className={styles.prototypeLabel}>
                   Тип поста
                   <select
                     value={draft.postType}
                     onChange={(event) => applyDraft((current) => ({ ...current, postType: event.target.value }))}
-                    className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-blue-300"
+                    className={styles.prototypeSelect}
                   >
                     {MOG_POST_TYPE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -354,7 +351,7 @@ export function MogCompositionEditor({
                 </label>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  <label className={styles.prototypeLabel}>
                     Количество личного состава
                     <div className="relative">
                       <input
@@ -369,7 +366,7 @@ export function MogCompositionEditor({
                             personnelCount: sanitizeMogCountInput(event.target.value),
                           }))
                         }
-                        className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 pr-14 text-sm text-slate-950 outline-none transition focus:border-blue-300"
+                        className={`${styles.prototypeField} pr-14`}
                       />
                       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
                         чел.
@@ -378,12 +375,12 @@ export function MogCompositionEditor({
                     <FieldError message={errors.personnelCount} />
                   </label>
 
-                  <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  <label className={styles.prototypeLabel}>
                     Подотчётность
                     <select
                       value={draft.accountability}
                       onChange={(event) => applyDraft((current) => ({ ...current, accountability: event.target.value }))}
-                      className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-blue-300"
+                      className={styles.prototypeSelect}
                     >
                       {MOG_ACCOUNTABILITY_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -401,10 +398,10 @@ export function MogCompositionEditor({
                 {draft.equipment?.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5"
+                    className={styles.prototypeInlineCard}
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-900">{item.label}</p>
+                      <p className={`${styles.prototypeCardTitle} truncate`}>{item.label}</p>
                       <FieldError message={errors.equipment[item.id]} />
                     </div>
                     <Stepper
@@ -429,12 +426,9 @@ export function MogCompositionEditor({
                   return (
                     <article
                       key={weapon.id}
-                      className={cn(
-                        "rounded-3xl border p-4 transition",
-                        isActive && "border-blue-300 bg-blue-50/60 shadow-[0_12px_32px_rgba(59,130,246,0.12)]",
-                        !isActive && "border-slate-200 bg-white",
-                        isDisabled && "opacity-65",
-                      )}
+                      className={styles.prototypeWeaponCard}
+                      data-active={isActive ? "true" : "false"}
+                      data-disabled={isDisabled ? "true" : "false"}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -444,14 +438,14 @@ export function MogCompositionEditor({
                               className="h-2.5 w-2.5 rounded-full"
                               style={{ backgroundColor: color.stroke }}
                             />
-                            <h4 className="truncate text-sm font-semibold text-slate-950">{weapon.label}</h4>
+                            <h4 className={`${styles.prototypeCardTitle} truncate`}>{weapon.label}</h4>
                             {isActive ? (
-                              <span className="rounded-full border px-2 py-0.5 text-[11px] font-semibold" style={{ borderColor: color.stroke, color: color.stroke }}>
+                              <span className={styles.prototypeBadge} style={{ borderColor: color.stroke, color: color.stroke }}>
                                 На карте
                               </span>
                             ) : null}
                           </div>
-                          <p className="mt-1 text-xs text-slate-500">Дальность: {formatMogRange(weapon.rangeM)}</p>
+                          <p className={styles.prototypeMeta}>Дальность: {formatMogRange(weapon.rangeM)}</p>
                         </div>
                         <Stepper
                           value={quantity}
@@ -462,12 +456,13 @@ export function MogCompositionEditor({
                       </div>
 
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                        <div className="text-xs font-medium text-slate-500">
+                        <div className={styles.prototypeMeta}>
                           Кол-во: <span className="font-semibold text-slate-700">{quantity}</span>
                         </div>
                         <label
                           className={cn(
-                            "flex min-h-11 items-center gap-3 rounded-full border px-4 text-sm font-semibold transition",
+                            styles.prototypeButton,
+                            "min-h-9 cursor-pointer px-3",
                             isActive && "bg-white",
                             !isActive && "bg-white text-slate-700",
                             isDisabled && "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400",
@@ -487,7 +482,7 @@ export function MogCompositionEditor({
 
                       {!isDisabled ? (
                         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                          <label className="grid gap-2 text-sm font-medium text-slate-700">
+                          <label className={styles.prototypeLabel}>
                             Азимут
                             <div className="relative">
                               <input
@@ -500,7 +495,8 @@ export function MogCompositionEditor({
                                 onChange={(event) => handleWeaponAzimuthInput(weapon.id, event.target.value)}
                                 onBlur={() => commitWeaponAzimuthInput(weapon.id)}
                                 className={cn(
-                                  "h-11 w-full rounded-2xl border bg-white px-3 pr-10 text-sm text-slate-950 outline-none transition",
+                                  styles.prototypeField,
+                                  "pr-10",
                                   errors.weaponCoverageAzimuth[weapon.id]
                                     ? "border-rose-300 focus:border-rose-400"
                                     : "border-slate-200 focus:border-blue-300",
@@ -513,7 +509,7 @@ export function MogCompositionEditor({
                             <FieldError message={errors.weaponCoverageAzimuth[weapon.id]} />
                           </label>
 
-                          <label className="grid gap-2 text-sm font-medium text-slate-700">
+                          <label className={styles.prototypeLabel}>
                             Сектор
                             <div className="relative">
                               <input
@@ -529,7 +525,8 @@ export function MogCompositionEditor({
                                 onChange={(event) => handleWeaponSectorInput(weapon.id, event.target.value)}
                                 onBlur={() => commitWeaponSectorInput(weapon.id)}
                                 className={cn(
-                                  "h-11 w-full rounded-2xl border bg-white px-3 pr-10 text-sm text-slate-950 outline-none transition",
+                                  styles.prototypeField,
+                                  "pr-10",
                                   errors.weaponCoverageSectorWidthDeg[weapon.id]
                                     ? "border-rose-300 focus:border-rose-400"
                                     : "border-slate-200 focus:border-blue-300",
@@ -545,13 +542,13 @@ export function MogCompositionEditor({
                       ) : null}
 
                       {!isDisabled ? (
-                        <p className="mt-3 text-xs text-slate-500">
+                        <p className={`${styles.prototypeMeta} mt-3`}>
                           Это покрытие использует собственные азимут и сектор независимо от остальных типов оружия.
                         </p>
                       ) : null}
 
                       {isDisabled ? (
-                        <p className="mt-3 text-xs text-slate-500">
+                        <p className={`${styles.prototypeMeta} mt-3`}>
                           Добавьте количество, чтобы показать покрытие на карте.
                         </p>
                       ) : null}
@@ -561,12 +558,12 @@ export function MogCompositionEditor({
                 })}
               </div>
 
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Легенда покрытий</p>
+              <div className={`${styles.prototypeCard} mt-4`}>
+                <p className={styles.prototypeEyebrow}>Легенда покрытий</p>
                 {visibleCoverageWeapons.length > 0 ? (
                   <div className="mt-3 space-y-2">
                     {visibleCoverageWeapons.map((weapon) => (
-                      <div key={weapon.id} className="flex items-center gap-2 text-sm text-slate-700">
+                      <div key={weapon.id} className={`${styles.prototypeMeta} flex items-center gap-2`}>
                         <span
                           aria-hidden="true"
                           className="h-2.5 w-2.5 rounded-full"
@@ -580,22 +577,22 @@ export function MogCompositionEditor({
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-3 text-sm text-slate-500">Покрытия на карте не выбраны.</p>
+                  <p className={`${styles.prototypeMeta} mt-3`}>Покрытия на карте не выбраны.</p>
                 )}
               </div>
             </EditorSection>
 
             <EditorSection title="Стоимость" eyebrow="Текущая оценка" tone="accent">
               <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                <div className={`${styles.prototypeMeta} flex items-center justify-between gap-3`}>
                   <span>База поста</span>
                   <strong className="text-slate-950">{formatMogMoney(costSummary.baseMln)}</strong>
                 </div>
-                <div className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                <div className={`${styles.prototypeMeta} flex items-center justify-between gap-3`}>
                   <span>Оснащение</span>
                   <strong className="text-slate-950">{formatMogMoney(costSummary.equipmentMln)}</strong>
                 </div>
-                <div className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                <div className={`${styles.prototypeMeta} flex items-center justify-between gap-3`}>
                   <span>Оружие</span>
                   <strong className="text-slate-950">{formatMogMoney(costSummary.weaponsMln)}</strong>
                 </div>
@@ -605,7 +602,7 @@ export function MogCompositionEditor({
                     <span>{formatMogMoney(costSummary.totalMln)}</span>
                   </div>
                   {costSummary.isEstimate ? (
-                    <p className="mt-2 text-xs text-slate-600">
+                    <p className={`${styles.prototypeMeta} mt-2`}>
                       Итог пока учитывает базовую стоимость поста. Стоимость оснащения и оружия подключим отдельно, когда она появится в данных.
                     </p>
                   ) : null}
@@ -615,8 +612,8 @@ export function MogCompositionEditor({
           </div>
         </div>
 
-        <footer className="border-t border-slate-200 bg-white px-4 py-4 sm:px-5">
-          <div className="flex items-start gap-2 rounded-2xl bg-slate-50 px-3 py-3 text-xs text-slate-600">
+        <footer className={styles.prototypeDrawerFooter}>
+          <div className={`${styles.prototypeNotice} flex items-start gap-2`}>
             {hasErrors ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" /> : <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />}
             <p>
               {hasErrors
@@ -629,7 +626,7 @@ export function MogCompositionEditor({
             <button
               type="button"
               onClick={handleCancel}
-              className="min-h-11 flex-1 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+              className={`${styles.prototypeButton} flex-1 px-4`}
             >
               Отмена
             </button>
@@ -637,7 +634,7 @@ export function MogCompositionEditor({
               type="button"
               onClick={handleSave}
               disabled={hasErrors || !isDirty}
-              className="min-h-11 flex-1 rounded-full bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className={`${styles.prototypeButtonPrimary} flex-1 px-4`}
             >
               Сохранить изменения
             </button>

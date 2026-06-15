@@ -29,6 +29,7 @@ import { EchelonObjectsList } from "@/modules/drone-defense/ui/echelon-objects-l
 import { MogCompositionEditor } from "@/modules/drone-defense/ui/mog-composition-editor";
 import { Prototype3DPlaceholder } from "@/modules/drone-defense/ui/prototype-3d-placeholder";
 import { VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
+import styles from "./drone-defense-prototype.module.css";
 import {
   type AssetCatalogItem,
   buildPlacedDefenseCompoundProfile,
@@ -769,21 +770,17 @@ export function DroneDefensePrototype() {
     <div className="flex h-full min-h-0 flex-col lg:flex-row">
       <section
         data-sidebar-state={isCatalogTrayOpen ? "open" : "closed"}
-        className={`z-10 flex w-full shrink-0 flex-col overflow-hidden border-slate-200 bg-white shadow-xl shadow-slate-900/5 transition-[max-height,width,transform,opacity] duration-300 ease-in-out lg:h-full lg:max-h-none ${
-          isCatalogTrayOpen
-            ? "max-h-[42vh] border-b opacity-100 lg:w-[320px] lg:border-b-0 lg:border-r"
-            : "pointer-events-none max-h-0 border-b-0 -translate-y-2 opacity-0 lg:w-0 lg:translate-y-0 lg:border-r-0"
-        }`}
+        className={styles.prototypeSidebar}
         aria-hidden={!isCatalogTrayOpen}
       >
-          <div className="border-b border-slate-100 p-4">
-            <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-white">
+          <div className={styles.prototypeSidebarHeader}>
+            <div className={styles.prototypeBrandRow}>
+              <div className={styles.prototypeBrandIcon}>
                 <AppstoreOutlined />
               </div>
               <div className="min-w-0">
-                <h1 className="truncate text-lg font-semibold text-slate-950">Моя карта</h1>
-                <p className="truncate text-xs text-slate-500">Defense Configuration Studio</p>
+                <h1 className={`${styles.prototypeTitleLarge} truncate`}>Моя карта</h1>
+                <p className={`${styles.prototypeMeta} truncate`}>Defense Configuration Studio</p>
               </div>
             </div>
             <div className="mt-3 hidden lg:block">
@@ -792,20 +789,20 @@ export function DroneDefensePrototype() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-hidden">
-            <div className="border-b border-slate-100 px-3 py-3">
+            <div className={styles.prototypeSection}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-500">Библиотека СЗ</p>
-                  <h2 className="truncate text-sm font-semibold text-slate-950">
+                  <p className={styles.prototypeEyebrow}>Библиотека СЗ</p>
+                  <h2 className={`${styles.prototypeTitle} truncate`}>
                     {selectedLayer?.code ?? "—"} · {selectedLayer?.name ?? "Эшелон не выбран"}
                   </h2>
-                  <p className="text-xs text-slate-500">
+                  <p className={styles.prototypeMeta}>
                     {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)}
                   </p>
                 </div>
                 <button
                   type="button"
-                  className="h-8 shrink-0 cursor-pointer rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  className={`${styles.prototypeButton} shrink-0 cursor-pointer px-2`}
                   onClick={() => setIsCatalogTrayOpen(false)}
                   title="Свернуть библиотеку в угол карты"
                 >
@@ -813,7 +810,7 @@ export function DroneDefensePrototype() {
                 </button>
               </div>
               <input
-                className="mt-3 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none placeholder:text-slate-400 focus:border-blue-400"
+                className={`${styles.prototypeField} mt-3`}
                 value={catalogQuery}
                 onChange={(event) => setCatalogQuery(event.target.value)}
                 placeholder="Найти средство..."
@@ -843,7 +840,7 @@ export function DroneDefensePrototype() {
               }}
               onMessage={setLastPlacementMessage}
             />
-            <div className="h-full overflow-y-auto p-3 pb-28">
+            <div className={styles.prototypeScrollArea}>
               <DefenseToolsPanel
                 assets={filteredCatalogItems}
                 projectAssets={project.assetLibrary}
@@ -860,30 +857,30 @@ export function DroneDefensePrototype() {
           </div>
       </section>
 
-      <main className="relative min-w-0 flex-1 overflow-hidden">
+      <main className={styles.prototypeMain}>
         {error ? (
-          <div className="absolute left-4 top-4 z-30 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 shadow">
+          <div className={`${styles.prototypeNoticeDanger} absolute left-4 top-4 z-30 shadow`}>
             {error}
           </div>
         ) : null}
         {loading ? (
-          <div className="absolute left-4 top-4 z-30 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow">
+          <div className={`${styles.prototypeNotice} absolute left-4 top-4 z-30 shadow`}>
             Загрузка данных…
           </div>
         ) : null}
 
         {isEchelonObjectsPanelOpen && activeEchelonObjectsLayer ? (
-          <aside className="absolute right-4 top-4 z-30 w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20">
-            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
+          <aside className={`${styles.prototypeFloatingPanel} ${styles.prototypeObjectsPanel}`}>
+            <div className={styles.prototypeFloatingHeader}>
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-500">Объекты эшелона</p>
-                <h3 className="text-sm font-semibold text-slate-950">{activeEchelonObjectsLayer.code} · {activeEchelonObjectsLayer.name}</h3>
-                <p className="text-xs text-slate-500">Открывается отдельно, чтобы не перегружать основную панель.</p>
+                <p className={styles.prototypeEyebrow}>Объекты эшелона</p>
+                <h3 className={styles.prototypeTitle}>{activeEchelonObjectsLayer.code} · {activeEchelonObjectsLayer.name}</h3>
+                <p className={styles.prototypeMeta}>Открывается отдельно, чтобы не перегружать основную панель.</p>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                  className={`${styles.prototypeIconButton} px-2`}
                   onClick={() => setIsEchelonObjectsCollapsed((current) => !current)}
                   title={isEchelonObjectsCollapsed ? "Развернуть карточку" : "Свернуть карточку"}
                 >
@@ -891,7 +888,7 @@ export function DroneDefensePrototype() {
                 </button>
                 <button
                   type="button"
-                  className="h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                  className={styles.prototypeIconButton}
                   onClick={() => setIsEchelonObjectsPanelOpen(false)}
                   title="Закрыть карточку"
                   aria-label="Закрыть карточку"
@@ -901,7 +898,7 @@ export function DroneDefensePrototype() {
               </div>
             </div>
             {!isEchelonObjectsCollapsed ? (
-              <div className="max-h-[70vh] overflow-y-auto p-4">
+              <div className={styles.prototypeFloatingBody}>
                 <EchelonObjectsList
                   layerId={activeEchelonObjectsLayer.id as DefenseLayerId}
                   placements={projectCatalogPlacements}
@@ -968,6 +965,7 @@ export function DroneDefensePrototype() {
 
             {coordinatePlacementAsset && selectedLayer ? (
               <CoordinatePlacementPanel
+                key={`${coordinatePlacementAsset.id}:${selectedLayer.id}`}
                 assetName={coordinatePlacementAsset.name}
                 layerLabel={`${selectedLayer.code} · ${selectedLayer.name}`}
                 validationMessage={coordinatePlacementValidation?.message}
@@ -1003,37 +1001,33 @@ export function DroneDefensePrototype() {
 
             {selectedLayer ? (
               <div
-                className={`pointer-events-none absolute inset-x-3 bottom-3 z-20 flex lg:inset-x-5 ${
-                  showCompactLayerPanel ? "justify-center" : "justify-start"
-                }`}
+                className={styles.prototypeLayerPanelWrap}
+                data-compact={showCompactLayerPanel ? "true" : "false"}
               >
                 <div
-                  className={`pointer-events-auto border border-white/70 bg-white/95 shadow-2xl shadow-slate-900/20 backdrop-blur ${
-                    showCompactLayerPanel
-                      ? "w-full max-w-4xl rounded-2xl p-2"
-                      : "w-full rounded-xl p-3"
-                  }`}
+                  className={styles.prototypeLayerPanel}
+                  data-compact={showCompactLayerPanel ? "true" : "false"}
                 >
                   {showCompactLayerPanel ? (
-                    <div className="flex flex-col gap-3 rounded-[1.15rem] border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className={styles.prototypeLayerCompactCard}>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-500">
+                        <p className={styles.prototypeEyebrow}>
                           Эшелоны проекта · {layerPanelSummaryLabel}
                         </p>
                         <p
-                          className="mt-1 truncate text-sm font-semibold text-slate-950"
+                          className={`${styles.prototypeTitle} mt-1 truncate`}
                           title={`Активный: ${selectedLayer.code} · ${selectedLayer.name}`}
                         >
                           Активный: {selectedLayer.code} · {selectedLayer.name}
                         </p>
-                        <p className="mt-0.5 text-sm font-medium text-slate-500">
+                        <p className={styles.prototypeMeta}>
                           {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)} ·{" "}
                           {formatLayerObjectMeta(activeLayerSummary?.objectCount ?? 0, activeLayerSummary?.totalMln ?? 0)}
                         </p>
                       </div>
                       <button
                         type="button"
-                        className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl bg-blue-600 text-base text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700"
+                        className={`${styles.prototypeButtonPrimary} h-9 w-9 shrink-0 cursor-pointer`}
                         onClick={() => {
                           setIsCatalogTrayOpen(false);
                           setIsLayerPanelExpanded(true);
@@ -1046,22 +1040,18 @@ export function DroneDefensePrototype() {
                     </div>
                   ) : (
                     <>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className={styles.prototypeLayerHeader}>
                     <div>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-blue-500">Эшелоны проекта</p>
-                      <p className="text-sm font-semibold text-slate-950">
+                      <p className={styles.prototypeEyebrow}>Эшелоны проекта</p>
+                      <p className={styles.prototypeTitle}>
                         Эшелоны проекта · {layerPanelSummaryLabel}
                       </p>
-                      <p className="mt-0.5 text-xs font-medium text-slate-500">{activeLayerHeaderLabel}</p>
+                      <p className={styles.prototypeMeta}>{activeLayerHeaderLabel}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        className={`flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition ${
-                          showAllEchelonObjects
-                            ? "border-blue-500 bg-blue-600 text-white shadow-md shadow-blue-600/20"
-                            : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                        }`}
+                        className={`${showAllEchelonObjects ? styles.prototypeButtonPrimary : styles.prototypeButton} cursor-pointer px-3`}
                         onClick={toggleObjectVisibilityMode}
                         aria-pressed={showAllEchelonObjects}
                         title={objectVisibilityToggleTitle}
@@ -1071,7 +1061,7 @@ export function DroneDefensePrototype() {
                       </button>
                       <button
                         type="button"
-                        className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-blue-600 text-sm text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                        className={`${styles.prototypeButtonPrimary} w-9 cursor-pointer`}
                         onClick={createProjectLayer}
                         disabled={!canCreateLayer}
                         title={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
@@ -1081,7 +1071,7 @@ export function DroneDefensePrototype() {
                       </button>
                       <button
                         type="button"
-                        className="h-9 cursor-pointer rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                        className={`${styles.prototypeButton} cursor-pointer px-3`}
                         onClick={() => setIsLayerPanelExpanded(false)}
                       >
                         Свернуть
@@ -1089,10 +1079,10 @@ export function DroneDefensePrototype() {
                     </div>
                   </div>
 
-                  <div className="mt-3 flex items-center gap-2">
+                  <div className={styles.prototypeLayerScrollRow}>
                     <button
                       type="button"
-                      className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      className={`${styles.prototypeIconButton} shrink-0 cursor-pointer`}
                       onClick={() => scrollLayerStrip("left")}
                       disabled={!layerStripState.canScrollLeft}
                       aria-label="Прокрутить эшелоны влево"
@@ -1102,7 +1092,7 @@ export function DroneDefensePrototype() {
                     <div className="relative min-w-0 flex-1">
                       {layerStripState.canScrollLeft ? <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white via-white/80 to-transparent" /> : null}
                       {layerStripState.canScrollRight ? <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white via-white/80 to-transparent" /> : null}
-                  <div ref={layerStripRef} className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div ref={layerStripRef} className={styles.prototypeLayerStrip}>
                     {orderedProjectLayers.map((layer) => {
                       const summary = layerSummaries.find((item) => item.layerId === layer.id);
                       const isSelected = layer.id === selectedLayer.id;
@@ -1152,20 +1142,16 @@ export function DroneDefensePrototype() {
                       return (
                         <div
                           key={layer.id}
-                          className={`group relative min-w-[16.25rem] max-w-[16.25rem] snap-start rounded-xl border px-3.5 py-3 transition ${
-                            isSelected
-                              ? "border-blue-500 bg-blue-50/80 shadow-[0_10px_24px_-18px_rgba(37,99,235,0.55)] ring-1 ring-blue-200/80"
-                              : isHovered
-                                ? "border-slate-300 bg-slate-50/80 shadow-[0_10px_24px_-20px_rgba(15,23,42,0.28)]"
-                                : "border-slate-200 hover:border-blue-200 hover:bg-slate-50/80"
-                          }`}
+                          className={styles.prototypeLayerCard}
+                          data-selected={isSelected ? "true" : "false"}
+                          data-hovered={isHovered ? "true" : "false"}
                           onMouseEnter={() => setHoveredLayerId(layer.id)}
                           onMouseLeave={() => setHoveredLayerId((current) => (current === layer.id ? null : current))}
                         >
-                          <div className="absolute right-2.5 top-2.5 z-10 flex items-center gap-0.5">
+                          <div className={styles.prototypeLayerActions}>
                             <button
                               type="button"
-                              className="grid h-8 w-8 cursor-pointer place-items-center rounded-[10px] border border-transparent bg-transparent text-[12px] text-slate-400 transition hover:border-slate-200 hover:bg-slate-100 hover:text-slate-700"
+                              className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 toggleLayerVisibility(layer.id, layer.isVisible === false);
@@ -1186,7 +1172,7 @@ export function DroneDefensePrototype() {
                             >
                               <button
                                 type="button"
-                                className="grid h-8 w-8 cursor-pointer place-items-center rounded-[10px] border border-transparent bg-transparent text-[12px] text-slate-400 transition hover:border-slate-200 hover:bg-slate-100 hover:text-slate-700"
+                                className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
                                 onClick={(event) => event.stopPropagation()}
                                 aria-label="Открыть меню эшелона"
                               >
@@ -1196,24 +1182,24 @@ export function DroneDefensePrototype() {
                           </div>
                           <button
                             type="button"
-                            className="block w-full cursor-pointer text-left"
+                            className={styles.prototypeLayerButton}
                             onClick={() => selectLayerWithDefaultSlot(layer.id)}
                           >
                             <div className="flex items-start gap-2.5 pr-[4.4rem]">
                               <div className="min-w-0 flex-1">
                                 <div className="flex min-w-0 items-start gap-2">
                                   <span
-                                    className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                                    className={styles.prototypeLayerDot}
                                     style={{ backgroundColor: layer.color ?? "#2563eb" }}
                                     aria-hidden="true"
                                   />
                                   <div className="min-w-0 min-h-[2.45rem]" title={`${layer.code} · ${layer.name}`}>
-                                    <p className="truncate text-[15px] font-semibold leading-[1.15] text-slate-950">
+                                    <p className={`${styles.prototypeLayerName} truncate`}>
                                       {titleParts.primary}
                                     </p>
                                     {titleParts.secondary ? (
                                       <p
-                                        className="text-[15px] font-semibold leading-[1.15] text-slate-950"
+                                        className={styles.prototypeLayerName}
                                         style={{
                                           display: "-webkit-box",
                                           WebkitLineClamp: 1,
@@ -1228,15 +1214,15 @@ export function DroneDefensePrototype() {
                                 </div>
                               </div>
                             </div>
-                            <p className="mt-3 whitespace-nowrap text-[1.85rem] font-bold leading-[1.02] tracking-[-0.03em] text-slate-950">
+                            <p className={styles.prototypeLayerRange}>
                               {formatLayerRange(summary?.innerRadiusM ?? 0, summary?.outerRadiusM ?? 0)}
                             </p>
-                            <p className="mt-1.5 text-[14px] font-medium leading-[1.2] text-slate-500">
+                            <p className={styles.prototypeMeta}>
                               {formatLayerObjectMeta(summary?.objectCount ?? 0, summary?.totalMln ?? 0)}
                             </p>
                           </button>
                           {layer.isLocked ? (
-                            <span className="pointer-events-none absolute bottom-3 right-3 rounded-md bg-slate-950 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/90">
+                            <span className={`${styles.prototypeLayerLocked} ${styles.prototypeBadgeMuted}`}>
                               locked
                             </span>
                           ) : null}
@@ -1247,7 +1233,7 @@ export function DroneDefensePrototype() {
                     </div>
                     <button
                       type="button"
-                      className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      className={`${styles.prototypeIconButton} shrink-0 cursor-pointer`}
                       onClick={() => scrollLayerStrip("right")}
                       disabled={!layerStripState.canScrollRight}
                       aria-label="Прокрутить эшелоны вправо"
@@ -1265,9 +1251,7 @@ export function DroneDefensePrototype() {
             <button
               type="button"
               data-sidebar-toggle-state={isCatalogTrayOpen ? "hidden" : "visible"}
-              className={`absolute left-4 top-20 z-40 grid h-12 w-12 cursor-pointer place-items-center rounded-xl bg-blue-600 text-lg text-white shadow-xl shadow-blue-950/25 transition duration-300 ease-in-out hover:bg-blue-700 ${
-                isCatalogTrayOpen ? "pointer-events-none -translate-x-2 opacity-0" : "pointer-events-auto translate-x-0 opacity-100"
-              }`}
+              className={`${styles.prototypeToggleLauncher} ${styles.prototypeButtonPrimary} cursor-pointer transition duration-300 ease-in-out`}
               onClick={() => setIsCatalogTrayOpen(true)}
               title="Открыть библиотеку средств защиты"
               aria-label="Открыть библиотеку средств защиты"
@@ -1406,13 +1390,13 @@ function LayerGeometryWizard({
 
   return (
     <div
-      className={`pointer-events-none z-40 ${
+      className={`${styles.prototypeWizardWrap} ${
         dragPosition ? "fixed left-0 top-0" : "absolute inset-x-3 bottom-3 flex justify-center lg:inset-x-5"
       }`}
     >
       <div
         ref={cardRef}
-        className="pointer-events-auto w-full max-w-3xl rounded-xl border border-slate-200 bg-white/95 p-4 shadow-2xl shadow-slate-950/25 backdrop-blur"
+        className={styles.prototypeWizard}
         style={dragPosition ? { transform: `translate3d(${dragPosition.x}px, ${dragPosition.y}px, 0)` } : undefined}
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1421,19 +1405,19 @@ function LayerGeometryWizard({
             onPointerDown={startDrag}
             title="Перетащить мастер"
           >
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-sky-500">
+            <p className={styles.prototypeEyebrow}>
               {state.mode === "create" ? "Мастер создания" : "Мастер настройки"}
             </p>
-            <h3 className="mt-1 text-base font-semibold text-slate-950">
+            <h3 className={`${styles.prototypeTitleLarge} mt-1`}>
               {state.mode === "create" ? "Создание эшелона" : "Редактирование эшелона"}
             </h3>
-            <p className="mt-1 text-[11px] font-medium text-slate-500">
+            <p className={styles.prototypeMeta}>
               {state.mode === "create" ? "Новый эшелон защиты появится в выбранном диапазоне вокруг объекта." : "Обновите код, название и диапазон эшелона без изменения общей модели проекта."}
             </p>
           </div>
           <button
             type="button"
-            className="h-8 cursor-pointer rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            className={`${styles.prototypeButton} cursor-pointer px-3`}
             onClick={onCancel}
           >
             Отмена
@@ -1444,9 +1428,9 @@ function LayerGeometryWizard({
           <div className="grid gap-3 sm:grid-cols-2">
             {state.mode === "create" ? (
               <label className="sm:col-span-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Где создать эшелон</span>
+                <span className={styles.prototypeEyebrow}>Где создать эшелон</span>
                 <select
-                  className="mt-1 h-10 w-full cursor-pointer rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-400"
+                  className={`${styles.prototypeSelect} mt-1 cursor-pointer`}
                   value={state.insertPosition}
                   onChange={(event) => onSelectInsertPosition(event.target.value)}
                 >
@@ -1462,42 +1446,42 @@ function LayerGeometryWizard({
             ) : null}
 
             <label>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Код</span>
+              <span className={styles.prototypeEyebrow}>Код</span>
               <input
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-400"
+                className={`${styles.prototypeField} mt-1`}
                 value={state.draft.code}
                 onChange={(event) => onDraftChange({ code: event.target.value })}
               />
               {fieldErrors?.code ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.code}</p> : null}
             </label>
             <label>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Название</span>
+              <span className={styles.prototypeEyebrow}>Название</span>
               <input
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-400"
+                className={`${styles.prototypeField} mt-1`}
                 value={state.draft.name}
                 onChange={(event) => onDraftChange({ name: event.target.value })}
               />
               {fieldErrors?.name ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.name}</p> : null}
             </label>
             <label>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Внутренний радиус, км</span>
+              <span className={styles.prototypeEyebrow}>Внутренний радиус, км</span>
               <input
                 type="number"
                 min={0}
                 step={0.1}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-400"
+                className={`${styles.prototypeField} mt-1`}
                 value={metersToKilometers(state.draft.innerRadiusM)}
                 onChange={(event) => onDraftChange({ innerRadiusM: kilometersToMeters(event.target.value) })}
               />
               {fieldErrors?.innerRadiusM ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.innerRadiusM}</p> : null}
             </label>
             <label>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Ширина, км</span>
+              <span className={styles.prototypeEyebrow}>Ширина, км</span>
               <input
                 type="number"
                 min={0}
                 step={0.1}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-400"
+                className={`${styles.prototypeField} mt-1`}
                 value={metersToKilometers(state.draft.widthM)}
                 onChange={(event) => onDraftChange({ widthM: kilometersToMeters(event.target.value) })}
               />
@@ -1505,26 +1489,26 @@ function LayerGeometryWizard({
             </label>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Диапазон эшелона</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-950">
+          <div className={styles.prototypeMetricCard}>
+            <p className={styles.prototypeEyebrow}>Диапазон эшелона</p>
+            <p className={styles.prototypeLayerRange}>
               {formatLayerRange(state.draft.innerRadiusM, outerRadiusM)}
             </p>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className={styles.prototypeMeta}>
               {formatLayerRange(state.draft.innerRadiusM, outerRadiusM)} от объекта
             </p>
-            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
-              <div className="h-2 rounded-full bg-slate-100">
-                <div className="h-2 rounded-full bg-gradient-to-r from-sky-400 via-blue-500 to-slate-900" style={{ width: "100%" }} />
+            <div className={`${styles.prototypeCard} mt-4`}>
+              <div className={styles.prototypeProgressTrack}>
+                <div className={styles.prototypeProgressFill} style={{ width: "100%" }} />
               </div>
-              <div className="mt-3 grid gap-2 text-xs text-slate-600">
+              <div className={`${styles.prototypeMeta} mt-3 grid gap-2`}>
                 <p>Внутренний радиус: {formatDistance(state.draft.innerRadiusM)}</p>
                 <p>Ширина кольца: {formatDistance(state.draft.widthM)}</p>
                 <p>Внешний радиус: {formatDistance(outerRadiusM)}</p>
               </div>
             </div>
             {validationMessage ? (
-              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+              <div className={`${styles.prototypeNoticeDanger} mt-3`}>
                 {validationMessage}
               </div>
             ) : null}
@@ -1532,12 +1516,12 @@ function LayerGeometryWizard({
         </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-slate-500">
+          <p className={styles.prototypeMeta}>
             Пересечения запрещены, касание границ допустимо. Соседние эшелоны не сдвигаются.
           </p>
           <button
             type="button"
-            className="h-10 cursor-pointer rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white shadow-md shadow-sky-600/20 hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+            className={`${styles.prototypeButtonPrimary} cursor-pointer px-4`}
             disabled={!isValid}
             onClick={onSubmit}
           >

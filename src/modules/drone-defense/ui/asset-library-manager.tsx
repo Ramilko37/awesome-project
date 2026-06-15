@@ -15,6 +15,7 @@ import {
   updateDefenseAsset,
   type DefenseAssetMutationInput,
 } from "@/modules/drone-defense/infra/asset-library-api";
+import styles from "./drone-defense-prototype.module.css";
 import type {
   DefenseAsset,
   DefenseAssetCategory,
@@ -271,16 +272,16 @@ export function AssetLibraryManager({
   };
 
   return (
-    <div className="border-b border-slate-100 px-3 py-3">
+    <div className={styles.prototypeSection}>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Управление карточками</p>
-          <p className="truncate text-xs text-slate-600">{assets.length} средств в текущей библиотеке</p>
+          <p className={styles.prototypeEyebrow}>Управление карточками</p>
+          <p className={`${styles.prototypeMeta} truncate`}>{assets.length} средств в текущей библиотеке</p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
-            className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-wait disabled:opacity-60"
+            className={`${styles.prototypeIconButton} cursor-pointer disabled:cursor-wait`}
             onClick={() => void onRefresh()}
             disabled={loading}
             title="Обновить каталог с сервера"
@@ -290,7 +291,7 @@ export function AssetLibraryManager({
           </button>
           <button
             type="button"
-            className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-blue-600 text-white transition hover:bg-blue-700"
+            className={`${styles.prototypeButtonPrimary} w-8 cursor-pointer`}
             onClick={startCreate}
             title="Создать средство защиты"
             aria-label="Создать средство защиты"
@@ -299,7 +300,7 @@ export function AssetLibraryManager({
           </button>
           <button
             type="button"
-            className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`${styles.prototypeIconButton} cursor-pointer`}
             onClick={startEdit}
             disabled={!selectedAsset}
             title="Редактировать выбранное средство"
@@ -310,19 +311,19 @@ export function AssetLibraryManager({
         </div>
       </div>
 
-      {loading ? <p className="mt-2 text-xs text-blue-600">Загрузка библиотеки…</p> : null}
-      {error ? <p className="mt-2 rounded-md bg-amber-50 px-2 py-1.5 text-xs text-amber-700">{error}</p> : null}
-      {localError ? <p className="mt-2 rounded-md bg-rose-50 px-2 py-1.5 text-xs text-rose-700">{localError}</p> : null}
+      {loading ? <p className={`${styles.prototypeMeta} mt-2 text-blue-600`}>Загрузка библиотеки…</p> : null}
+      {error ? <p className={`${styles.prototypeNoticeWarning} mt-2`}>{error}</p> : null}
+      {localError ? <p className={`${styles.prototypeNoticeDanger} mt-2`}>{localError}</p> : null}
 
       {mode !== "closed" ? (
-        <div className="mt-3 grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+        <div className={`${styles.prototypeFormCard} mt-3 grid gap-2 bg-slate-50 p-2`}>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold text-slate-900">
+            <p className={styles.prototypeCardTitle}>
               {mode === "create" ? "Новая карточка" : "Редактирование"}
             </p>
             <button
               type="button"
-              className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-slate-900"
+              className={`${styles.prototypeIconButton} cursor-pointer`}
               onClick={() => setMode("closed")}
               title="Закрыть форму"
               aria-label="Закрыть форму"
@@ -332,7 +333,7 @@ export function AssetLibraryManager({
           </div>
 
           <input
-            className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm outline-none placeholder:text-slate-400 focus:border-blue-400"
+            className={styles.prototypeField}
             value={form.name}
             onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
             placeholder="Название"
@@ -340,7 +341,7 @@ export function AssetLibraryManager({
 
           <div className="grid grid-cols-2 gap-2">
             <select
-              className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-400"
+              className={styles.prototypeSelect}
               value={form.category}
               onChange={(event) =>
                 setForm((current) => ({ ...current, category: event.target.value as DefenseAssetCategory }))
@@ -353,7 +354,7 @@ export function AssetLibraryManager({
               ))}
             </select>
             <select
-              className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-400"
+              className={styles.prototypeSelect}
               value={form.coverageType}
               onChange={(event) =>
                 setForm((current) => ({ ...current, coverageType: event.target.value as DefenseAssetCoverageType }))
@@ -369,13 +370,13 @@ export function AssetLibraryManager({
 
           <div className="grid grid-cols-2 gap-2">
             <input
-              className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none placeholder:text-slate-400 focus:border-blue-400"
+              className={styles.prototypeField}
               value={form.protectionType}
               onChange={(event) => setForm((current) => ({ ...current, protectionType: event.target.value }))}
               placeholder="Тип защиты"
             />
             <input
-              className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none placeholder:text-slate-400 focus:border-blue-400"
+              className={styles.prototypeField}
               value={form.recommendedLayerCodes}
               onChange={(event) => setForm((current) => ({ ...current, recommendedLayerCodes: event.target.value }))}
               placeholder="Эшелоны: L2, L3"
@@ -384,21 +385,21 @@ export function AssetLibraryManager({
 
           <div className="grid grid-cols-3 gap-2">
             <input
-              className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none placeholder:text-slate-400 focus:border-blue-400"
+              className={styles.prototypeField}
               value={form.pricePerUnitMln}
               onChange={(event) => setForm((current) => ({ ...current, pricePerUnitMln: event.target.value }))}
               placeholder="млн ₽"
               inputMode="decimal"
             />
             <input
-              className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none placeholder:text-slate-400 focus:border-blue-400"
+              className={styles.prototypeField}
               value={form.coverageRadiusKm}
               onChange={(event) => setForm((current) => ({ ...current, coverageRadiusKm: event.target.value }))}
               placeholder="радиус, км"
               inputMode="decimal"
             />
             <input
-              className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none placeholder:text-slate-400 focus:border-blue-400"
+              className={styles.prototypeField}
               value={form.coverageAngle}
               onChange={(event) => setForm((current) => ({ ...current, coverageAngle: event.target.value }))}
               placeholder="угол"
@@ -407,7 +408,7 @@ export function AssetLibraryManager({
           </div>
 
           <input
-            className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none placeholder:text-slate-400 focus:border-blue-400"
+            className={styles.prototypeField}
             value={form.maxEffectiveDistanceKm}
             onChange={(event) => setForm((current) => ({ ...current, maxEffectiveDistanceKm: event.target.value }))}
             placeholder="максимальная дальность, км"
@@ -415,13 +416,13 @@ export function AssetLibraryManager({
           />
 
           <textarea
-            className="min-h-16 resize-y rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs outline-none placeholder:text-slate-400 focus:border-blue-400"
+            className={`${styles.prototypeTextarea} min-h-16 resize-y`}
             value={form.description}
             onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
             placeholder="Описание"
           />
 
-          <label className="flex min-h-11 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-600">
+          <label className={`${styles.prototypeInlineCard} text-xs text-slate-600`}>
             <span>Общий каталог</span>
             <input
               type="checkbox"
@@ -432,7 +433,7 @@ export function AssetLibraryManager({
 
           {!form.isPublic ? (
             <input
-              className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none placeholder:text-slate-400 focus:border-blue-400"
+              className={styles.prototypeField}
               value={form.enterpriseId}
               onChange={(event) => setForm((current) => ({ ...current, enterpriseId: event.target.value }))}
               placeholder="enterpriseId"
@@ -442,7 +443,7 @@ export function AssetLibraryManager({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="inline-flex h-9 flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:bg-slate-300"
+              className={`${styles.prototypeButtonPrimary} flex-1 cursor-pointer px-3 disabled:cursor-wait`}
               onClick={() => void saveAsset()}
               disabled={saving}
             >
@@ -452,7 +453,7 @@ export function AssetLibraryManager({
             {mode === "edit" ? (
               <button
                 type="button"
-                className="grid h-9 w-10 cursor-pointer place-items-center rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`${styles.prototypeButtonDanger} w-10 cursor-pointer`}
                 onClick={() => void deleteSelectedAsset()}
                 disabled={saving || selectedAssetUsed}
                 title={selectedAssetUsed ? "Средство размещено на карте" : "Удалить средство защиты"}
