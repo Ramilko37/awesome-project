@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   CloseOutlined,
   DeleteOutlined,
@@ -15,13 +15,6 @@ import {
   updateDefenseAsset,
   type DefenseAssetMutationInput,
 } from "@/modules/drone-defense/infra/asset-library-api";
-import {
-  buildAssetDocumentDownloadUrl,
-  createAssetDocument,
-  deleteAssetDocument,
-  listAssetDocuments,
-  type AssetDocument,
-} from "@/modules/drone-defense/infra/asset-documents-api";
 import type {
   DefenseAsset,
   DefenseAssetCategory,
@@ -211,39 +204,8 @@ export function AssetLibraryManager({
   const [form, setForm] = useState<AssetFormState>(() => (selectedAsset ? formFromAsset(selectedAsset) : emptyForm()));
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [documents, setDocuments] = useState<AssetDocument[]>([]);
-  const [documentsLoading, setDocumentsLoading] = useState(false);
-  const [documentName, setDocumentName] = useState("");
-  const [documentUrl, setDocumentUrl] = useState("");
-  const [documentsError, setDocumentsError] = useState<string | null>(null);
   const usedAssetIds = useMemo(() => new Set(placedObjects.map((object) => object.assetId)), [placedObjects]);
   const selectedAssetUsed = Boolean(selectedAsset && usedAssetIds.has(selectedAsset.id));
-
-  useEffect(() => {
-    if (!selectedAsset) {
-      return;
-    }
-    let cancelled = false;
-    Promise.resolve()
-      .then(() => {
-        if (cancelled) return [];
-        setDocumentsLoading(true);
-        setDocumentsError(null);
-        return listAssetDocuments(selectedAsset.id);
-      })
-      .then((items) => {
-        if (!cancelled) setDocuments(items);
-      })
-      .catch(() => {
-        if (!cancelled) setDocumentsError("Не удалось загрузить документы.");
-      })
-      .finally(() => {
-        if (!cancelled) setDocumentsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedAsset]);
 
   const startCreate = () => {
     setMode("create");
@@ -308,42 +270,6 @@ export function AssetLibraryManager({
     }
   };
 
-  const createSelectedDocument = async () => {
-    if (!selectedAsset || !documentName.trim()) return;
-    setDocumentsLoading(true);
-    setDocumentsError(null);
-    try {
-      const document = await createAssetDocument({
-        assetId: selectedAsset.id,
-        name: documentName.trim(),
-        storageKey: `assets/${selectedAsset.id}/${documentName.trim()}`,
-        downloadUrl: documentUrl.trim() || undefined,
-      });
-      setDocuments((current) => [document, ...current]);
-      setDocumentName("");
-      setDocumentUrl("");
-      onMessage("Документ добавлен к карточке средства");
-    } catch {
-      setDocumentsError("Не удалось добавить документ.");
-    } finally {
-      setDocumentsLoading(false);
-    }
-  };
-
-  const deleteSelectedDocument = async (id: string) => {
-    setDocumentsLoading(true);
-    setDocumentsError(null);
-    try {
-      await deleteAssetDocument(id);
-      setDocuments((current) => current.filter((document) => document.id !== id));
-      onMessage("Документ удалён");
-    } catch {
-      setDocumentsError("Не удалось удалить документ.");
-    } finally {
-      setDocumentsLoading(false);
-    }
-  };
-
   return (
     <div className="border-b border-slate-100 px-3 py-3">
       <div className="flex items-center justify-between gap-2">
@@ -387,61 +313,6 @@ export function AssetLibraryManager({
       {loading ? <p className="mt-2 text-xs text-blue-600">Загрузка библиотеки…</p> : null}
       {error ? <p className="mt-2 rounded-md bg-amber-50 px-2 py-1.5 text-xs text-amber-700">{error}</p> : null}
       {localError ? <p className="mt-2 rounded-md bg-rose-50 px-2 py-1.5 text-xs text-rose-700">{localError}</p> : null}
-      {selectedAsset ? (
-        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold text-slate-900">Документы</p>
-            {documentsLoading ? <span className="text-[11px] text-blue-600">Загрузка...</span> : null}
-          </div>
-          {documentsError ? <p className="mt-2 rounded-md bg-rose-50 px-2 py-1.5 text-xs text-rose-700">{documentsError}</p> : null}
-          <div className="mt-2 grid gap-1.5">
-            {documents.length === 0 && !documentsLoading ? (
-              <p className="text-xs text-slate-500">Документы для карточки не добавлены.</p>
-            ) : null}
-            {documents.map((document) => (
-              <div key={document.id} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-2 py-1.5">
-                <a
-                  href={document.downloadUrl || buildAssetDocumentDownloadUrl(document.id)}
-                  className="min-w-0 truncate text-xs font-semibold text-blue-700 hover:underline"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {document.name}
-                </a>
-                <button
-                  type="button"
-                  onClick={() => void deleteSelectedDocument(document.id)}
-                  className="text-xs font-semibold text-rose-600 hover:text-rose-700"
-                >
-                  Удалить
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 grid gap-1.5">
-            <input
-              className="h-8 rounded-md border border-slate-200 px-2 text-xs outline-none focus:border-blue-400"
-              value={documentName}
-              onChange={(event) => setDocumentName(event.target.value)}
-              placeholder="Название документа"
-            />
-            <input
-              className="h-8 rounded-md border border-slate-200 px-2 text-xs outline-none focus:border-blue-400"
-              value={documentUrl}
-              onChange={(event) => setDocumentUrl(event.target.value)}
-              placeholder="downloadUrl, если уже есть"
-            />
-            <button
-              type="button"
-              onClick={() => void createSelectedDocument()}
-              disabled={!documentName.trim() || documentsLoading}
-              className="h-8 rounded-md border border-blue-200 bg-blue-50 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Добавить документ
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       {mode !== "closed" ? (
         <div className="mt-3 grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2">

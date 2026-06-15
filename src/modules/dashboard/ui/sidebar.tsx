@@ -97,7 +97,7 @@ export function DashboardSidebar() {
           Инструменты
         </p>
         <Link
-          href="/prototype"
+          href="/prototype?view=3d"
           className="flex items-center gap-2.5 h-8 px-2 rounded-md text-[13px] font-medium transition-colors cursor-pointer text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
         >
           <ScanLine className="h-3.75 w-3.75 shrink-0 text-accent" />

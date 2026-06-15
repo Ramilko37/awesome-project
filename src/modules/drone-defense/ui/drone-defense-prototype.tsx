@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AppstoreOutlined,
@@ -23,10 +24,10 @@ import { placedObjectsToMapPlacements } from "@/modules/drone-defense/domain/pro
 import { AssetLibraryManager } from "@/modules/drone-defense/ui/asset-library-manager";
 import { CoordinatePlacementPanel, type CoordinatePlacementInput } from "@/modules/drone-defense/ui/coordinate-placement-panel";
 import { DefenseToolsPanel } from "@/modules/drone-defense/ui/defense-tools-panel";
-import { FacilityDrilldown } from "@/modules/drone-defense/ui/facility-drilldown";
 import { GisBoard } from "@/modules/drone-defense/ui/gis-board";
 import { EchelonObjectsList } from "@/modules/drone-defense/ui/echelon-objects-list";
 import { MogCompositionEditor } from "@/modules/drone-defense/ui/mog-composition-editor";
+import { Prototype3DPlaceholder } from "@/modules/drone-defense/ui/prototype-3d-placeholder";
 import { VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
 import {
   type AssetCatalogItem,
@@ -116,6 +117,7 @@ function describeLayerDeletion(totalLayers: number, objectCount: number) {
 }
 
 export function DroneDefensePrototype() {
+  const searchParams = useSearchParams();
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [catalogQuery, setCatalogQuery] = useState("");
   const [isCatalogTrayOpen, setIsCatalogTrayOpen] = useState(true);
@@ -144,10 +146,6 @@ export function DroneDefensePrototype() {
     configuration: studioConfiguration,
     catalog,
     layers,
-    setScenarioId,
-    upsertLocalPlacement,
-    moveLocalPlacement,
-    removeLocalPlacement,
   } = useDefenseStudioStore();
   const {
     project,
@@ -219,6 +217,7 @@ export function DroneDefensePrototype() {
     [project.layers],
   );
   const layerSummaries = useMemo(() => calculateLayerSummaries(project), [project]);
+  const activeView = searchParams.get("view") === "3d" ? "drilldown" : view;
   const assetCatalogItems = useMemo(
     () => getAssetCatalogItems(project, selectedLayer?.code, project.placedObjects),
     [project, selectedLayer?.code],
@@ -915,7 +914,7 @@ export function DroneDefensePrototype() {
           </aside>
         ) : null}
 
-        {view === "gis" ? (
+        {activeView === "gis" ? (
           <>
             <GisBoard
               className="h-full min-h-0 rounded-none border-0"
@@ -1275,19 +1274,8 @@ export function DroneDefensePrototype() {
           </>
         ) : null}
 
-        {view === "drilldown" ? (
-          <div className="h-full overflow-auto bg-slate-50 p-4">
-            <FacilityDrilldown
-              key={`${project.baseObject.id}:${scenarioId}`}
-              facilityName={project.baseObject.name}
-              scenario={scenarioId}
-              configuration={studioConfiguration}
-              onScenarioChange={(nextScenarioId) => void setScenarioId(nextScenarioId)}
-              onLocalPlacementUpsert={(placement) => void upsertLocalPlacement(placement)}
-              onLocalPlacementMove={(args) => void moveLocalPlacement(args)}
-              onLocalPlacementRemove={(placementId) => void removeLocalPlacement(placementId)}
-            />
-          </div>
+        {activeView === "drilldown" ? (
+          <Prototype3DPlaceholder />
         ) : null}
 
         {layerWizardState ? (

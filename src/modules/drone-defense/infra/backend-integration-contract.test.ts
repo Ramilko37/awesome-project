@@ -47,14 +47,33 @@ async function main() {
   );
 
   const proxySource = readFileSync("src/proxy.ts", "utf8");
+  assert(
+    proxySource.includes("FORTIS_AUTH_ENABLED"),
+    "proxy auth guard must be feature-flagged while backend auth is not deployed",
+  );
+  assert(
+    proxySource.includes("authGuardEnabled"),
+    "proxy must keep protected routes open by default unless auth guard is enabled",
+  );
   assert(proxySource.includes("access-token"), "proxy must check access-token cookie");
-  assert(proxySource.includes("/prototype/:path*"), "proxy must protect /prototype");
-  assert(proxySource.includes("/calculator/:path*"), "proxy must protect /calculator");
+  assert(proxySource.includes("/prototype/:path*"), "proxy must still be able to guard /prototype when enabled");
+  assert(proxySource.includes("/calculator/:path*"), "proxy must still be able to guard /calculator when enabled");
   assert(proxySource.includes("/login"), "proxy must redirect to login");
 
   const loginSource = readFileSync("src/app/api/auth/login/route.ts", "utf8");
   assert(loginSource.includes("HttpOnly"), "login route must write HttpOnly cookie");
   assert(!loginSource.includes("localStorage"), "login route must not use localStorage");
+
+  const defenseStudioShellSource = readFileSync("src/modules/drone-defense/ui/defense-studio-shell.tsx", "utf8");
+  assert(
+    !defenseStudioShellSource.includes("Проект не выбран"),
+    "prototype shell must not show backend project warning while auth/backend flow is opt-in",
+  );
+  const assetLibraryManagerSource = readFileSync("src/modules/drone-defense/ui/asset-library-manager.tsx", "utf8");
+  assert(
+    !assetLibraryManagerSource.includes("Не удалось загрузить документы"),
+    "asset library manager must not show backend documents UI while backend flow is opt-in",
+  );
 
   console.log("backend-integration-contract.test.ts: contracts passed");
 }

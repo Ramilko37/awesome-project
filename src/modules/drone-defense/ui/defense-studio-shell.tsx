@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   AppstoreOutlined,
   ArrowLeftOutlined,
@@ -12,7 +12,6 @@ import {
 } from "@ant-design/icons";
 import { useDefenseStudioStore } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import { VariantSaveButton, VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
-import { useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
 
 type DefenseStudioShellProps = {
   children: React.ReactNode;
@@ -24,23 +23,27 @@ const mobileItemClassName = "grid h-9 place-items-center rounded-lg text-xs font
 
 export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const view = useDefenseStudioStore((state) => state.view);
   const setView = useDefenseStudioStore((state) => state.setView);
-  const project = useDefenseProjectStore((state) => state.project);
 
   const normalizedPathname = pathname.replace(/\/$/, "");
   const isPrototype = normalizedPathname === "/prototype";
   const isCalculator = normalizedPathname === "/calculator";
-  const isMapActive = isPrototype && view !== "drilldown";
-  const isDrilldownActive = isPrototype && view === "drilldown";
-  const mobileTitle = isCalculator ? "Калькулятор" : "Моя карта";
-  const mobileSubtitle = isCalculator ? "Defense Cost Estimator" : "Defense Configuration Studio";
+  const is3DQueryActive = isPrototype && searchParams.get("view") === "3d";
+  const isDrilldownActive = isPrototype && (is3DQueryActive || view === "drilldown");
+  const isMapActive = isPrototype && !isDrilldownActive;
+  const mobileTitle = isCalculator ? "Калькулятор" : isDrilldownActive ? "3D" : "Моя карта";
+  const mobileSubtitle = isCalculator
+    ? "Defense Cost Estimator"
+    : isDrilldownActive
+      ? "3D-модель Fortis"
+      : "Defense Configuration Studio";
 
   const activeRailClassName = "bg-blue-600 text-white shadow-md shadow-blue-600/25";
   const idleRailClassName = "text-slate-500 hover:bg-slate-100 hover:text-slate-900";
   const activeMobileClassName = "bg-white text-blue-700 shadow-sm";
   const idleMobileClassName = "text-slate-500 hover:bg-white/70 hover:text-slate-900";
-  const hasBackendProject = project.source === "backend" || typeof project.version === "number";
 
   return (
     <div className="h-screen overflow-hidden bg-[#eef3f8] text-slate-900">
@@ -78,7 +81,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               <span>Расчёт</span>
             </Link>
             <Link
-              href="/prototype"
+              href="/prototype?view=3d"
               className={`${railItemClassName} ${isDrilldownActive ? activeRailClassName : idleRailClassName}`}
               onClick={() => setView("drilldown")}
               title="3D"
@@ -140,7 +143,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
                 Расчёт
               </Link>
               <Link
-                href="/prototype"
+                href="/prototype?view=3d"
                 className={`${mobileItemClassName} ${isDrilldownActive ? activeMobileClassName : idleMobileClassName}`}
                 onClick={() => setView("drilldown")}
               >
@@ -148,17 +151,6 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               </Link>
             </nav>
           </div>
-
-          {!hasBackendProject ? (
-            <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-              <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2">
-                <span>Проект не выбран: открыт локальный черновик без backend-версии.</span>
-                <Link href="/workspace" className="font-semibold text-amber-950 underline underline-offset-2">
-                  Перейти в рабочую зону
-                </Link>
-              </div>
-            </div>
-          ) : null}
 
           <main className="min-h-0 min-w-0 flex-1 overflow-auto">{children}</main>
         </div>
