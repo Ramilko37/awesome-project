@@ -21,14 +21,19 @@ async function readVariantJson<T>(input: RequestInfo | URL, init?: RequestInit):
   const response = await fetch(input, init);
   if (!response.ok) {
     let message = `Запрос не выполнен (${response.status})`;
+    let code: string | undefined;
     try {
-      const body = (await response.json()) as { error?: { message?: string }; message?: string };
+      const body = (await response.json()) as { error?: { code?: string; message?: string }; message?: string };
+      code = body?.error?.code;
       if (body?.error?.message) message = body.error.message;
       else if (body?.message) message = body.message;
     } catch {
       // Keep the generic message when the response body is not JSON.
     }
-    throw new Error(message);
+    if (response.status === 409 || code === "version_conflict") {
+      throw Object.assign(new Error(message), { status: 409, code: "version_conflict" });
+    }
+    throw Object.assign(new Error(message), { status: response.status, code });
   }
   return (await response.json()) as T;
 }
@@ -75,11 +80,20 @@ export function loadVariant(id: string): Promise<DefenseProject> {
   return readVariantJson<DefenseProject>(`/api/defense/projects/${encodeURIComponent(id)}`);
 }
 
+function projectUpdatePayload(args: { name: string; project: DefenseProject }) {
+  return {
+    name: args.name,
+    enterpriseId: args.project.enterpriseId ?? args.project.baseObject.id,
+    projectJson: exportDefenseProjectJson(args.project),
+    ...(typeof args.project.version === "number" ? { version: args.project.version } : {}),
+  };
+}
+
 export function saveVariantAsNew(args: { name: string; project: DefenseProject }): Promise<VariantSummary> {
   return readVariantJson<VariantSummary>("/api/defense/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: args.name, projectJson: exportDefenseProjectJson(args.project) }),
+    body: JSON.stringify(projectUpdatePayload(args)),
   });
 }
 
@@ -87,7 +101,7 @@ export function overwriteVariant(args: { id: string; name: string; project: Defe
   return readVariantJson<VariantSummary>(`/api/defense/projects/${encodeURIComponent(args.id)}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: args.name, projectJson: exportDefenseProjectJson(args.project) }),
+    body: JSON.stringify(projectUpdatePayload(args)),
   });
 }
 

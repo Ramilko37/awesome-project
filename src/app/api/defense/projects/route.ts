@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const qs = searchParams.toString();
   try {
-    const data = await backendFetch(`/projects${qs ? `?${qs}` : ""}`);
+    const data = await backendFetch(`/projects${qs ? `?${qs}` : ""}`, undefined, { request });
     return Response.json(data);
   } catch (err) {
     return backendErrorResponse(err);
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const body = await request.text();
   try {
-    const data = await backendFetch(`/projects`, { method: "POST", body });
+    const data = await backendFetch(`/projects`, { method: "POST", body }, { request });
     return Response.json(data);
   } catch (err) {
     return backendErrorResponse(err);

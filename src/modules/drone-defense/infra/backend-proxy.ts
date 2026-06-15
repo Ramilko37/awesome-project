@@ -1,4 +1,5 @@
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8090/api/v1";
+const ACCESS_TOKEN_COOKIE = "access-token";
 
 export type BackendError = {
   code: string;
@@ -7,18 +8,47 @@ export type BackendError = {
 
 // Maps a backend error response/status into a stable shape for the client.
 function mapError(status: number, raw: unknown): BackendError {
-  const body = (raw ?? {}) as { code?: string; message?: string; error?: string };
-  const code = body.code ?? (status === 404 ? "not_found" : status === 409 ? "version_conflict" : "request_failed");
-  const message = body.message ?? body.error ?? `Backend request failed (${status})`;
+  const body = (raw ?? {}) as { code?: string; message?: string; error?: string | { code?: string; message?: string }; errors?: string };
+  const nestedError = typeof body.error === "object" ? body.error : undefined;
+  const code =
+    nestedError?.code ??
+    body.code ??
+    (status === 404 ? "not_found" : status === 409 ? "version_conflict" : "request_failed");
+  const message =
+    nestedError?.message ??
+    body.message ??
+    (typeof body.error === "string" ? body.error : undefined) ??
+    body.errors ??
+    `Backend request failed (${status})`;
   return { code, message };
+}
+
+export function accessTokenFromRequest(request: Request): string | null {
+  const cookie = request.headers.get("cookie") ?? "";
+  const match = cookie.match(new RegExp(`(?:^|;\\s*)${ACCESS_TOKEN_COOKIE}=([^;]+)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function withForwardedAuth(initHeaders: HeadersInit | undefined, request: Request | undefined) {
+  const headers = new Headers(initHeaders);
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+
+  if (request) {
+    const token = accessTokenFromRequest(request);
+    if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
+    const cookie = request.headers.get("cookie");
+    if (cookie && !headers.has("Cookie")) headers.set("Cookie", cookie);
+  }
+
+  return headers;
 }
 
 // Performs a server-side request to the Go backend.
 // Returns parsed JSON on success; throws an object {status, error} on failure.
-export async function backendFetch(path: string, init?: RequestInit): Promise<unknown> {
+export async function backendFetch(path: string, init?: RequestInit, options: { request?: Request } = {}): Promise<unknown> {
   const response = await fetch(`${BACKEND_URL}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: withForwardedAuth(init?.headers, options.request),
     cache: "no-store",
   });
 

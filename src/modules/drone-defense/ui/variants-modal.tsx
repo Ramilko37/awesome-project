@@ -18,6 +18,7 @@ export function VariantsModal({ open, onClose }: Props) {
     activeVariantId,
     listStatus,
     saveStatus,
+    conflictState,
     error,
     fetchVariants,
     saveAsNewVariant,
@@ -53,6 +54,13 @@ export function VariantsModal({ open, onClose }: Props) {
         <Alert
           type="error"
           message={error}
+          action={
+            conflictState ? (
+              <Button size="small" danger onClick={() => void loadVariant(conflictState.projectId)}>
+                Перезагрузить актуальную версию
+              </Button>
+            ) : undefined
+          }
           showIcon
           style={{ marginBottom: token.marginMD }}
         />

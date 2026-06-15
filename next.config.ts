@@ -69,6 +69,30 @@ const nextConfig: NextConfig = {
           source: "/api/v1/assets/delete",
           destination: `${fortisApiBaseUrl}/api/v1/assets/delete`,
         },
+        {
+          source: "/api/v1/assets/documents/:path*",
+          destination: `${fortisApiBaseUrl}/api/v1/assets/documents/:path*`,
+        },
+        {
+          source: "/api/v1/projects/budget",
+          destination: `${fortisApiBaseUrl}/api/v1/projects/budget`,
+        },
+        {
+          source: "/api/v1/projects/cost",
+          destination: `${fortisApiBaseUrl}/api/v1/projects/cost`,
+        },
+        {
+          source: "/api/v1/projects/budget/check",
+          destination: `${fortisApiBaseUrl}/api/v1/projects/budget/check`,
+        },
+        {
+          source: "/api/v1/projects/report",
+          destination: `${fortisApiBaseUrl}/api/v1/projects/report`,
+        },
+        {
+          source: "/api/v1/projects/compare",
+          destination: `${fortisApiBaseUrl}/api/v1/projects/compare`,
+        },
       ],
     };
   },

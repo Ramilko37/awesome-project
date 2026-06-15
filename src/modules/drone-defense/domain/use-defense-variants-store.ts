@@ -9,7 +9,7 @@ import {
   saveVariantAsNew as apiSaveVariantAsNew,
 } from "@/modules/drone-defense/infra/api-client";
 import { useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
-import type { VariantSummary } from "@/shared/types/defense-project";
+import type { DefenseProject, VariantSummary } from "@/shared/types/defense-project";
 
 type Status = "idle" | "loading" | "error";
 
@@ -17,6 +17,7 @@ type VariantsState = {
   variants: VariantSummary[];
   activeVariantId: string | null;
   activeVariantName: string | null;
+  conflictState: { projectId: string; message: string } | null;
   listStatus: Status;
   saveStatus: "idle" | "saving" | "error";
   loadStatus: Status;
@@ -33,10 +34,27 @@ function message(err: unknown): string {
   return err instanceof Error ? err.message : "Операция не удалась";
 }
 
+function isVersionConflict(err: unknown) {
+  return err instanceof Error && (err as { status?: number; code?: string }).status === 409;
+}
+
+function withBackendContext(project: DefenseProject, summary: VariantSummary): DefenseProject {
+  return {
+    ...project,
+    projectId: summary.projectId,
+    projectName: summary.projectName || project.projectName,
+    enterpriseId: summary.enterpriseId ?? project.enterpriseId ?? project.baseObject.id,
+    version: summary.version,
+    source: "backend",
+    updatedAt: summary.updatedAt || project.updatedAt,
+  };
+}
+
 export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
   variants: [],
   activeVariantId: null,
   activeVariantName: null,
+  conflictState: null,
   listStatus: "idle",
   saveStatus: "idle",
   loadStatus: "idle",
@@ -53,10 +71,11 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
   },
 
   saveAsNewVariant: async (name) => {
-    set({ saveStatus: "saving", error: null });
+    set({ saveStatus: "saving", error: null, conflictState: null });
     try {
       const project = useDefenseProjectStore.getState().project;
       const summary = await apiSaveVariantAsNew({ name, project });
+      useDefenseProjectStore.getState().replaceProject(withBackendContext(project, summary));
       set({ saveStatus: "idle", activeVariantId: summary.projectId, activeVariantName: summary.name });
       await get().fetchVariants();
     } catch (err) {
@@ -67,7 +86,7 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
   overwriteActiveVariant: async () => {
     const { activeVariantId, activeVariantName } = get();
     if (!activeVariantId) return;
-    set({ saveStatus: "saving", error: null });
+    set({ saveStatus: "saving", error: null, conflictState: null });
     try {
       const project = useDefenseProjectStore.getState().project;
       const summary = await apiOverwriteVariant({
@@ -75,10 +94,18 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
         name: activeVariantName ?? project.projectName,
         project,
       });
+      useDefenseProjectStore.getState().replaceProject(withBackendContext(project, summary));
       set({ saveStatus: "idle", activeVariantName: summary.name });
       await get().fetchVariants();
     } catch (err) {
-      set({ saveStatus: "error", error: message(err) });
+      const errorMessage = isVersionConflict(err)
+        ? "Версия проекта устарела: перезагрузите актуальную версию перед сохранением."
+        : message(err);
+      set({
+        saveStatus: "error",
+        error: errorMessage,
+        conflictState: isVersionConflict(err) ? { projectId: activeVariantId, message: errorMessage } : null,
+      });
     }
   },
 
@@ -86,10 +113,20 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
     set({ loadStatus: "loading", error: null });
     try {
       const project = await apiLoadVariant(id);
-      useDefenseProjectStore.getState().replaceProject(project);
+      const known = get().variants.find((v) => v.projectId === id);
+      useDefenseProjectStore.getState().replaceProject({
+        ...project,
+        enterpriseId: known?.enterpriseId ?? project.enterpriseId ?? project.baseObject.id,
+        version: known?.version ?? project.version,
+        source: "backend",
+      });
       useDefenseStudioStore.setState({ selectedPlacementId: null });
-      const known = get().variants.find((v) => v.projectId === id)?.name;
-      set({ loadStatus: "idle", activeVariantId: project.projectId, activeVariantName: known ?? project.projectName });
+      set({
+        loadStatus: "idle",
+        activeVariantId: project.projectId,
+        activeVariantName: known?.name ?? project.projectName,
+        conflictState: null,
+      });
     } catch (err) {
       set({ loadStatus: "error", error: message(err) });
     }

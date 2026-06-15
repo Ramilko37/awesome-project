@@ -24,6 +24,8 @@ Object.defineProperty(globalThis, "localStorage", {
 // Shaped like the real Response: readJson() does `await fetch(...)`, checks
 // `response.ok`, then `await response.json()`.
 type FetchResult = { ok: boolean; status: number; data: unknown };
+type FetchCall = { method: string; url: string; body?: unknown };
+const fetchCalls: FetchCall[] = [];
 
 // Reassign this per case. Receives (method, url) so a single handler can serve
 // both the primary request and the fetchVariants() refresh that follows.
@@ -37,6 +39,7 @@ Object.defineProperty(globalThis, "fetch", {
   value: async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : String(input);
     const method = (init?.method ?? "GET").toUpperCase();
+    fetchCalls.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : undefined });
     const result = fetchHandler(method, url);
     return {
       ok: result.ok,
@@ -50,7 +53,9 @@ Object.defineProperty(globalThis, "fetch", {
 });
 
 function resetStore(): void {
+  fetchCalls.length = 0;
   useDefenseVariantsStore.setState(useDefenseVariantsStore.getInitialState(), true);
+  useDefenseProjectStore.setState(useDefenseProjectStore.getInitialState(), true);
 }
 
 function summary(overrides: Partial<VariantSummary> = {}): VariantSummary {
@@ -69,6 +74,7 @@ function minimalProject(id: string): DefenseProject {
     schemaVersion: 1,
     projectId: id,
     projectName: `proj-${id}`,
+    version: 7,
     baseObject: { id: "o1", name: "Obj", center: { lat: 55.75, lng: 37.61 } },
     layers: [],
     assetLibrary: [],
@@ -128,6 +134,41 @@ async function main() {
   assert(useDefenseVariantsStore.getState().saveStatus === "error", "save failure must set saveStatus error");
   assert(Boolean(useDefenseVariantsStore.getState().error), "save failure must set a truthy error");
   console.log("saveAsNewVariant failure: OK");
+
+  // 6. overwriteActiveVariant sends the known optimistic-lock version.
+  resetStore();
+  useDefenseProjectStore.getState().replaceProject(minimalProject("C"));
+  useDefenseVariantsStore.setState({ activeVariantId: "C", activeVariantName: "name-C" });
+  fetchHandler = (method) => {
+    if (method === "PUT") {
+      return { ok: true, status: 200, data: summary({ projectId: "C", name: "name-C", version: 8 }) };
+    }
+    return { ok: true, status: 200, data: { items: [summary({ projectId: "C", name: "name-C", version: 8 })], totalItems: 1 } };
+  };
+  await useDefenseVariantsStore.getState().overwriteActiveVariant();
+  const updateCall = fetchCalls.find((call) => call.method === "PUT");
+  assert(Boolean(updateCall), "overwriteActiveVariant must call PUT");
+  assert((updateCall?.body as { version?: number }).version === 7, "overwriteActiveVariant must send project.version");
+  assert(useDefenseProjectStore.getState().project.version === 8, "overwrite success must update project.version");
+  console.log("overwriteActiveVariant version: OK");
+
+  // 7. 409 Conflict becomes a user-visible conflict state.
+  resetStore();
+  useDefenseProjectStore.getState().replaceProject(minimalProject("D"));
+  useDefenseVariantsStore.setState({ activeVariantId: "D", activeVariantName: "name-D" });
+  fetchHandler = () => ({
+    ok: false,
+    status: 409,
+    data: { error: { code: "version_conflict", message: "version conflict" } },
+  });
+  await useDefenseVariantsStore.getState().overwriteActiveVariant();
+  assert(useDefenseVariantsStore.getState().saveStatus === "error", "409 must keep saveStatus error");
+  assert(useDefenseVariantsStore.getState().conflictState?.projectId === "D", "409 must expose conflict project id");
+  assert(
+    useDefenseVariantsStore.getState().error?.includes("перезагруз"),
+    "409 must tell the user to reload the current version",
+  );
+  console.log("overwriteActiveVariant conflict: OK");
 
   console.log("use-defense-variants-store.test.ts: variants store contracts passed");
 }

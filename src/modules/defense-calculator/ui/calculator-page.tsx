@@ -15,6 +15,12 @@ import { estimateConfiguration, type CostingContext } from "@/modules/defense-ca
 import { computeWeightedScore, priorityForScore } from "@/modules/defense-calculator/domain/scoring";
 import { fitToBudget } from "@/modules/defense-calculator/domain/budget-fit";
 import { formatMln, priorityLabel } from "@/modules/defense-calculator/domain/format";
+import {
+  getBackendProjectCost,
+  getBackendProjectReport,
+  type BackendCostCalculation,
+  type BackendProjectReport,
+} from "@/modules/defense-calculator/infra/backend-project-api";
 import { CalculatorReport } from "@/modules/defense-calculator/ui/calculator-report";
 import { buildProjectReportObjectLines, type ProjectObjectReportLine } from "@/modules/defense-calculator/domain/project-report-lines";
 import {
@@ -60,6 +66,9 @@ function calculatorAssetIdForProjectAsset(project: DefenseProject, assetId: stri
 export function CalculatorPage() {
   const [tab, setTab] = useState<Tab>("configure");
   const [budgetMln, setBudgetMln] = useState(9300);
+  const [backendCost, setBackendCost] = useState<BackendCostCalculation | null>(null);
+  const [backendReport, setBackendReport] = useState<BackendProjectReport | null>(null);
+  const [backendStatus, setBackendStatus] = useState<"idle" | "loading" | "error">("idle");
   const {
     project,
     applyBudgetSelection,
@@ -70,6 +79,40 @@ export function CalculatorPage() {
   useEffect(() => {
     restoreProjectFromLocalStorage();
   }, [restoreProjectFromLocalStorage]);
+
+  useEffect(() => {
+    if (project.source !== "backend" || typeof project.version !== "number") {
+      Promise.resolve().then(() => {
+        setBackendCost(null);
+        setBackendReport(null);
+        setBackendStatus("idle");
+      });
+      return;
+    }
+    let cancelled = false;
+    Promise.resolve()
+      .then(async () => {
+        if (cancelled) return;
+        setBackendStatus("loading");
+        const [cost, report] = await Promise.all([
+          getBackendProjectCost(project.projectId),
+          getBackendProjectReport(project.projectId),
+        ]);
+        if (cancelled) return;
+        setBackendCost(cost);
+        setBackendReport(report);
+        setBackendStatus("idle");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBackendCost(null);
+        setBackendReport(null);
+        setBackendStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project.projectId, project.source, project.version]);
 
   const calculatorAssets = useMemo(() => projectAssetsToCalculatorAssets(project.assetLibrary), [project.assetLibrary]);
 
@@ -111,6 +154,7 @@ export function CalculatorPage() {
   const positionsCount = calculateProjectTotalObjects(project);
   const layerSummaries = useMemo(() => calculateLayerSummaries(project), [project]);
   const isConfigurationEmpty = positionsCount === 0;
+  const totalMln = backendCost?.totalMln ?? estimate.totalMln;
 
   return (
     <div className="font-(family-name:--font-manrope) min-h-screen bg-[#eef3f8] text-slate-800">
@@ -166,7 +210,7 @@ export function CalculatorPage() {
                 Итого по конфигурации
               </p>
               <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-slate-900 ">
-                {formatMln(estimate.totalMln)}
+                {formatMln(totalMln)}
               </p>
               <p className="mt-0.5 font-mono text-[11px] text-slate-400 ">
                 {placedCount} ед. · {positionsCount} позиций
@@ -180,7 +224,13 @@ export function CalculatorPage() {
         }`}>
           {isConfigurationEmpty
             ? "Конфигурация пока не собрана. Добавьте средства защиты на карте."
-            : "Расчёт построен на основе текущей конфигурации карты"}
+            : backendCost
+              ? `Расчёт получен из backend-контура. Объектов в payload отчёта: ${backendReport?.placedObjects.length ?? 0}.`
+              : backendStatus === "loading"
+                ? "Загружается backend-расчёт по сохранённому проекту..."
+                : backendStatus === "error"
+                  ? "Backend-расчёт недоступен, используется локальный fallback текущей карты."
+                  : "Расчёт построен на основе текущей конфигурации карты"}
         </div>
 
         {/* Tabs */}

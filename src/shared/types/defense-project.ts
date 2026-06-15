@@ -146,6 +146,8 @@ export type DefenseProject = {
   schemaVersion: 1;
   projectId: string;
   projectName: string;
+  enterpriseId?: string;
+  version?: number;
   baseObject: ProtectedObject;
   layers: EditableDefenseLayer[];
   assetLibrary: DefenseAsset[];
@@ -154,7 +156,7 @@ export type DefenseProject = {
   selectedAssetId?: string;
   selectedObjectId?: string;
   mode: DefenseProjectMode;
-  source?: "custom" | "preset" | "legacy-migration";
+  source?: "custom" | "preset" | "legacy-migration" | "backend";
   basePresetId?: string;
   updatedAt: string;
 };
@@ -200,6 +202,7 @@ export type DeleteLayerResult =
 export type VariantSummary = {
   projectId: string;
   name: string;
+  enterpriseId?: string;
   projectName: string;
   version: number;
   updatedAt: string;
