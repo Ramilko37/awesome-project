@@ -4,6 +4,8 @@ import Link from "next/link";
 import {
   ArrowLeftOutlined,
   CompassOutlined,
+  PauseCircleOutlined,
+  PlayCircleOutlined,
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { scenarioLabels, type ScenarioId } from "../domain/prototype-types";
@@ -12,9 +14,15 @@ import styles from "./drone-defense-prototype.module.css";
 export function Topbar({
   scenario,
   onScenarioChange,
+  title = "3D drill-down выбранной конфигурации",
+  demoMode = false,
+  onToggleDemo,
 }: {
   scenario: ScenarioId;
   onScenarioChange: (id: ScenarioId) => void;
+  title?: string;
+  demoMode?: boolean;
+  onToggleDemo?: () => void;
 }) {
   const visibleScenarios: ScenarioId[] = ["baseline", "balanced", "reinforced"];
 
@@ -29,7 +37,7 @@ export function Topbar({
         </div>
         <div>
           <strong>FORTIS</strong>
-          <span>3D drill-down выбранной конфигурации</span>
+          <span className={styles.brandSubtitle}>{title}</span>
         </div>
       </div>
 
@@ -45,6 +53,17 @@ export function Topbar({
             <span>{scenarioLabels[id]}</span>
           </button>
         ))}
+        {onToggleDemo ? (
+          <button
+            className={styles.scenarioLaunchButton}
+            type="button"
+            onClick={onToggleDemo}
+            aria-pressed={demoMode}
+          >
+            {demoMode ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+            <span>{demoMode ? "Остановить сценарий" : "Запустить сценарий"}</span>
+          </button>
+        ) : null}
       </nav>
     </header>
   );

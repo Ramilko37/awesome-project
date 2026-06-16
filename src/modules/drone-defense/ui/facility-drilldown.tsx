@@ -52,6 +52,7 @@ const viewModeLabels: Record<ViewMode, string> = {
   scene3d: "3D-карта",
   hex: "Гексокарта",
 };
+const scenarioModelingPrototypeTitle = "Прототип Модуля сценарного моделирования";
 
 export function FacilityDrilldown({
   facilityName,
@@ -227,6 +228,11 @@ export function FacilityDrilldown({
       <Topbar
         scenario={scenario}
         onScenarioChange={applyScenarioManually}
+        title={scenarioModelingPrototypeTitle}
+        demoMode={demoMode}
+        onToggleDemo={() => {
+          setDemoMode((prev) => !prev);
+        }}
       />
       <section className={`${styles.workspace} ${!isPropertiesOpen ? styles.workspaceNoProperties : ""}`.trim()}>
         <AssetsPanel

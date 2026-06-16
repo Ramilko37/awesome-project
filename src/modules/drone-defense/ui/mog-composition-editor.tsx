@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
 import { AlertTriangle, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -106,6 +115,182 @@ function Stepper({
         +
       </button>
     </div>
+  );
+}
+
+function normalizeMogAzimuth(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return ((Math.round(value) % 360) + 360) % 360;
+}
+
+function readMogAzimuthPointer(event: PointerEvent<HTMLButtonElement>): number {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const radians = Math.atan2(event.clientX - centerX, centerY - event.clientY);
+  return normalizeMogAzimuth((radians * 180) / Math.PI);
+}
+
+function normalizeMogSectorDial(value: number): number {
+  return clampMogSector(Math.round(value));
+}
+
+function readMogSectorPointer(event: PointerEvent<HTMLButtonElement>): number {
+  const value = readMogAzimuthPointer(event);
+  return value === 0 ? 360 : normalizeMogSectorDial(value);
+}
+
+function MogAzimuthDial({
+  value,
+  color,
+  weaponLabel,
+  onChange,
+}: {
+  value: number;
+  color: string;
+  weaponLabel: string;
+  onChange: (value: number) => void;
+}) {
+  const updateFromPointer = (event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    onChange(readMogAzimuthPointer(event));
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    updateFromPointer(event);
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    updateFromPointer(event);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const stepMap: Partial<Record<string, number>> = {
+      ArrowUp: 1,
+      ArrowRight: 1,
+      ArrowDown: -1,
+      ArrowLeft: -1,
+      PageUp: 15,
+      PageDown: -15,
+    };
+    const step = stepMap[event.key];
+    if (step !== undefined) {
+      event.preventDefault();
+      onChange(normalizeMogAzimuth(value + step));
+      return;
+    }
+    if (event.key === "Home") {
+      event.preventDefault();
+      onChange(0);
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      onChange(359);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      role="slider"
+      className={styles.mogAzimuthDial}
+      aria-label={`Настроить азимут ${weaponLabel}: ${value} градусов`}
+      aria-valuemin={0}
+      aria-valuemax={359}
+      aria-valuenow={value}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onKeyDown={handleKeyDown}
+      style={
+        {
+          "--mog-azimuth-angle": `${value}deg`,
+          "--mog-azimuth-color": color,
+        } as CSSProperties
+      }
+    >
+      <span className={styles.mogAzimuthDialNeedle} aria-hidden="true" />
+      <span className={styles.mogAzimuthDialHandle} aria-hidden="true" />
+    </button>
+  );
+}
+
+function MogSectorDial({
+  value,
+  color,
+  weaponLabel,
+  onChange,
+}: {
+  value: number;
+  color: string;
+  weaponLabel: string;
+  onChange: (value: number) => void;
+}) {
+  const updateFromPointer = (event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    onChange(readMogSectorPointer(event));
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    updateFromPointer(event);
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    updateFromPointer(event);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const stepMap: Partial<Record<string, number>> = {
+      ArrowUp: 1,
+      ArrowRight: 1,
+      ArrowDown: -1,
+      ArrowLeft: -1,
+      PageUp: 15,
+      PageDown: -15,
+    };
+    const step = stepMap[event.key];
+    if (step !== undefined) {
+      event.preventDefault();
+      onChange(normalizeMogSectorDial(value + step));
+      return;
+    }
+    if (event.key === "Home") {
+      event.preventDefault();
+      onChange(1);
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      onChange(360);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      role="slider"
+      className={styles.mogSectorDial}
+      aria-label={`Настроить сектор ${weaponLabel}: ${value} градусов`}
+      aria-valuemin={1}
+      aria-valuemax={360}
+      aria-valuenow={value}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onKeyDown={handleKeyDown}
+      style={
+        {
+          "--mog-sector-angle": `${value}deg`,
+          "--mog-sector-color": color,
+        } as CSSProperties
+      }
+    >
+      <span className={styles.mogSectorDialCore} aria-hidden="true" />
+      <span className={styles.mogSectorDialHandle} aria-hidden="true" />
+    </button>
   );
 }
 
@@ -236,6 +421,17 @@ export function MogCompositionEditor({
     }));
   };
 
+  const handleWeaponAzimuthDialChange = (weaponId: MogWeaponId, value: number) => {
+    const nextValue = normalizeMogAzimuth(value);
+    setCoverageInputValue(weaponId, { azimuth: String(nextValue) });
+    applyDraft((current) => ({
+      ...current,
+      weapons: current.weapons?.map((weapon) =>
+        weapon.id === weaponId ? { ...weapon, coverageAzimuth: nextValue } : weapon,
+      ),
+    }));
+  };
+
   const commitWeaponAzimuthInput = (weaponId: MogWeaponId) => {
     const weapon = draft.weapons?.find((item) => item.id === weaponId);
     if (!weapon) return;
@@ -284,6 +480,17 @@ export function MogCompositionEditor({
         ),
       }));
     }
+  };
+
+  const handleWeaponSectorDialChange = (weaponId: MogWeaponId, value: number) => {
+    const nextValue = normalizeMogSectorDial(value);
+    setCoverageInputValue(weaponId, { sectorWidthDeg: String(nextValue) });
+    applyDraft((current) => ({
+      ...current,
+      weapons: current.weapons?.map((weapon) =>
+        weapon.id === weaponId ? { ...weapon, coverageSectorWidthDeg: nextValue } : weapon,
+      ),
+    }));
   };
 
   const handleCancel = () => {
@@ -422,6 +629,20 @@ export function MogCompositionEditor({
                   const isActive = visibleCoverageWeaponIds.has(weapon.id);
                   const isDisabled = quantity === 0;
                   const color = MOG_WEAPON_COVERAGE_COLORS[weapon.id];
+                  const committedAzimuth = clampMogAzimuth(weapon.coverageAzimuth ?? draft.azimuth);
+                  const azimuthInputValue = coverageInputs[weapon.id]?.azimuth ?? String(committedAzimuth);
+                  const parsedAzimuthInput = Number(azimuthInputValue.replace(",", "."));
+                  const dialAzimuth =
+                    Number.isInteger(parsedAzimuthInput) && parsedAzimuthInput >= 0 && parsedAzimuthInput <= 359
+                      ? normalizeMogAzimuth(parsedAzimuthInput)
+                      : committedAzimuth;
+                  const committedSector = clampMogSector(weapon.coverageSectorWidthDeg ?? draft.sectorWidthDeg ?? 90);
+                  const sectorInputValue = coverageInputs[weapon.id]?.sectorWidthDeg ?? String(committedSector);
+                  const parsedSectorInput = Number(sectorInputValue.replace(",", "."));
+                  const dialSector =
+                    Number.isInteger(parsedSectorInput) && parsedSectorInput >= 1 && parsedSectorInput <= 360
+                      ? normalizeMogSectorDial(parsedSectorInput)
+                      : committedSector;
 
                   return (
                     <article
@@ -484,57 +705,70 @@ export function MogCompositionEditor({
                         <div className="mt-4 grid gap-4 sm:grid-cols-2">
                           <label className={styles.prototypeLabel}>
                             Азимут
-                            <div className="relative">
-                              <input
-                                type="number"
-                                min={0}
-                                max={359}
-                                step={1}
-                                inputMode="numeric"
-                                value={coverageInputs[weapon.id]?.azimuth ?? String(weapon.coverageAzimuth ?? draft.azimuth)}
-                                onChange={(event) => handleWeaponAzimuthInput(weapon.id, event.target.value)}
-                                onBlur={() => commitWeaponAzimuthInput(weapon.id)}
-                                className={cn(
-                                  styles.prototypeField,
-                                  "pr-10",
-                                  errors.weaponCoverageAzimuth[weapon.id]
-                                    ? "border-rose-300 focus:border-rose-400"
-                                    : "border-slate-200 focus:border-blue-300",
-                                )}
+                            <div className={styles.mogAzimuthControl}>
+                              <MogAzimuthDial
+                                value={dialAzimuth}
+                                color={color.stroke}
+                                weaponLabel={weapon.label}
+                                onChange={(nextAzimuth) => handleWeaponAzimuthDialChange(weapon.id, nextAzimuth)}
                               />
-                              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
-                                °
-                              </span>
+                              <div className={cn(styles.mogAzimuthInput, "relative")}>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={359}
+                                  step={1}
+                                  inputMode="numeric"
+                                  value={azimuthInputValue}
+                                  onChange={(event) => handleWeaponAzimuthInput(weapon.id, event.target.value)}
+                                  onBlur={() => commitWeaponAzimuthInput(weapon.id)}
+                                  className={cn(
+                                    styles.prototypeField,
+                                    "pr-10",
+                                    errors.weaponCoverageAzimuth[weapon.id]
+                                      ? "border-rose-300 focus:border-rose-400"
+                                      : "border-slate-200 focus:border-blue-300",
+                                  )}
+                                />
+                                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
+                                  °
+                                </span>
+                              </div>
                             </div>
                             <FieldError message={errors.weaponCoverageAzimuth[weapon.id]} />
                           </label>
 
                           <label className={styles.prototypeLabel}>
                             Сектор
-                            <div className="relative">
-                              <input
-                                type="number"
-                                min={1}
-                                max={360}
-                                step={1}
-                                inputMode="numeric"
-                                value={
-                                  coverageInputs[weapon.id]?.sectorWidthDeg ??
-                                  String(weapon.coverageSectorWidthDeg ?? draft.sectorWidthDeg ?? 90)
-                                }
-                                onChange={(event) => handleWeaponSectorInput(weapon.id, event.target.value)}
-                                onBlur={() => commitWeaponSectorInput(weapon.id)}
-                                className={cn(
-                                  styles.prototypeField,
-                                  "pr-10",
-                                  errors.weaponCoverageSectorWidthDeg[weapon.id]
-                                    ? "border-rose-300 focus:border-rose-400"
-                                    : "border-slate-200 focus:border-blue-300",
-                                )}
+                            <div className={styles.mogAzimuthControl}>
+                              <MogSectorDial
+                                value={dialSector}
+                                color={color.stroke}
+                                weaponLabel={weapon.label}
+                                onChange={(nextSector) => handleWeaponSectorDialChange(weapon.id, nextSector)}
                               />
-                              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
-                                °
-                              </span>
+                              <div className={cn(styles.mogSectorInput, "relative")}>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={360}
+                                  step={1}
+                                  inputMode="numeric"
+                                  value={sectorInputValue}
+                                  onChange={(event) => handleWeaponSectorInput(weapon.id, event.target.value)}
+                                  onBlur={() => commitWeaponSectorInput(weapon.id)}
+                                  className={cn(
+                                    styles.prototypeField,
+                                    "pr-10",
+                                    errors.weaponCoverageSectorWidthDeg[weapon.id]
+                                      ? "border-rose-300 focus:border-rose-400"
+                                      : "border-slate-200 focus:border-blue-300",
+                                  )}
+                                />
+                                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
+                                  °
+                                </span>
+                              </div>
                             </div>
                             <FieldError message={errors.weaponCoverageSectorWidthDeg[weapon.id]} />
                           </label>

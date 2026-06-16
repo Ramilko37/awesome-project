@@ -27,7 +27,7 @@ import { DefenseToolsPanel } from "@/modules/drone-defense/ui/defense-tools-pane
 import { GisBoard } from "@/modules/drone-defense/ui/gis-board";
 import { EchelonObjectsList } from "@/modules/drone-defense/ui/echelon-objects-list";
 import { MogCompositionEditor } from "@/modules/drone-defense/ui/mog-composition-editor";
-import { Prototype3DPlaceholder } from "@/modules/drone-defense/ui/prototype-3d-placeholder";
+import { FacilityDrilldown } from "@/modules/drone-defense/ui/facility-drilldown";
 import { VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
 import styles from "./drone-defense-prototype.module.css";
 import {
@@ -147,6 +147,10 @@ export function DroneDefensePrototype() {
     configuration: studioConfiguration,
     catalog,
     layers,
+    setScenarioId,
+    upsertLocalPlacement,
+    moveLocalPlacement,
+    removeLocalPlacement,
   } = useDefenseStudioStore();
   const {
     project,
@@ -223,7 +227,8 @@ export function DroneDefensePrototype() {
     [project.layers],
   );
   const layerSummaries = useMemo(() => calculateLayerSummaries(project), [project]);
-  const activeView = searchParams.get("view") === "3d" ? "drilldown" : view;
+  const requestedView = searchParams.get("view");
+  const activeView = requestedView === "scenario-modeling" || requestedView === "3d" ? "drilldown" : view;
   const assetCatalogItems = useMemo(
     () => getAssetCatalogItems(project, selectedLayer?.code, project.placedObjects),
     [project, selectedLayer?.code],
@@ -768,11 +773,12 @@ export function DroneDefensePrototype() {
 
   return (
     <div className="flex h-full min-h-0 flex-col lg:flex-row">
-      <section
-        data-sidebar-state={isCatalogTrayOpen ? "open" : "closed"}
-        className={styles.prototypeSidebar}
-        aria-hidden={!isCatalogTrayOpen}
-      >
+      {activeView === "gis" ? (
+        <section
+          data-sidebar-state={isCatalogTrayOpen ? "open" : "closed"}
+          className={styles.prototypeSidebar}
+          aria-hidden={!isCatalogTrayOpen}
+        >
           <div className={styles.prototypeSidebarHeader}>
             <div className={styles.prototypeBrandRow}>
               <div className={styles.prototypeBrandIcon}>
@@ -855,7 +861,8 @@ export function DroneDefensePrototype() {
               />
             </div>
           </div>
-      </section>
+        </section>
+      ) : null}
 
       <main className={styles.prototypeMain}>
         {error ? (
@@ -869,7 +876,7 @@ export function DroneDefensePrototype() {
           </div>
         ) : null}
 
-        {isEchelonObjectsPanelOpen && activeEchelonObjectsLayer ? (
+        {activeView === "gis" && isEchelonObjectsPanelOpen && activeEchelonObjectsLayer ? (
           <aside className={`${styles.prototypeFloatingPanel} ${styles.prototypeObjectsPanel}`}>
             <div className={styles.prototypeFloatingHeader}>
               <div>
@@ -1263,7 +1270,15 @@ export function DroneDefensePrototype() {
         ) : null}
 
         {activeView === "drilldown" ? (
-          <Prototype3DPlaceholder />
+          <FacilityDrilldown
+            facilityName={selectedFacility.name}
+            scenario={scenarioId}
+            configuration={studioConfiguration}
+            onScenarioChange={setScenarioId}
+            onLocalPlacementUpsert={upsertLocalPlacement}
+            onLocalPlacementMove={moveLocalPlacement}
+            onLocalPlacementRemove={removeLocalPlacement}
+          />
         ) : null}
 
         {layerWizardState ? (

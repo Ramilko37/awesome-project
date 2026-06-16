@@ -8,33 +8,55 @@ function assert(condition, message) {
 
 const shellSource = readFileSync("src/modules/drone-defense/ui/defense-studio-shell.tsx", "utf8");
 const prototypeSource = readFileSync("src/modules/drone-defense/ui/drone-defense-prototype.tsx", "utf8");
-const placeholderSource = readFileSync("src/modules/drone-defense/ui/prototype-3d-placeholder.tsx", "utf8");
+const facilityDrilldownSource = readFileSync("src/modules/drone-defense/ui/facility-drilldown.tsx", "utf8");
+const topbarSource = readFileSync("src/modules/drone-defense/ui/topbar.tsx", "utf8");
+const sceneSource = readFileSync("src/modules/drone-defense/ui/scene.tsx", "utf8");
 const dashboardSidebarSource = readFileSync("src/modules/dashboard/ui/sidebar.tsx", "utf8");
 
-assert(shellSource.includes("setView(\"drilldown\")"), "3D navigation must open a dedicated prototype state");
-assert(shellSource.includes("href=\"/prototype?view=3d\""), "3D navigation must use a shareable 3D prototype state URL");
+assert(shellSource.includes("setView(\"drilldown\")"), "Scenario modeling navigation must open a dedicated prototype state");
 assert(
-  dashboardSidebarSource.includes("href=\"/prototype?view=3d\""),
-  "Dashboard 3D entry must not open the default 2D /prototype state",
+  shellSource.includes("href=\"/prototype?view=scenario-modeling\""),
+  "Scenario modeling navigation must use a shareable prototype state URL",
+);
+assert(
+  dashboardSidebarSource.includes("href=\"/prototype?view=scenario-modeling\""),
+  "Dashboard scenario modeling entry must not open the default 2D /prototype state",
 );
 assert(!shellSource.includes("href=\"/models\""), "3D navigation must not restore the legacy /models route");
 assert(
-  prototypeSource.includes("<Prototype3DPlaceholder />"),
-  "Prototype 3D state must render the planned product placeholder",
+  prototypeSource.includes("<FacilityDrilldown"),
+  "Scenario modeling prototype state must render the restored 3D facility drilldown scene",
 );
 assert(
-  prototypeSource.includes("searchParams.get(\"view\") === \"3d\""),
-  "Prototype must render the 3D placeholder from a direct /prototype?view=3d entry",
+  prototypeSource.includes("searchParams.get(\"view\")") &&
+    prototypeSource.includes("requestedView === \"scenario-modeling\""),
+  "Prototype must render the scenario modeling scene from a direct /prototype?view=scenario-modeling entry",
 );
 assert(
-  !prototypeSource.includes("<FacilityDrilldown"),
-  "Prototype 3D navigation must not expose the old demo-runtime drilldown as the primary 3D section",
+  prototypeSource.includes("requestedView === \"3d\""),
+  "Prototype must keep the old /prototype?view=3d entry as a compatibility alias",
 );
-assert(placeholderSource.includes("Раздел в разработке"), "3D placeholder must show the required heading");
 assert(
-  placeholderSource.includes("3D-модель объекта будет доступна в следующих версиях Fortis. Сейчас основной рабочий контур — 2D GIS-конструктор."),
-  "3D placeholder must show the required explanatory copy",
+  !prototypeSource.includes("<Prototype3DPlaceholder />"),
+  "Scenario modeling prototype must not render the planned-product placeholder as its primary content",
 );
-assert(placeholderSource.includes("@react-three/fiber"), "3D placeholder must include a lightweight React Three Fiber visual");
+assert(
+  shellSource.includes("Прототип Модуля сценарного моделирования"),
+  "Scenario modeling navigation must expose the requested product title",
+);
+assert(
+  facilityDrilldownSource.includes("Прототип Модуля сценарного моделирования"),
+  "Restored 3D scene must be titled as the scenario modeling module prototype",
+);
+assert(
+  facilityDrilldownSource.includes("onToggleDemo") &&
+    topbarSource.includes("Запустить сценарий") &&
+    topbarSource.includes("onToggleDemo"),
+  "Scenario modeling navbar must expose a visible launch button for the drone scenario",
+);
+assert(
+  sceneSource.includes("<DroneSwarm") && sceneSource.includes("demoMode && viewMode === \"scene3d\""),
+  "Launching the scenario must still render the animated drone swarm in the 3D scene",
+);
 
-console.log("prototype-3d-placeholder-contract.test.mjs: 3D placeholder contract passed");
+console.log("prototype-3d-placeholder-contract.test.mjs: scenario modeling prototype contract passed");

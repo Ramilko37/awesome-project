@@ -20,6 +20,7 @@ type DefenseStudioShellProps = {
 const railItemClassName =
   "flex h-14 w-full flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold transition";
 const mobileItemClassName = "grid h-9 place-items-center rounded-lg text-xs font-semibold transition";
+const scenarioModelingTitle = "Прототип Модуля сценарного моделирования";
 
 export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
   const pathname = usePathname();
@@ -30,14 +31,15 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
   const normalizedPathname = pathname.replace(/\/$/, "");
   const isPrototype = normalizedPathname === "/prototype";
   const isCalculator = normalizedPathname === "/calculator";
-  const is3DQueryActive = isPrototype && searchParams.get("view") === "3d";
+  const requestedView = searchParams.get("view");
+  const is3DQueryActive = isPrototype && (requestedView === "scenario-modeling" || requestedView === "3d");
   const isDrilldownActive = isPrototype && (is3DQueryActive || view === "drilldown");
   const isMapActive = isPrototype && !isDrilldownActive;
-  const mobileTitle = isCalculator ? "Калькулятор" : isDrilldownActive ? "3D" : "Моя карта";
+  const mobileTitle = isCalculator ? "Калькулятор" : isDrilldownActive ? "Сценарии" : "Моя карта";
   const mobileSubtitle = isCalculator
     ? "Defense Cost Estimator"
     : isDrilldownActive
-      ? "3D-модель Fortis"
+      ? scenarioModelingTitle
       : "Defense Configuration Studio";
 
   const activeRailClassName = "bg-blue-600 text-white shadow-md shadow-blue-600/25";
@@ -81,15 +83,15 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               <span>Расчёт</span>
             </Link>
             <Link
-              href="/prototype?view=3d"
+              href="/prototype?view=scenario-modeling"
               className={`${railItemClassName} ${isDrilldownActive ? activeRailClassName : idleRailClassName}`}
               onClick={() => setView("drilldown")}
-              title="3D"
+              title={scenarioModelingTitle}
             >
               <span className="text-lg">
                 <RadarChartOutlined />
               </span>
-              <span>3D</span>
+              <span>Сценарии</span>
             </Link>
           </nav>
           <div className="space-y-2 border-t border-slate-100 px-2 py-3">
@@ -143,11 +145,12 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
                 Расчёт
               </Link>
               <Link
-                href="/prototype?view=3d"
+                href="/prototype?view=scenario-modeling"
                 className={`${mobileItemClassName} ${isDrilldownActive ? activeMobileClassName : idleMobileClassName}`}
                 onClick={() => setView("drilldown")}
+                title={scenarioModelingTitle}
               >
-                3D
+                Сценарии
               </Link>
             </nav>
           </div>

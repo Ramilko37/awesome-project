@@ -58,7 +58,7 @@ export function StatusBar({
       </div>
       <button className={styles.simulationButton} type="button" onClick={onToggleDemo}>
         <PlayCircleOutlined />
-        {demoMode ? "Пауза симуляции" : "Запустить симуляцию"}
+        {demoMode ? "Остановить сценарий" : "Запустить сценарий"}
       </button>
     </footer>
   );

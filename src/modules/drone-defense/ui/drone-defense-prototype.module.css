@@ -305,6 +305,158 @@
   font-weight: 700;
 }
 
+.mogAzimuthControl {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.mogAzimuthInput {
+  min-width: 0;
+}
+
+.mogSectorInput {
+  min-width: 0;
+}
+
+.mogAzimuthDial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  min-width: 3rem;
+  height: 3rem;
+  min-height: 3rem;
+  border: 1px solid color-mix(in srgb, var(--mog-azimuth-color, #2563eb) 38%, #cbd5e1);
+  border-radius: 999px;
+  color: var(--mog-azimuth-color, #2563eb);
+  background:
+    radial-gradient(circle at 50% 50%, #ffffff 0 31%, transparent 32%),
+    conic-gradient(from -90deg, color-mix(in srgb, var(--mog-azimuth-color, #2563eb) 22%, transparent), transparent 28% 100%),
+    linear-gradient(180deg, #f8fbff, #edf4ff);
+  box-shadow: inset 0 0 0 0.32rem rgba(255, 255, 255, 0.72), 0 0.35rem 0.9rem rgba(15, 23, 42, 0.08);
+  cursor: grab;
+  touch-action: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.mogAzimuthDial::before {
+  content: "";
+  position: absolute;
+  inset: 0.38rem;
+  border: 1px solid rgba(100, 116, 139, 0.16);
+  border-radius: inherit;
+}
+
+.mogAzimuthDial:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+}
+
+.mogAzimuthDial:focus-visible {
+  outline: none;
+  border-color: var(--mog-azimuth-color, #2563eb);
+  box-shadow:
+    inset 0 0 0 0.32rem rgba(255, 255, 255, 0.72),
+    0 0 0 3px color-mix(in srgb, var(--mog-azimuth-color, #2563eb) 22%, transparent);
+}
+
+.mogAzimuthDialNeedle {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  width: 0.16rem;
+  height: 1.02rem;
+  border-radius: 999px;
+  background: var(--mog-azimuth-color, #2563eb);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.72);
+  transform: translateX(-50%) rotate(var(--mog-azimuth-angle, 0deg));
+  transform-origin: 50% 100%;
+}
+
+.mogAzimuthDialHandle {
+  position: absolute;
+  left: 50%;
+  top: 0.38rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: var(--mog-azimuth-color, #2563eb);
+  box-shadow: 0 0.1rem 0.28rem rgba(15, 23, 42, 0.22);
+  transform: translateX(-50%) rotate(var(--mog-azimuth-angle, 0deg)) translateY(-0.02rem);
+  transform-origin: 50% 1.12rem;
+}
+
+.mogSectorDial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  min-width: 3rem;
+  height: 3rem;
+  min-height: 3rem;
+  border: 1px solid color-mix(in srgb, var(--mog-sector-color, #2563eb) 38%, #cbd5e1);
+  border-radius: 999px;
+  color: var(--mog-sector-color, #2563eb);
+  background:
+    conic-gradient(from -90deg, color-mix(in srgb, var(--mog-sector-color, #2563eb) 36%, transparent) 0 var(--mog-sector-angle, 90deg), #eef4fb var(--mog-sector-angle, 90deg) 360deg),
+    linear-gradient(180deg, #f8fbff, #edf4ff);
+  box-shadow: inset 0 0 0 0.32rem rgba(255, 255, 255, 0.72), 0 0.35rem 0.9rem rgba(15, 23, 42, 0.08);
+  cursor: grab;
+  touch-action: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.mogSectorDial::before {
+  content: "";
+  position: absolute;
+  inset: 0.38rem;
+  border: 1px solid rgba(100, 116, 139, 0.16);
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.mogSectorDial:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+}
+
+.mogSectorDial:focus-visible {
+  outline: none;
+  border-color: var(--mog-sector-color, #2563eb);
+  box-shadow:
+    inset 0 0 0 0.32rem rgba(255, 255, 255, 0.72),
+    0 0 0 3px color-mix(in srgb, var(--mog-sector-color, #2563eb) 22%, transparent);
+}
+
+.mogSectorDialCore {
+  position: relative;
+  z-index: 1;
+  width: 0.58rem;
+  height: 0.58rem;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: var(--mog-sector-color, #2563eb);
+  box-shadow: 0 0.1rem 0.28rem rgba(15, 23, 42, 0.22);
+}
+
+.mogSectorDialHandle {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 0.38rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: var(--mog-sector-color, #2563eb);
+  box-shadow: 0 0.1rem 0.28rem rgba(15, 23, 42, 0.22);
+  transform: translateX(-50%) rotate(var(--mog-sector-angle, 90deg)) translateY(-0.02rem);
+  transform-origin: 50% 1.12rem;
+}
+
 .prototypeBadge,
 .prototypeBadgeMuted,
 .prototypeBadgeSuccess,
@@ -452,6 +604,10 @@
   font-weight: 800;
 }
 
+.brandSubtitle {
+  text-transform: none;
+}
+
 .shieldMark {
   width: 2.35rem;
   height: 2.35rem;
@@ -478,7 +634,8 @@
 }
 
 .tab,
-.activeTab {
+.activeTab,
+.scenarioLaunchButton {
   min-width: 0;
   min-height: 2.75rem;
   display: flex;
@@ -494,12 +651,14 @@
 }
 
 .tab:last-child,
-.activeTab:last-child {
+.activeTab:last-child,
+.scenarioLaunchButton:last-child {
   border-right: 0;
 }
 
 .tab span,
-.activeTab span {
+.activeTab span,
+.scenarioLaunchButton span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -513,6 +672,18 @@
 
 .activeTab {
   box-shadow: inset 0 -3px 0 #2f7dd3, inset 0 -0.5rem 1rem rgba(47, 125, 211, 0.12);
+}
+
+.scenarioLaunchButton {
+  color: #06121c;
+  font-weight: 900;
+  background: linear-gradient(135deg, #78e7bd, #79b9ff);
+  border-color: rgba(120, 231, 189, 0.7);
+}
+
+.scenarioLaunchButton:hover {
+  color: #06121c;
+  background: linear-gradient(135deg, #8ef1c9, #92c7ff);
 }
 
 .topActions {
@@ -766,6 +937,11 @@
   width: 100%;
   height: 100%;
   min-height: 32rem;
+}
+
+.canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .sceneVignette {
