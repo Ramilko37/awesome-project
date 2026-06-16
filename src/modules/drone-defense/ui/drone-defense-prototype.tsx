@@ -936,7 +936,6 @@ export function DroneDefensePrototype() {
               mapLayers={projectMapLayers}
               previewLayer={previewMapLayer}
               selectedLayerId={selectedLayerId}
-              hoveredLayerId={hoveredLayerId}
               selectedSlotId={selectedSlotId}
               activeToolId={activeToolId}
               placementHint={placementHint}
