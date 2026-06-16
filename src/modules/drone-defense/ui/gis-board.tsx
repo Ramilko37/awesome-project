@@ -31,6 +31,11 @@ import {
   screenPointToSlot,
   type MarkerState,
 } from "@/modules/drone-defense/domain/placement-helpers";
+import {
+  getEchelonVisualStyle,
+  type EchelonInteractionMode,
+  type EchelonVisibilityMode,
+} from "@/modules/drone-defense/domain/echelon-visibility";
 import type {
   Configuration,
   DefenseCatalogResponse,
@@ -59,6 +64,9 @@ type GisBoardProps = {
   selectedSlotId: string | null;
   activeToolId: string | null;
   placementHint: string;
+  echelonVisibilityMode: EchelonVisibilityMode;
+  echelonInteractionMode: EchelonInteractionMode;
+  onEchelonVisibilityModeChange: (mode: EchelonVisibilityMode) => void;
   onSelectLayer: (layerId: string) => void;
   onHoverLayerChange?: (layerId: string | null) => void;
   onSelectSlot: (slot: EchelonMapSlot) => void;
@@ -183,6 +191,9 @@ export function GisBoard({
   selectedSlotId,
   activeToolId,
   placementHint,
+  echelonVisibilityMode,
+  echelonInteractionMode,
+  onEchelonVisibilityModeChange,
   onSelectLayer,
   onHoverLayerChange,
   onSelectSlot,
@@ -544,36 +555,49 @@ export function GisBoard({
           const isPreview = previewLayer?.id === zone.layerId;
           const zoneLayer = visibleMapLayers.find((layer) => layer.id === zone.layerId);
           const isFilledDiskZone = (zoneLayer?.distanceBandM.min ?? 0) <= 0;
+          const zoneVisualStyle = getEchelonVisualStyle({
+            visibilityMode: echelonVisibilityMode,
+            interactionMode: echelonInteractionMode,
+            zoom: viewState.zoom,
+            isActive,
+            isHovered: isHoveredLayer,
+          });
           const zoneFillColor = (item: EchelonZone) =>
             isPreview
               ? ([14, 165, 233, 54] as [number, number, number, number])
-              : isHoveredLayer
-                ? ([item.fillColor[0], item.fillColor[1], item.fillColor[2], Math.max(item.fillColor[3], 168)] as [number, number, number, number])
-              : isActive
-                ? ([item.fillColor[0], item.fillColor[1], item.fillColor[2], Math.max(item.fillColor[3], 132)] as [number, number, number, number])
-                : ([item.fillColor[0], item.fillColor[1], item.fillColor[2], 0] as [number, number, number, number]);
+              : ([item.fillColor[0], item.fillColor[1], item.fillColor[2], zoneVisualStyle.fillAlpha] as [
+                  number,
+                  number,
+                  number,
+                  number,
+                ]);
           const zoneLineColor = () =>
             isPreview
               ? ([2, 132, 199, 245] as [number, number, number, number])
-              : isHoveredLayer
-                ? ([255, 255, 255, 255] as [number, number, number, number])
               : isActive
-                ? ([15, 23, 42, 255] as [number, number, number, number])
-                : ([100, 116, 139, 95] as [number, number, number, number]);
+                ? ([15, 23, 42, zoneVisualStyle.strokeAlpha] as [number, number, number, number])
+                : ([100, 116, 139, zoneVisualStyle.strokeAlpha] as [number, number, number, number]);
           const handleZoneClick = (object: EchelonZone | null | undefined) => {
             if (!object) return;
             if (previewLayer?.id === object.layerId) return;
             onSelectLayer(object.layerId);
           };
-          const handleZoneHover = (object: EchelonZone | null | undefined) =>
-            {
-              onHoverLayerChange?.(object?.layerId ?? null);
-              setHoverLabel(
-                object
-                  ? `${object.shortName}: ${object.name}, ${object.distanceLabel}`
-                  : null,
-              );
-            };
+          const handleZoneHover = (object: EchelonZone | null | undefined) => {
+            if (!object) {
+              onHoverLayerChange?.(null);
+              setHoverLabel(null);
+              return;
+            }
+
+            if (!isPreview && !zoneVisualStyle.hoverEnabled) {
+              onHoverLayerChange?.(null);
+              setHoverLabel(null);
+              return;
+            }
+
+            onHoverLayerChange?.(object.layerId);
+            setHoverLabel(`${object.shortName}: ${object.name}, ${object.distanceLabel}`);
+          };
           const handleSlotClick = (object: EchelonMapSlot | null | undefined) => {
             if (!object) return;
 
@@ -584,7 +608,7 @@ export function GisBoard({
               ? new ScatterplotLayer<EchelonZone>({
                   id: `echelon-${layerSlug}-zone`,
                   data: [zone],
-                  pickable: true,
+                  pickable: isPreview || zoneVisualStyle.pickable,
                   filled: true,
                   stroked: true,
                   getPosition: () => [selectedFacility?.center.lon ?? 0, selectedFacility?.center.lat ?? 0],
@@ -592,7 +616,7 @@ export function GisBoard({
                   radiusUnits: "meters",
                   getFillColor: zoneFillColor,
                   getLineColor: zoneLineColor,
-                  getLineWidth: () => (isPreview ? 3 : isHoveredLayer ? 5 : isActive ? 4 : 1.5),
+                  getLineWidth: () => (isPreview ? 3 : zoneVisualStyle.strokeWidth),
                   lineWidthUnits: "pixels",
                   onClick: ({ object }) => handleZoneClick(object),
                   onHover: ({ object }) => handleZoneHover(object),
@@ -600,14 +624,14 @@ export function GisBoard({
               : new PolygonLayer<EchelonZone>({
                   id: `echelon-${layerSlug}-zone`,
                   data: [zone],
-                  pickable: true,
+                  pickable: isPreview || zoneVisualStyle.pickable,
                   stroked: true,
                   filled: true,
                   extruded: false,
                   getPolygon: (item) => item.polygon,
                   getFillColor: zoneFillColor,
                   getLineColor: zoneLineColor,
-                  getLineWidth: () => (isPreview ? 3 : isHoveredLayer ? 5 : isActive ? 4 : 1.5),
+                  getLineWidth: () => (isPreview ? 3 : zoneVisualStyle.strokeWidth),
                   lineWidthUnits: "pixels",
                   onClick: ({ object }) => handleZoneClick(object),
                   onHover: ({ object }) => handleZoneHover(object),
@@ -792,6 +816,8 @@ export function GisBoard({
       echelonModel,
       coverageLayers,
       contestedSlotIds,
+      echelonInteractionMode,
+      echelonVisibilityMode,
       filteredHexes,
       filteredRoutes,
       hoveredPlacementId,
@@ -811,6 +837,7 @@ export function GisBoard({
       selectedPlacementId,
       protectedObjectPerimeter,
       visibleFacilities,
+      viewState.zoom,
     ],
   );
 
@@ -1023,6 +1050,33 @@ export function GisBoard({
           <p className="text-slate-500">
             {placementHint}
           </p>
+        </div>
+        <div className="pointer-events-auto flex min-h-11 items-center gap-2 rounded-lg border border-white/60 bg-white/95 px-3 py-2 text-xs shadow-md shadow-slate-900/10 backdrop-blur">
+          <span className="font-semibold text-slate-600">Эшелоны</span>
+          <div className="flex items-center rounded-md border border-slate-200 bg-white p-0.5">
+            {([
+              { value: "auto", label: "Авто" },
+              { value: "muted", label: "Слабо" },
+              { value: "hidden", label: "Скрыть" },
+            ] as const).map((option) => {
+              const isSelected = echelonVisibilityMode === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`min-h-11 rounded-md px-3 text-sm font-medium transition ${
+                    isSelected
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  }`}
+                  onClick={() => onEchelonVisibilityModeChange(option.value)}
+                  aria-pressed={isSelected}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

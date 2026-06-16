@@ -27,6 +27,10 @@ import { DefenseToolsPanel } from "@/modules/drone-defense/ui/defense-tools-pane
 import { GisBoard } from "@/modules/drone-defense/ui/gis-board";
 import { EchelonObjectsList } from "@/modules/drone-defense/ui/echelon-objects-list";
 import { MogCompositionEditor } from "@/modules/drone-defense/ui/mog-composition-editor";
+import {
+  getEchelonInteractionMode,
+  type EchelonVisibilityMode,
+} from "@/modules/drone-defense/domain/echelon-visibility";
 import { Prototype3DPlaceholder } from "@/modules/drone-defense/ui/prototype-3d-placeholder";
 import { VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
 import styles from "./drone-defense-prototype.module.css";
@@ -125,6 +129,7 @@ export function DroneDefensePrototype() {
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
   const [isLayerPanelExpanded, setIsLayerPanelExpanded] = useState(true);
   const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(false);
+  const [echelonVisibilityMode, setEchelonVisibilityMode] = useState<EchelonVisibilityMode>("auto");
   const [layerWizardState, setLayerWizardState] = useState<LayerWizardState | null>(null);
   const [pendingLayerDeletionId, setPendingLayerDeletionId] = useState<string | null>(null);
   const [hoveredLayerId, setHoveredLayerId] = useState<string | null>(null);
@@ -382,6 +387,17 @@ export function DroneDefensePrototype() {
   );
   const canCreateLayer = project.layers.length < MAX_DEFENSE_PROJECT_LAYERS;
   const showCompactLayerPanel = !isLayerPanelExpanded;
+  const echelonInteractionMode = useMemo(
+    () =>
+      getEchelonInteractionMode({
+        activeToolId,
+        coordinatePlacementAssetId,
+        isCoverageEditorOpen: Boolean(selectedMogObject),
+        pointerDraggedAssetId,
+        selectedPlacementId,
+      }),
+    [activeToolId, coordinatePlacementAssetId, pointerDraggedAssetId, selectedMogObject, selectedPlacementId],
+  );
 
   useEffect(() => {
     const strip = layerStripRef.current;
@@ -940,6 +956,9 @@ export function DroneDefensePrototype() {
               selectedSlotId={selectedSlotId}
               activeToolId={activeToolId}
               placementHint={placementHint}
+              echelonVisibilityMode={echelonVisibilityMode}
+              echelonInteractionMode={echelonInteractionMode}
+              onEchelonVisibilityModeChange={setEchelonVisibilityMode}
               onSelectLayer={selectLayerWithDefaultSlot}
               onHoverLayerChange={setHoveredLayerId}
               onSelectSlot={(slot) => {
