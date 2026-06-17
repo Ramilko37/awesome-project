@@ -402,10 +402,10 @@ export default function HeroPage() {
 
           <div style={{ opacity: heroSection.inView ? 1 : 0, transform: heroSection.inView ? "translateY(0)" : "translateY(20px)", transition: "opacity 0.7s ease 100ms, transform 0.7s ease 100ms" }}>
             <h1 className="font-display text-[44px] md:text-[64px] font-bold leading-[1.08] tracking-tight text-slate-900 dark:text-white">
-              Защита предприятий
+              Модульная система
               <br />
               <span className="bg-linear-to-r from-sky-500 via-sky-400 to-indigo-500 dark:from-sky-400 dark:via-sky-300 dark:to-indigo-400 bg-clip-text text-transparent">
-                на основе ИИ
+                мониторинга и защиты предприятий
               </span>
             </h1>
           </div>
@@ -414,8 +414,8 @@ export default function HeroPage() {
             className="max-w-xl text-[16px] text-slate-500 dark:text-slate-400 leading-relaxed"
             style={{ opacity: heroSection.inView ? 1 : 0, transform: heroSection.inView ? "translateY(0)" : "translateY(18px)", transition: "opacity 0.7s ease 200ms, transform 0.7s ease 200ms" }}
           >
-            Fortis объединяет радары, RF-детекторы, PTZ-камеры и искусственный интеллект в единую
-            платформу управления. Угроза обнаружена — за секунды. Защита улучшается — постоянно.
+            Fortis сводит радары, RF-детекторы и PTZ-камеры в единую платформу управления защитой:
+            угроза обнаруживается за секунды, а сценарий защиты обновляется по мере поступления данных.
           </p>
 
           <div
@@ -424,10 +424,10 @@ export default function HeroPage() {
             style={{ opacity: heroSection.inView ? 1 : 0, transform: heroSection.inView ? "translateY(0)" : "translateY(16px)", transition: "opacity 0.7s ease 300ms, transform 0.7s ease 300ms" }}
           >
             <a
-              href="#cta"
+              href="/prototype"
               className="flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 px-6 py-3 text-[14px] font-semibold text-white transition-all duration-200 shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40"
             >
-              Запросить демо
+              Открыть конфигуратор
               <ArrowRight className="h-4 w-4" />
             </a>
             <a
@@ -442,7 +442,7 @@ export default function HeroPage() {
             className="flex flex-wrap items-center justify-center gap-6 mt-3 text-[12px] text-slate-400 dark:text-slate-500"
             style={{ opacity: heroSection.inView ? 1 : 0, transition: "opacity 0.7s ease 450ms" }}
           >
-            {["Развёртывание за 24 ч", "Соответствие требованиям ФСБ", "99.9% Uptime SLA"].map((t) => (
+            {["Развёртывание за 24 ч", "99.9% Uptime SLA"].map((t) => (
               <div key={t} className="flex items-center gap-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                 {t}
