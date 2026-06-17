@@ -53,6 +53,7 @@ import {
   type LayerWizardState,
 } from "@/modules/drone-defense/domain/prototype-workflow";
 import { MAX_DEFENSE_PROJECT_LAYERS, useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
+import { useMapViewStore } from "@/shared/lib/use-map-view-store";
 import type { LayerInsertOption } from "@/shared/lib/defense-project";
 import type { DefenseLayer, DefenseLayerId } from "@/shared/types/drone-defense";
 import type { Coordinates, ProtectedObjectOption } from "@/shared/types/defense-project";
@@ -152,6 +153,11 @@ export function DroneDefensePrototype() {
   const [isEchelonObjectsCollapsed, setIsEchelonObjectsCollapsed] = useState(false);
   const layerStripRef = useRef<HTMLDivElement | null>(null);
   const {
+    currentBaseMapSourceId,
+    restoreFromLocalStorage: restoreMapViewFromLocalStorage,
+    setBaseMapSource,
+  } = useMapViewStore();
+  const {
     init,
     loading,
     error,
@@ -197,9 +203,10 @@ export function DroneDefensePrototype() {
 
   useEffect(() => {
     restoreProjectFromLocalStorage();
+    restoreMapViewFromLocalStorage();
     void refreshAssetLibrary({ isPublic: true, limit: 100 });
     void refreshProtectedObjects({ limit: 100 });
-  }, [refreshAssetLibrary, refreshProtectedObjects, restoreProjectFromLocalStorage]);
+  }, [refreshAssetLibrary, refreshProtectedObjects, restoreMapViewFromLocalStorage, restoreProjectFromLocalStorage]);
   const selectedProtectedObject = useMemo(
     () =>
       protectedObjects.find((item) => item.id === project.baseObject.id) ?? {
@@ -985,7 +992,9 @@ export function DroneDefensePrototype() {
               selectedLayerId={selectedLayerId}
               selectedSlotId={selectedSlotId}
               activeToolId={activeToolId}
+              baseMapSourceId={currentBaseMapSourceId}
               placementHint={placementHint}
+              onSelectBaseMapSource={setBaseMapSource}
               onSelectLayer={selectLayerWithDefaultSlot}
               onHoverLayerChange={setHoveredLayerId}
               onSelectSlot={(slot) => {

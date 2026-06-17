@@ -7,6 +7,7 @@ import {
   ArrowLeftOutlined,
   CalculatorOutlined,
   EnvironmentOutlined,
+  LineChartOutlined,
   ExportOutlined,
   RadarChartOutlined,
 } from "@ant-design/icons";
@@ -31,16 +32,19 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
   const normalizedPathname = pathname.replace(/\/$/, "");
   const isPrototype = normalizedPathname === "/prototype";
   const isCalculator = normalizedPathname === "/calculator";
+  const isRetrospective = normalizedPathname === "/retrospective-analysis";
   const requestedView = searchParams.get("view");
   const is3DQueryActive = isPrototype && (requestedView === "scenario-modeling" || requestedView === "3d");
   const isDrilldownActive = isPrototype && (is3DQueryActive || view === "drilldown");
   const isMapActive = isPrototype && !isDrilldownActive;
-  const mobileTitle = isCalculator ? "Калькулятор" : isDrilldownActive ? "Сценарии" : "Моя карта";
+  const mobileTitle = isCalculator ? "Калькулятор" : isDrilldownActive ? "Сценарии" : isRetrospective ? "Анализ" : "Моя карта";
   const mobileSubtitle = isCalculator
     ? "Defense Cost Estimator"
     : isDrilldownActive
       ? scenarioModelingTitle
-      : "Defense Configuration Studio";
+      : isRetrospective
+        ? "Ретро-анализ"
+        : "Defense Configuration Studio";
 
   const activeRailClassName = "bg-blue-600 text-white shadow-md shadow-blue-600/25";
   const idleRailClassName = "text-slate-500 hover:bg-slate-100 hover:text-slate-900";
@@ -93,6 +97,16 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               </span>
               <span>Сценарии</span>
             </Link>
+            <Link
+              href="/retrospective-analysis"
+              className={`${railItemClassName} ${isRetrospective ? activeRailClassName : idleRailClassName}`}
+              title="Анализ цепочки атаки (WIP)"
+            >
+              <span className="text-lg">
+                <LineChartOutlined />
+              </span>
+              <span>Анализ</span>
+            </Link>
           </nav>
           <div className="space-y-2 border-t border-slate-100 px-2 py-3">
             <VariantSaveButton
@@ -130,7 +144,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               <VariantStatusButton fullWidth />
             </div>
 
-            <nav className="mt-2 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
+            <nav className="mt-2 grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1">
               <Link
                 href="/prototype"
                 className={`${mobileItemClassName} ${isMapActive ? activeMobileClassName : idleMobileClassName}`}
@@ -151,6 +165,13 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
                 title={scenarioModelingTitle}
               >
                 Сценарии
+              </Link>
+              <Link
+                href="/retrospective-analysis"
+                className={`${mobileItemClassName} ${isRetrospective ? activeMobileClassName : idleMobileClassName}`}
+                title="Анализ цепочки атаки (WIP)"
+              >
+                Анализ
               </Link>
             </nav>
           </div>

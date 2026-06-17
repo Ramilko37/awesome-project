@@ -19,8 +19,10 @@ assert(
   "Scenario modeling navigation must use a shareable prototype state URL",
 );
 assert(
-  dashboardSidebarSource.includes("href=\"/prototype?view=scenario-modeling\""),
-  "Dashboard scenario modeling entry must not open the default 2D /prototype state",
+  dashboardSidebarSource.includes("href=\"/prototype\"") &&
+    dashboardSidebarSource.includes(">Конфигуратор<") &&
+    !dashboardSidebarSource.includes(">Сценарии<"),
+  "Dashboard tools entry must open the default 2D configurator, while scenario modeling stays inside the prototype shell",
 );
 assert(!shellSource.includes("href=\"/models\""), "3D navigation must not restore the legacy /models route");
 assert(

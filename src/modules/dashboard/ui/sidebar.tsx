@@ -97,15 +97,20 @@ export function DashboardSidebar() {
           Инструменты
         </p>
         <Link
-          href="/prototype?view=scenario-modeling"
-          title="Прототип Модуля сценарного моделирования"
+          href="/prototype"
+          title="Открыть конфигуратор защиты"
           className="flex items-center gap-2.5 h-8 px-2 rounded-md text-[13px] font-medium transition-colors cursor-pointer text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
         >
           <ScanLine className="h-3.75 w-3.75 shrink-0 text-accent" />
-          <span className="min-w-0 truncate">Сценарии</span>
-          <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded bg-accent/15 text-accent">
-            Прототип
-          </span>
+          <span className="min-w-0 truncate">Конфигуратор</span>
+        </Link>
+        <Link
+          href="/retrospective-analysis"
+          title="Открыть WIP-модуль ретроанализа"
+          className="flex items-center gap-2.5 h-8 px-2 rounded-md text-[13px] font-medium transition-colors cursor-pointer text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
+        >
+          <ScanLine className="h-3.75 w-3.75 shrink-0 text-amber-500" />
+          <span className="min-w-0 truncate">Анализ (WIP)</span>
         </Link>
 
         <Separator className="bg-sidebar-border my-2" />

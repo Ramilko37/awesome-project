@@ -7,7 +7,6 @@ import { PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/l
 import { Layer, WebMercatorViewport } from "@deck.gl/core";
 import MaplibreMap from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { StyleSpecification } from "maplibre-gl";
 import { defenseLayers, type EchelonCatalogGroup } from "@/modules/drone-defense/infra/mock-defense-data";
 import {
   buildEchelonMapModel,
@@ -24,6 +23,13 @@ import {
 import type { BuildAssetIcon } from "@/modules/drone-defense/domain/echelon-build-assets";
 import { MapObjectMarker } from "@/modules/drone-defense/ui/map-object-marker";
 import { withBasePath } from "@/shared/lib/base-path";
+import {
+  getAvailableBaseMapSources,
+  resolveDefaultBaseMapSourceId,
+  resolveMapStyle,
+  type BaseMapSource,
+  type BaseMapSourceCategory,
+} from "@/shared/config/base-map-sources";
 import {
   buildSectorPolygon,
   getCoverageShapes,
@@ -58,7 +64,9 @@ type GisBoardProps = {
   selectedLayerId: string;
   selectedSlotId: string | null;
   activeToolId: string | null;
+  baseMapSourceId: string;
   placementHint: string;
+  onSelectBaseMapSource: (sourceId: string) => void;
   onSelectLayer: (layerId: string) => void;
   onHoverLayerChange?: (layerId: string | null) => void;
   onSelectSlot: (slot: EchelonMapSlot) => void;
@@ -74,20 +82,6 @@ type GisBoardProps = {
   locateTarget: { lon: number; lat: number; at: number } | null;
   onSelectPlacement: (placementId: string) => void;
   onDropAsset: (args: { groupId: string; layerId: DefenseLayerId; slotId: string; mapRef: { lon: number; lat: number } }) => void;
-};
-
-const mapStyle: StyleSpecification = {
-  version: 8,
-  glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
-  sources: {
-    osm: {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors",
-    },
-  },
-  layers: [{ id: "osm", type: "raster", source: "osm" }],
 };
 
 function hexCoverageByLayer(layerCoverage: DefenseLayersResponse | null) {
@@ -119,6 +113,35 @@ const deckControllerOptions = {
   touchRotate: false,
   keyboard: true,
 } as const;
+
+const baseMapCategoryLabels: Record<BaseMapSourceCategory, string> = {
+  base: "Базовые",
+  topographic: "Топографические",
+  satellite: "Спутник / ортофото",
+  internal: "Закрытый контур / локальные",
+  custom: "Пользовательские / enterprise-specific",
+};
+
+function getBaseMapBadges(source: BaseMapSource) {
+  const badges: string[] = [];
+  badges.push(source.isExternal ? "online" : "internal");
+  if (source.requiresApiKey) badges.push("requires key");
+  if (source.requiresLicenseCheck) badges.push("license check");
+  return badges;
+}
+
+function extractErrorMessage(event: unknown) {
+  if (
+    typeof event === "object" &&
+    event !== null &&
+    "error" in event &&
+    typeof (event as { error?: { message?: unknown } }).error?.message === "string"
+  ) {
+    return (event as { error: { message: string } }).error.message;
+  }
+
+  return null;
+}
 
 function linearEasing(value: number) {
   return value;
@@ -187,7 +210,9 @@ export function GisBoard({
   selectedLayerId,
   selectedSlotId,
   activeToolId,
+  baseMapSourceId,
   placementHint,
+  onSelectBaseMapSource,
   onSelectLayer,
   onHoverLayerChange,
   onSelectSlot,
@@ -199,6 +224,29 @@ export function GisBoard({
   onSelectPlacement,
   onDropAsset,
 }: GisBoardProps) {
+  const availableBaseMapSources = useMemo(() => getAvailableBaseMapSources(), []);
+  const defaultBaseMapSourceId = useMemo(
+    () => resolveDefaultBaseMapSourceId(availableBaseMapSources),
+    [availableBaseMapSources],
+  );
+  const currentBaseMapSource = useMemo<BaseMapSource>(() => {
+    const requested = availableBaseMapSources.find((source) => source.id === baseMapSourceId);
+    if (requested) return requested;
+
+    const fallback = availableBaseMapSources.find((source) => source.id === defaultBaseMapSourceId);
+    if (fallback) return fallback;
+
+    return availableBaseMapSources[0]!;
+  }, [availableBaseMapSources, baseMapSourceId, defaultBaseMapSourceId]);
+  const groupedBaseMapSources = useMemo(() => {
+    const groups = new Map<BaseMapSourceCategory, BaseMapSource[]>();
+    for (const source of availableBaseMapSources) {
+      const current = groups.get(source.category) ?? [];
+      current.push(source);
+      groups.set(source.category, current);
+    }
+    return [...groups.entries()];
+  }, [availableBaseMapSources]);
   const selectedFacility = facilities.find((item) => item.id === selectedFacilityId);
   const initialViewState = selectedFacility
     ? buildProtectedObjectInitialViewState({
@@ -208,19 +256,24 @@ export function GisBoard({
     : fallbackViewState;
   const [hoverLabel, setHoverLabel] = useState<string | null>(null);
   const [hoveredPlacementId, setHoveredPlacementId] = useState<string | null>(null);
+  const [isBaseMapMenuOpen, setIsBaseMapMenuOpen] = useState(false);
+  const [baseMapWarning, setBaseMapWarning] = useState<string | null>(null);
   const [boardSize, setBoardSize] = useState({ width: 0, height: 0 });
   const [dropPreviewSlotId, setDropPreviewSlotId] = useState<string | null>(null);
   const [viewState, setViewState] = useState<LayerFocusViewState>(initialViewState);
   const boardRef = useRef<HTMLElement | null>(null);
+  const baseMapMenuRef = useRef<HTMLDivElement | null>(null);
   const viewStateRef = useRef<LayerFocusViewState>(initialViewState);
   const animationFrameRef = useRef<number | null>(null);
   const isAnimatingFocusRef = useRef(false);
   const skipNextLayerFocusRef = useRef(false);
+  const lastErroredBaseMapSourceIdRef = useRef<string | null>(null);
   const focusTargetRef = useRef<{ facilityId: string | null; layerId: string | null }>({
     facilityId: selectedFacility?.id ?? null,
     layerId: selectedLayerId || null,
   });
   const deckRef = useRef<DeckGLRef>(null);
+  const baseMapStyle = useMemo(() => resolveMapStyle(currentBaseMapSource), [currentBaseMapSource]);
 
   const visibleFacilities = useMemo(() => (selectedFacility ? [selectedFacility] : []), [selectedFacility]);
   const layerCoverage = hexCoverageByLayer(layers);
@@ -336,6 +389,28 @@ export function GisBoard({
   }, [setInteractiveViewState]);
 
   useEffect(() => () => stopFocusAnimation(), [stopFocusAnimation]);
+
+  useEffect(() => {
+    lastErroredBaseMapSourceIdRef.current = null;
+  }, [currentBaseMapSource.id]);
+
+  useEffect(() => {
+    if (baseMapSourceId === currentBaseMapSource.id) return;
+    onSelectBaseMapSource(currentBaseMapSource.id);
+  }, [baseMapSourceId, currentBaseMapSource.id, onSelectBaseMapSource]);
+
+  useEffect(() => {
+    if (!isBaseMapMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!baseMapMenuRef.current?.contains(event.target as Node)) {
+        setIsBaseMapMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [isBaseMapMenuOpen]);
 
   useEffect(() => {
     const facilityId = selectedFacility?.id ?? null;
@@ -910,6 +985,37 @@ export function GisBoard({
     [unprojectClientPoint, selectedLayerId, echelonModel.slots, onDropAsset],
   );
 
+  const handleBaseMapSelect = useCallback(
+    (sourceId: string) => {
+      setIsBaseMapMenuOpen(false);
+      setBaseMapWarning(null);
+      lastErroredBaseMapSourceIdRef.current = null;
+      onSelectBaseMapSource(sourceId);
+    },
+    [onSelectBaseMapSource],
+  );
+
+  const handleBaseMapError = useCallback(
+    (event: unknown) => {
+      const errorMessage = extractErrorMessage(event);
+      if (lastErroredBaseMapSourceIdRef.current === currentBaseMapSource.id) return;
+      lastErroredBaseMapSourceIdRef.current = currentBaseMapSource.id;
+
+      if (currentBaseMapSource.id === defaultBaseMapSourceId) {
+        setBaseMapWarning(errorMessage ? `Источник карты недоступен: ${errorMessage}` : "Источник карты недоступен");
+        return;
+      }
+
+      setBaseMapWarning(
+        errorMessage
+          ? `Источник карты недоступен: ${currentBaseMapSource.title}. Возвращаем стандартную подложку.`
+          : "Источник карты недоступен. Возвращаем стандартную подложку.",
+      );
+      onSelectBaseMapSource(defaultBaseMapSourceId);
+    },
+    [currentBaseMapSource.id, currentBaseMapSource.title, defaultBaseMapSourceId, onSelectBaseMapSource],
+  );
+
   return (
     <section
       ref={boardRef}
@@ -945,7 +1051,7 @@ export function GisBoard({
           onPlaceActiveTool({ lng: info.coordinate[0], lat: info.coordinate[1] });
         }}
       >
-        <MaplibreMap mapStyle={mapStyle} />
+        <MaplibreMap attributionControl={false} mapStyle={baseMapStyle} onError={handleBaseMapError} />
       </DeckGL>
 
       <div className="pointer-events-none absolute inset-0 z-10">
@@ -1058,28 +1164,115 @@ export function GisBoard({
         </div>
       </div>
 
-      <div className="absolute right-4 top-4 z-10 flex flex-col overflow-hidden rounded-lg bg-white/95 text-slate-500 shadow-md shadow-slate-900/10 backdrop-blur">
-        <button
-          className="grid h-10 w-10 cursor-pointer place-items-center border-b border-slate-100 text-lg transition hover:bg-blue-50 hover:text-blue-700"
-          type="button"
-          onClick={() => adjustMapZoom(1)}
-          aria-label="Приблизить карту"
-          title="Приблизить карту"
-        >
-          +
-        </button>
-        <button className="grid h-10 w-10 place-items-center border-b border-slate-100 text-xs font-semibold" type="button" disabled>
-          {zoomReadout.toFixed(1)}
-        </button>
-        <button
-          className="grid h-10 w-10 cursor-pointer place-items-center text-lg transition hover:bg-blue-50 hover:text-blue-700"
-          type="button"
-          onClick={() => adjustMapZoom(-1)}
-          aria-label="Отдалить карту"
-          title="Отдалить карту"
-        >
-          −
-        </button>
+      <div ref={baseMapMenuRef} className="absolute right-4 top-4 z-10 flex items-start gap-2">
+        <div className="relative">
+          <button
+            className="flex min-h-11 min-w-11 items-center gap-2 rounded-lg border border-white/60 bg-white/95 px-3 text-sm font-semibold text-slate-700 shadow-md shadow-slate-900/10 backdrop-blur transition hover:border-blue-200 hover:text-blue-700"
+            type="button"
+            onClick={() => setIsBaseMapMenuOpen((current) => !current)}
+            aria-expanded={isBaseMapMenuOpen}
+            aria-haspopup="dialog"
+            aria-label="Выбрать источник карты"
+            title="Источник карты"
+          >
+            <span>Карта</span>
+            <span className="text-xs text-slate-500">{currentBaseMapSource.title}</span>
+          </button>
+          {isBaseMapMenuOpen ? (
+            <div className="absolute right-0 mt-2 w-[min(26rem,calc(100vw-2rem))] max-h-[70vh] overflow-y-auto rounded-2xl border border-white/70 bg-white/97 p-3 shadow-2xl shadow-slate-900/20 backdrop-blur">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Источники карты</p>
+                  <p className="text-xs text-slate-500">Basemap переключается независимо от слоёв Fortis.</p>
+                </div>
+                <button
+                  className="grid h-11 w-11 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  type="button"
+                  onClick={() => setIsBaseMapMenuOpen(false)}
+                  aria-label="Закрыть список источников карты"
+                >
+                  x
+                </button>
+              </div>
+              <div className="space-y-3">
+                {groupedBaseMapSources.map(([category, sources]) => (
+                  <div key={category}>
+                    <p className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                      {baseMapCategoryLabels[category]}
+                    </p>
+                    <div className="space-y-1">
+                      {sources.map((source) => {
+                        const isActive = source.id === currentBaseMapSource.id;
+                        return (
+                          <button
+                            key={source.id}
+                            className={`block w-full rounded-xl border px-3 py-2 text-left transition ${
+                              isActive
+                                ? "border-blue-200 bg-blue-50/80 shadow-sm"
+                                : "border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50"
+                            }`}
+                            type="button"
+                            onClick={() => handleBaseMapSelect(source.id)}
+                            aria-pressed={isActive}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-slate-900">{source.title}</p>
+                                <p className="mt-0.5 text-xs text-slate-500">
+                                  {source.type}
+                                  {source.description ? ` · ${source.description}` : ""}
+                                </p>
+                              </div>
+                              {isActive ? (
+                                <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">
+                                  текущий
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {getBaseMapBadges(source).map((badge) => (
+                                <span
+                                  key={`${source.id}:${badge}`}
+                                  className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600"
+                                >
+                                  {badge}
+                                </span>
+                              ))}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col overflow-hidden rounded-lg bg-white/95 text-slate-500 shadow-md shadow-slate-900/10 backdrop-blur">
+          <button
+            className="grid h-11 w-11 cursor-pointer place-items-center border-b border-slate-100 text-lg transition hover:bg-blue-50 hover:text-blue-700"
+            type="button"
+            onClick={() => adjustMapZoom(1)}
+            aria-label="Приблизить карту"
+            title="Приблизить карту"
+          >
+            +
+          </button>
+          <button className="grid h-11 w-11 place-items-center border-b border-slate-100 text-xs font-semibold" type="button" disabled>
+            {zoomReadout.toFixed(1)}
+          </button>
+          <button
+            className="grid h-11 w-11 cursor-pointer place-items-center text-lg transition hover:bg-blue-50 hover:text-blue-700"
+            type="button"
+            onClick={() => adjustMapZoom(-1)}
+            aria-label="Отдалить карту"
+            title="Отдалить карту"
+          >
+            −
+          </button>
+        </div>
       </div>
 
       <div
@@ -1089,6 +1282,19 @@ export function GisBoard({
         <div className="mb-1 h-1 rounded-full bg-slate-800" style={{ width: `${scaleBar.widthPx}px` }} />
         {scaleBar.label}
       </div>
+
+      {currentBaseMapSource.attribution ? (
+        <div
+          className="absolute bottom-5 right-4 z-10 max-w-[min(32rem,calc(100vw-2rem))] rounded bg-white/92 px-3 py-1.5 text-[11px] leading-4 text-slate-600 shadow"
+          dangerouslySetInnerHTML={{ __html: currentBaseMapSource.attribution }}
+        />
+      ) : null}
+
+      {baseMapWarning ? (
+        <div className="absolute left-1/2 top-20 z-10 w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 rounded-xl border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs font-medium text-amber-900 shadow-lg">
+          {baseMapWarning}
+        </div>
+      ) : null}
 
       {hoverLabel ? (
         <div className="pointer-events-none absolute bottom-3 left-3 rounded bg-slate-900/88 px-2 py-1 text-xs text-white">
