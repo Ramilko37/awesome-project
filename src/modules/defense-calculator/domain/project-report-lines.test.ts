@@ -108,4 +108,36 @@ function getMogLineByObjectId(lines: ReturnType<typeof buildProjectReportObjectL
   assert(line.azimuthSectorSummary === undefined, "non-compound object must not have azimuth-sector summary");
 }
 
+// Polygon layer metadata is visible in report helpers.
+{
+  let project = createDefaultDefenseProject();
+  const polygonLayer = {
+    ...project.layers[0]!,
+    id: "polygon-report-layer",
+    code: "LP",
+    name: "Произвольный контур",
+    geometryType: "polygon" as const,
+    geometry: {
+      type: "polygon" as const,
+      coordinates: [
+        { lat: 55, lng: 37 },
+        { lat: 55, lng: 37.01 },
+        { lat: 55.01, lng: 37.01 },
+        { lat: 55.01, lng: 37 },
+      ],
+      isClosed: true,
+    },
+  };
+  project = { ...project, layers: [polygonLayer, ...project.layers.slice(1)] };
+  project = placeObjectInProject(project, "mobile-radar", polygonLayer.id, { lat: 55.005, lng: 37.005 });
+
+  const lines = buildProjectReportObjectLines(project);
+  assert(lines.length === 1, `expected one report line, got ${lines.length}`);
+  assert(lines[0].layerGeometryLabel === "произвольный контур", "polygon layer report line must expose shape label");
+  assert(
+    typeof lines[0].layerAreaHa === "number" && lines[0].layerAreaHa > 0,
+    "polygon layer report line must expose approximate area in hectares",
+  );
+}
+
 console.log("project-report-lines: OK");

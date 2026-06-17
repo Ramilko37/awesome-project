@@ -3,7 +3,9 @@ import {
   getLayerRadii,
   type LayerInsertOption,
   updateLayerGeometryFromRadii,
+  updateLayerGeometryFromPolygon,
 } from "@/shared/lib/defense-project";
+import { getPolygonCoordinates } from "@/shared/lib/defense-layer-geometry";
 import type { CoordinatePlacementInput } from "@/modules/drone-defense/ui/coordinate-placement-panel";
 import type { DefenseLayer } from "@/shared/types/drone-defense";
 import type { Coordinates, DefenseProject, EditableDefenseLayer, PlacementValidationResult } from "@/shared/types/defense-project";
@@ -13,6 +15,9 @@ export type LayerWizardDraft = {
   code: string;
   innerRadiusM: number;
   widthM: number;
+  geometryMode: "circle" | "polygon";
+  polygonCoordinates: Coordinates[];
+  polygonClosed: boolean;
 };
 
 export type LayerWizardState = {
@@ -64,6 +69,23 @@ export function buildWizardLayer(
   draft: LayerWizardDraft,
   baseLayer?: EditableDefenseLayer,
 ): EditableDefenseLayer {
+  if (draft.geometryMode === "polygon") {
+    const base =
+      baseLayer ??
+      createRingLayer(project, {
+        name: draft.name,
+        code: draft.code,
+        innerRadiusM: draft.innerRadiusM,
+        widthM: draft.widthM,
+        isActive: true,
+      });
+    return {
+      ...updateLayerGeometryFromPolygon(base, draft.polygonCoordinates, draft.polygonClosed),
+      name: draft.name,
+      code: draft.code,
+    };
+  }
+
   if (baseLayer) {
     return {
       ...updateLayerGeometryFromRadii(baseLayer, {
@@ -86,6 +108,14 @@ export function buildWizardLayer(
 
 export function projectLayerToMapLayer(layer: EditableDefenseLayer): DefenseLayer {
   const radii = getLayerRadii(layer);
+  const polygonGeometry =
+    layer.geometry.type === "polygon"
+      ? {
+          type: "polygon" as const,
+          coordinates: getPolygonCoordinates(layer.geometry),
+          isClosed: layer.geometry.isClosed,
+        }
+      : undefined;
   return {
     id: layer.id as DefenseLayer["id"],
     order: layer.order,
@@ -97,8 +127,9 @@ export function projectLayerToMapLayer(layer: EditableDefenseLayer): DefenseLaye
     distanceBandM: {
       min: radii.innerRadiusM,
       max: radii.outerRadiusM,
-      label: formatLayerRange(radii.innerRadiusM, radii.outerRadiusM),
+      label: polygonGeometry ? "Произвольный контур" : formatLayerRange(radii.innerRadiusM, radii.outerRadiusM),
     },
+    ...(polygonGeometry ? { geometry: polygonGeometry } : {}),
   };
 }
 

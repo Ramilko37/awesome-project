@@ -233,6 +233,7 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
         code: draft.code ?? "",
         innerRadiusM: draft.innerRadiusM,
         widthM: draft.widthM,
+        geometry: draft.geometry,
       });
       if (!validation.isValid) return { ok: false, validation };
       const layer = createRingLayer(get().project, {
@@ -282,18 +283,28 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
           code: draft.code ?? layer.code,
           innerRadiusM: draft.innerRadiusM,
           widthM: draft.widthM,
+          geometry: draft.geometry,
         },
         layerId,
       );
       if (!validation.isValid) return { ok: false, validation };
-      const updatedLayer = {
-        ...updateLayerGeometryFromRadii(layer, {
-          innerRadiusM: draft.innerRadiusM,
-          widthM: draft.widthM,
-        }),
-        name: (draft.name ?? layer.name).trim(),
-        code: (draft.code ?? layer.code).trim(),
-      };
+      const updatedLayer =
+        draft.geometry?.type === "polygon"
+          ? {
+              ...layer,
+              geometryType: "polygon" as const,
+              geometry: draft.geometry,
+              name: (draft.name ?? layer.name).trim(),
+              code: (draft.code ?? layer.code).trim(),
+            }
+          : {
+              ...updateLayerGeometryFromRadii(layer, {
+                innerRadiusM: draft.innerRadiusM,
+                widthM: draft.widthM,
+              }),
+              name: (draft.name ?? layer.name).trim(),
+              code: (draft.code ?? layer.code).trim(),
+            };
       const project = syncPlacedObjectConflictFlags({
         ...get().project,
         layers: get().project.layers.map((item) => (item.id === layerId ? updatedLayer : item)),

@@ -10,9 +10,10 @@ export type Coordinates = {
 export type LayerGeometryType = "circle" | "ring" | "polygon" | "freeform";
 
 export type LayerGeometry =
-  | { type: "circle"; center: Coordinates; radiusM: number }
+  | { type: "circle"; center: Coordinates; radiusM?: number; innerRadiusM?: number; outerRadiusM?: number; widthM?: number }
   | { type: "ring"; center: Coordinates; minRadiusM: number; maxRadiusM: number }
-  | { type: "polygon" | "freeform"; points: Coordinates[] };
+  | { type: "polygon"; coordinates: Coordinates[]; isClosed?: boolean; points?: Coordinates[] }
+  | { type: "freeform"; points: Coordinates[] };
 
 export type EditableDefenseLayer = {
   id: string;

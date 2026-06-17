@@ -1835,6 +1835,8 @@
   pointer-events: auto;
   width: 100%;
   max-width: 48rem;
+  max-height: calc(100vh - 1.5rem);
+  overflow-y: auto;
   border-radius: var(--prototype-radius-card);
   padding: 0.85rem;
   backdrop-filter: blur(0.75rem);

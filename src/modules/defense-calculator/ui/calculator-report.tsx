@@ -196,6 +196,7 @@ export function CalculatorReport({
             <thead>
               <tr>
                 <th>Эшелон</th>
+                <th>Форма эшелона</th>
                 <th>Тип</th>
                 <th>Объект</th>
                 <th>Состав/вооружение</th>
@@ -208,6 +209,10 @@ export function CalculatorReport({
                 <tr key={line.objectId}>
                   <td>
                     {line.layerCode} · {line.layerName}
+                  </td>
+                  <td>
+                    Форма эшелона: {line.layerGeometryLabel}
+                    {line.layerAreaHa ? <span> · Площадь эшелона: {line.layerAreaHa.toLocaleString("ru-RU")} га</span> : null}
                   </td>
                   <td>{line.protectionType || "—"}</td>
                   <td>{line.assetName}</td>

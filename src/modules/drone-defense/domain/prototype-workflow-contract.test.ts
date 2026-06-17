@@ -35,6 +35,9 @@ const wizardLayer = buildWizardLayer(project, {
   code: "LT",
   innerRadiusM: 1000,
   widthM: 2000,
+  geometryMode: "circle",
+  polygonCoordinates: [],
+  polygonClosed: false,
 });
 assert.equal(wizardLayer.name, "Тестовый эшелон");
 assert.equal(wizardLayer.code, "LT");

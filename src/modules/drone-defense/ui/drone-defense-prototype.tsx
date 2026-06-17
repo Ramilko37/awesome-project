@@ -39,6 +39,7 @@ import {
   getLayerRadii,
   validateLayerDraft,
 } from "@/shared/lib/defense-project";
+import { getPolygonCoordinates } from "@/shared/lib/defense-layer-geometry";
 import {
   buildWizardLayer,
   formatDistance,
@@ -54,7 +55,7 @@ import {
 import { MAX_DEFENSE_PROJECT_LAYERS, useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
 import type { LayerInsertOption } from "@/shared/lib/defense-project";
 import type { DefenseLayer, DefenseLayerId } from "@/shared/types/drone-defense";
-import type { ProtectedObjectOption } from "@/shared/types/defense-project";
+import type { Coordinates, ProtectedObjectOption } from "@/shared/types/defense-project";
 import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 
 const defenseAssetDragMimeType = "application/x-fortis-defense-asset";
@@ -114,6 +115,18 @@ function describeLayerDeletion(totalLayers: number, objectCount: number) {
   return {
     canDelete: true,
     reason: "Удаление доступно только после подтверждения.",
+  };
+}
+
+function layerWizardStoreDraft(draft: LayerWizardDraft) {
+  if (draft.geometryMode !== "polygon") return draft;
+  return {
+    ...draft,
+    geometry: {
+      type: "polygon" as const,
+      coordinates: draft.polygonCoordinates,
+      isClosed: draft.polygonClosed,
+    },
   };
 }
 
@@ -265,7 +278,7 @@ export function DroneDefensePrototype() {
     if (!layerWizardState) return null;
     return validateLayerDraft(
       project,
-      layerWizardState.draft,
+      layerWizardStoreDraft(layerWizardState.draft),
       layerWizardState.mode === "edit" ? layerWizardState.layerId : undefined,
     );
   }, [layerWizardState, project]);
@@ -422,6 +435,9 @@ export function DroneDefensePrototype() {
         code: `L${project.layers.length + 1}`,
         innerRadiusM,
         widthM: Math.max(widthM, 1000),
+        geometryMode: "circle",
+        polygonCoordinates: [],
+        polygonClosed: false,
       },
     };
   };
@@ -442,6 +458,7 @@ export function DroneDefensePrototype() {
   const editSelectedLayer = () => {
     if (!selectedLayer) return;
     const radii = getLayerRadii(selectedLayer);
+    const polygonGeometry = selectedLayer.geometry.type === "polygon" ? selectedLayer.geometry : null;
     setLayerWizardState({
       mode: "edit",
       layerId: selectedLayer.id,
@@ -450,9 +467,31 @@ export function DroneDefensePrototype() {
         code: selectedLayer.code,
         innerRadiusM: radii.innerRadiusM,
         widthM: radii.widthM,
+        geometryMode: polygonGeometry ? "polygon" : "circle",
+        polygonCoordinates: polygonGeometry ? getPolygonCoordinates(polygonGeometry) : [],
+        polygonClosed: polygonGeometry ? polygonGeometry.isClosed === true : false,
       },
     });
     setLastPlacementMessage(null);
+  };
+
+  const addPolygonDraftPoint = (point: Coordinates) => {
+    setLayerWizardState((current) => {
+      if (!current || current.draft.geometryMode !== "polygon") return current;
+      if (current.draft.polygonClosed) {
+        setLastPlacementMessage("Контур уже замкнут. Очистите или отмените точку, чтобы продолжить.");
+        return current;
+      }
+      setLastPlacementMessage(`Точка контура ${current.draft.polygonCoordinates.length + 1} добавлена`);
+      return {
+        ...current,
+        draft: {
+          ...current.draft,
+          polygonCoordinates: [...current.draft.polygonCoordinates, point],
+          polygonClosed: false,
+        },
+      };
+    });
   };
 
   const handleLocatePlacement = (placement: { id: string; mapRef?: { lon: number; lat: number } }) => {
@@ -464,8 +503,9 @@ export function DroneDefensePrototype() {
 
   const saveLayerWizard = () => {
     if (!layerWizardState || !wizardValidation?.isValid) return;
+    const draft = layerWizardStoreDraft(layerWizardState.draft);
     if (layerWizardState.mode === "create") {
-      const result = createLayerFromDraft(layerWizardState.draft);
+      const result = createLayerFromDraft(draft);
       if (!result.ok) {
         setLastPlacementMessage(result.validation.message ?? "Не удалось создать эшелон");
         return;
@@ -476,7 +516,7 @@ export function DroneDefensePrototype() {
       return;
     }
     if (!layerWizardState.layerId) return;
-    const result = updateLayerFromDraft(layerWizardState.layerId, layerWizardState.draft);
+    const result = updateLayerFromDraft(layerWizardState.layerId, draft);
     if (!result.ok) {
       setLastPlacementMessage(result.validation.message ?? "Не удалось сохранить эшелон");
       return;
@@ -963,6 +1003,16 @@ export function DroneDefensePrototype() {
                 );
               }}
               onPlaceActiveTool={placeActiveToolAtCoordinate}
+              polygonDraft={
+                layerWizardState?.draft.geometryMode === "polygon"
+                  ? {
+                      isActive: true,
+                      points: layerWizardState.draft.polygonCoordinates,
+                      isClosed: layerWizardState.draft.polygonClosed,
+                      onAddPoint: addPolygonDraftPoint,
+                    }
+                  : undefined
+              }
               selectedPlacementId={selectedPlacementId}
               locateTarget={locateTarget}
               onSelectPlacement={(id) => selectPlacedObject(id)}
@@ -1388,6 +1438,12 @@ function LayerGeometryWizard({
     };
   }, [isDragging]);
 
+  useEffect(() => {
+    const resetDragPosition = () => setDragPosition(null);
+    window.addEventListener("resize", resetDragPosition);
+    return () => window.removeEventListener("resize", resetDragPosition);
+  }, []);
+
   const startDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== "mouse") return;
     const card = cardRef.current;
@@ -1438,6 +1494,26 @@ function LayerGeometryWizard({
           </button>
         </div>
 
+        <div className="mt-4">
+          <p className={styles.prototypeEyebrow}>Форма эшелона</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              className={`${state.draft.geometryMode === "circle" ? styles.prototypeButtonPrimary : styles.prototypeButton} cursor-pointer px-3`}
+              onClick={() => onDraftChange({ geometryMode: "circle", polygonClosed: false })}
+            >
+              Круг / радиус
+            </button>
+            <button
+              type="button"
+              className={`${state.draft.geometryMode === "polygon" ? styles.prototypeButtonPrimary : styles.prototypeButton} cursor-pointer px-3`}
+              onClick={() => onDraftChange({ geometryMode: "polygon" })}
+            >
+              Произвольный контур
+            </button>
+          </div>
+        </div>
+
         <div className="mt-4 grid gap-3 md:grid-cols-[1.15fr_0.85fr]">
           <div className="grid gap-3 sm:grid-cols-2">
             {state.mode === "create" ? (
@@ -1477,48 +1553,114 @@ function LayerGeometryWizard({
               />
               {fieldErrors?.name ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.name}</p> : null}
             </label>
-            <label>
-              <span className={styles.prototypeEyebrow}>Внутренний радиус, км</span>
-              <input
-                type="number"
-                min={0}
-                step={0.1}
-                className={`${styles.prototypeField} mt-1`}
-                value={metersToKilometers(state.draft.innerRadiusM)}
-                onChange={(event) => onDraftChange({ innerRadiusM: kilometersToMeters(event.target.value) })}
-              />
-              {fieldErrors?.innerRadiusM ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.innerRadiusM}</p> : null}
-            </label>
-            <label>
-              <span className={styles.prototypeEyebrow}>Ширина, км</span>
-              <input
-                type="number"
-                min={0}
-                step={0.1}
-                className={`${styles.prototypeField} mt-1`}
-                value={metersToKilometers(state.draft.widthM)}
-                onChange={(event) => onDraftChange({ widthM: kilometersToMeters(event.target.value) })}
-              />
-              {fieldErrors?.widthM ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.widthM}</p> : null}
-            </label>
+            {state.draft.geometryMode === "circle" ? (
+              <>
+                <label>
+                  <span className={styles.prototypeEyebrow}>Внутренний радиус, км</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.1}
+                    className={`${styles.prototypeField} mt-1`}
+                    value={metersToKilometers(state.draft.innerRadiusM)}
+                    onChange={(event) => onDraftChange({ innerRadiusM: kilometersToMeters(event.target.value) })}
+                  />
+                  {fieldErrors?.innerRadiusM ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.innerRadiusM}</p> : null}
+                </label>
+                <label>
+                  <span className={styles.prototypeEyebrow}>Ширина, км</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.1}
+                    className={`${styles.prototypeField} mt-1`}
+                    value={metersToKilometers(state.draft.widthM)}
+                    onChange={(event) => onDraftChange({ widthM: kilometersToMeters(event.target.value) })}
+                  />
+                  {fieldErrors?.widthM ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.widthM}</p> : null}
+                </label>
+              </>
+            ) : (
+              <div className="sm:col-span-2">
+                <span className={styles.prototypeEyebrow}>Контур на карте</span>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className={`${styles.prototypeButtonPrimary} cursor-pointer px-3`}
+                    onClick={() => onDraftChange({ polygonCoordinates: [], polygonClosed: false })}
+                  >
+                    Нарисовать контур
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.prototypeButton} cursor-pointer px-3`}
+                    disabled={state.draft.polygonCoordinates.length === 0}
+                    onClick={() =>
+                      onDraftChange({
+                        polygonCoordinates: state.draft.polygonCoordinates.slice(0, -1),
+                        polygonClosed: false,
+                      })
+                    }
+                  >
+                    Отменить точку
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.prototypeButton} cursor-pointer px-3`}
+                    disabled={state.draft.polygonCoordinates.length === 0}
+                    onClick={() => onDraftChange({ polygonCoordinates: [], polygonClosed: false })}
+                  >
+                    Очистить
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.prototypeButton} cursor-pointer px-3`}
+                    disabled={state.draft.polygonCoordinates.length < 3 || state.draft.polygonClosed}
+                    onClick={() => onDraftChange({ polygonClosed: true })}
+                  >
+                    Замкнуть контур
+                  </button>
+                </div>
+                <p className={`${styles.prototypeMeta} mt-2`}>
+                  Точек: {state.draft.polygonCoordinates.length} · {state.draft.polygonClosed ? "контур замкнут" : "кликайте по карте"}
+                </p>
+                {fieldErrors?.geometry ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.geometry}</p> : null}
+              </div>
+            )}
           </div>
 
           <div className={styles.prototypeMetricCard}>
-            <p className={styles.prototypeEyebrow}>Диапазон эшелона</p>
+            <p className={styles.prototypeEyebrow}>
+              {state.draft.geometryMode === "polygon" ? "Контур эшелона" : "Диапазон эшелона"}
+            </p>
             <p className={styles.prototypeLayerRange}>
-              {formatLayerRange(state.draft.innerRadiusM, outerRadiusM)}
+              {state.draft.geometryMode === "polygon"
+                ? `${state.draft.polygonCoordinates.length} точек`
+                : formatLayerRange(state.draft.innerRadiusM, outerRadiusM)}
             </p>
             <p className={styles.prototypeMeta}>
-              {formatLayerRange(state.draft.innerRadiusM, outerRadiusM)} от объекта
+              {state.draft.geometryMode === "polygon"
+                ? state.draft.polygonClosed ? "Произвольная область будет сохранена как polygon." : "Поставьте точки на карте и замкните контур."
+                : `${formatLayerRange(state.draft.innerRadiusM, outerRadiusM)} от объекта`}
             </p>
             <div className={`${styles.prototypeCard} mt-4`}>
               <div className={styles.prototypeProgressTrack}>
                 <div className={styles.prototypeProgressFill} style={{ width: "100%" }} />
               </div>
               <div className={`${styles.prototypeMeta} mt-3 grid gap-2`}>
-                <p>Внутренний радиус: {formatDistance(state.draft.innerRadiusM)}</p>
-                <p>Ширина кольца: {formatDistance(state.draft.widthM)}</p>
-                <p>Внешний радиус: {formatDistance(outerRadiusM)}</p>
+                {state.draft.geometryMode === "polygon" ? (
+                  <>
+                    <p>Форма: произвольный контур</p>
+                    <p>Минимум: 3 точки</p>
+                    <p>Статус: {state.draft.polygonClosed ? "замкнут" : "не замкнут"}</p>
+                  </>
+                ) : (
+                  <>
+                    <p>Внутренний радиус: {formatDistance(state.draft.innerRadiusM)}</p>
+                    <p>Ширина кольца: {formatDistance(state.draft.widthM)}</p>
+                    <p>Внешний радиус: {formatDistance(outerRadiusM)}</p>
+                  </>
+                )}
               </div>
             </div>
             {validationMessage ? (
@@ -1531,7 +1673,9 @@ function LayerGeometryWizard({
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className={styles.prototypeMeta}>
-            Пересечения запрещены, касание границ допустимо. Соседние эшелоны не сдвигаются.
+            {state.draft.geometryMode === "polygon"
+              ? "Точки контура видны только в режиме создания или редактирования."
+              : "Пересечения запрещены, касание границ допустимо. Соседние эшелоны не сдвигаются."}
           </p>
           <button
             type="button"

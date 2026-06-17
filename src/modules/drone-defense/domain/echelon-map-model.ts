@@ -19,6 +19,7 @@ export type EchelonZone = {
   coveragePct: number;
   placedCount: number;
   polygon: Array<Array<[number, number]>>;
+  geometryType: "ring" | "polygon";
   fillColor: [number, number, number, number];
   lineColor: [number, number, number, number];
 };
@@ -182,6 +183,11 @@ function circleRing(center: GeoPoint, radiusM: number, segments: number) {
 }
 
 export function buildEchelonPolygon(center: GeoPoint, layer: DefenseLayer, segments = 96) {
+  if (layer.geometry?.type === "polygon") {
+    const ring = layer.geometry.coordinates.map((point) => [point.lng, point.lat] as [number, number]);
+    return ring.length >= 3 ? [ring] : [];
+  }
+
   const outerRadius = Math.max(layer.distanceBandM.max, 120);
   const outer = circleRing(center, outerRadius, segments);
 
@@ -412,6 +418,7 @@ export function buildEchelonMapModel({
           coveragePct,
           placedCount,
           polygon: buildEchelonPolygon(facility.center, layer),
+          geometryType: layer.geometry?.type === "polygon" ? "polygon" : "ring",
           fillColor: [...color, Math.round((layer.opacity ?? 0.16) * 255)] as [number, number, number, number],
           lineColor: [...color, 220] as [number, number, number, number],
         };

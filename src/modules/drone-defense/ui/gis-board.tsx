@@ -41,6 +41,7 @@ import type {
   HexCell,
   ThreatRoute,
 } from "@/shared/types/drone-defense";
+import type { Coordinates } from "@/shared/types/defense-project";
 
 type GisBoardProps = {
   className?: string;
@@ -63,6 +64,12 @@ type GisBoardProps = {
   onSelectSlot: (slot: EchelonMapSlot) => void;
   onSelectTool: (groupId: string) => void;
   onPlaceActiveTool?: (coordinate: { lng: number; lat: number }) => void;
+  polygonDraft?: {
+    isActive: boolean;
+    points: Coordinates[];
+    isClosed: boolean;
+    onAddPoint: (point: Coordinates) => void;
+  };
   selectedPlacementId: string | null;
   locateTarget: { lon: number; lat: number; at: number } | null;
   onSelectPlacement: (placementId: string) => void;
@@ -186,6 +193,7 @@ export function GisBoard({
   onSelectSlot,
   onSelectTool,
   onPlaceActiveTool,
+  polygonDraft,
   selectedPlacementId,
   locateTarget,
   onSelectPlacement,
@@ -532,6 +540,37 @@ export function GisBoard({
     return layers;
   }, [configuration.placements, placementById, selectedFacility, selectedPlacementId]);
 
+  const polygonDraftLayers = useMemo(() => {
+    if (!polygonDraft?.isActive || polygonDraft.points.length === 0) return [];
+    const path = polygonDraft.points.map((point) => [point.lng, point.lat] as [number, number]);
+    const closedPath = polygonDraft.isClosed && path.length >= 3 ? [...path, path[0]] : path;
+    return [
+      new PathLayer<{ path: Array<[number, number]> }>({
+        id: "layer-polygon-draft-path",
+        data: [{ path: closedPath }],
+        getPath: (item) => item.path,
+        getColor: [15, 23, 42, 230],
+        getWidth: 3,
+        widthUnits: "pixels",
+        pickable: false,
+      }),
+      new ScatterplotLayer<{ point: Coordinates; index: number }>({
+        id: "layer-polygon-draft-points",
+        data: polygonDraft.points.map((point, index) => ({ point, index })),
+        getPosition: (item) => [item.point.lng, item.point.lat],
+        getRadius: 5,
+        radiusUnits: "pixels",
+        getFillColor: [255, 255, 255, 245],
+        getLineColor: [15, 23, 42, 245],
+        getLineWidth: 2,
+        lineWidthUnits: "pixels",
+        stroked: true,
+        filled: true,
+        pickable: false,
+      }),
+    ];
+  }, [polygonDraft]);
+
   const deckLayers = useMemo(
     () =>
       [
@@ -540,7 +579,7 @@ export function GisBoard({
           const isActive = zone.layerId === selectedLayerId;
           const isPreview = previewLayer?.id === zone.layerId;
           const zoneLayer = visibleMapLayers.find((layer) => layer.id === zone.layerId);
-          const isFilledDiskZone = (zoneLayer?.distanceBandM.min ?? 0) <= 0;
+          const isFilledDiskZone = zone.geometryType !== "polygon" && (zoneLayer?.distanceBandM.min ?? 0) <= 0;
           const zoneFillColor = (item: EchelonZone) =>
             isPreview
               ? ([14, 165, 233, 54] as [number, number, number, number])
@@ -647,6 +686,7 @@ export function GisBoard({
             }),
           ];
         }),
+        ...polygonDraftLayers,
         ...(protectedObjectPerimeter
           ? [
               new PolygonLayer<{ perimeter: Array<[number, number]> }>({
@@ -790,6 +830,7 @@ export function GisBoard({
       onSelectSlot,
       onHoverLayerChange,
       previewLayer,
+      polygonDraftLayers,
       visibleMapLayers,
       resolveMarkerState,
       selectedFacility?.center.lat,
@@ -896,6 +937,10 @@ export function GisBoard({
         controller={deckControllerOptions}
         layers={deckLayers}
         onClick={(info) => {
+          if (polygonDraft?.isActive && info.coordinate) {
+            polygonDraft.onAddPoint({ lng: info.coordinate[0], lat: info.coordinate[1] });
+            return;
+          }
           if (!activeToolId || !info.coordinate || !onPlaceActiveTool) return;
           onPlaceActiveTool({ lng: info.coordinate[0], lat: info.coordinate[1] });
         }}

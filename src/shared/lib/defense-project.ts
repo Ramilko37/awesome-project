@@ -1,5 +1,13 @@
 import { defenseAssetLibrary } from "@/shared/config/defense-asset-library";
 import { defaultDefenseProjectLayers, defaultProtectedObject } from "@/shared/config/default-defense-layers";
+import {
+  getPolygonCoordinates,
+  getPolygonArea,
+  isPointInPolygon,
+  isPolygonClosed,
+  isValidCoordinate,
+  isValidPolygon,
+} from "@/shared/lib/defense-layer-geometry";
 import type {
   Coordinates,
   DefenseAssetCategory,
@@ -339,10 +347,12 @@ export function getLayerRadii(layer: EditableDefenseLayer): LayerRadii {
     };
   }
   if (layer.geometry.type === "circle") {
+    const outerRadiusM = layer.geometry.outerRadiusM ?? layer.geometry.radiusM ?? 0;
+    const innerRadiusM = layer.geometry.innerRadiusM ?? 0;
     return {
-      innerRadiusM: 0,
-      outerRadiusM: layer.geometry.radiusM,
-      widthM: layer.geometry.radiusM,
+      innerRadiusM,
+      outerRadiusM,
+      widthM: layer.geometry.widthM ?? Math.max(0, outerRadiusM - innerRadiusM),
     };
   }
   return {
@@ -362,7 +372,7 @@ function layersOverlap(first: LayerRadii, second: LayerRadii) {
 
 export function validateLayerDraft(
   project: DefenseProject,
-  draft: { name: string; code: string; innerRadiusM: number; widthM: number },
+  draft: { name: string; code: string; innerRadiusM: number; widthM: number; geometry?: EditableDefenseLayer["geometry"] },
   ignoredLayerId?: string,
 ): LayerGeometryValidationResult {
   const fieldErrors: Partial<Record<"name" | "code" | "innerRadiusM" | "widthM" | "geometry", string>> = {};
@@ -382,11 +392,14 @@ export function validateLayerDraft(
       fieldErrors.code = `Код ${code} уже используется. Код должен быть уникальным.`;
     }
   }
-  if (!Number.isFinite(draft.innerRadiusM) || draft.innerRadiusM < 0) {
-    fieldErrors.innerRadiusM = "Внутренний радиус должен быть больше или равен 0.";
-  }
-  if (!Number.isFinite(draft.widthM) || draft.widthM <= 0) {
-    fieldErrors.widthM = "Ширина эшелона должна быть больше 0.";
+  const isPolygonDraft = draft.geometry?.type === "polygon";
+  if (!isPolygonDraft) {
+    if (!Number.isFinite(draft.innerRadiusM) || draft.innerRadiusM < 0) {
+      fieldErrors.innerRadiusM = "Внутренний радиус должен быть больше или равен 0.";
+    }
+    if (!Number.isFinite(draft.widthM) || draft.widthM <= 0) {
+      fieldErrors.widthM = "Ширина эшелона должна быть больше 0.";
+    }
   }
 
   if (Object.keys(fieldErrors).length > 0) {
@@ -408,6 +421,7 @@ export function validateLayerDraft(
     code,
     innerRadiusM: draft.innerRadiusM,
     widthM: draft.widthM,
+    geometry: draft.geometry,
     isActive: true,
   });
   const geometryValidation = validateLayerGeometry(project, candidateLayer, ignoredLayerId);
@@ -433,6 +447,42 @@ export function validateLayerGeometry(
   draftLayer: EditableDefenseLayer,
   ignoredLayerId?: string,
 ): LayerGeometryValidationResult {
+  if (draftLayer.geometry.type === "polygon" || draftLayer.geometry.type === "freeform") {
+    const points = getPolygonCoordinates(draftLayer.geometry);
+    if (points.length < 3) {
+      return {
+        isValid: false,
+        level: "error",
+        message: "Контур эшелона должен содержать минимум 3 точки.",
+      };
+    }
+    if (points.some((point) => !isValidCoordinate(point))) {
+      return {
+        isValid: false,
+        level: "error",
+        message: "Координаты контура отсутствуют или некорректны.",
+      };
+    }
+    if (draftLayer.geometry.type === "polygon" && !isPolygonClosed(draftLayer.geometry)) {
+      return {
+        isValid: false,
+        level: "error",
+        message: "Замкните контур перед сохранением эшелона.",
+      };
+    }
+    if (!isValidPolygon(points)) {
+      return {
+        isValid: false,
+        level: "error",
+        message: getPolygonArea(points) <= 0
+          ? "Площадь контура должна быть больше 0."
+          : "Контур эшелона не должен самопересекаться.",
+      };
+    }
+
+    return { isValid: true, level: "success" };
+  }
+
   const radii = getLayerRadii(draftLayer);
   if (radii.innerRadiusM < 0) {
     return {
@@ -543,19 +593,6 @@ function distanceMeters(a: Coordinates, b: Coordinates): number {
   return 2 * earthRadiusM * Math.asin(Math.sqrt(haversine));
 }
 
-function pointInPolygon(point: Coordinates, polygon: Coordinates[]) {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].lng;
-    const yi = polygon[i].lat;
-    const xj = polygon[j].lng;
-    const yj = polygon[j].lat;
-    const intersects = yi > point.lat !== yj > point.lat && point.lng < ((xj - xi) * (point.lat - yi)) / (yj - yi) + xi;
-    if (intersects) inside = !inside;
-  }
-  return inside;
-}
-
 export function createDefaultDefenseProject(): DefenseProject {
   const activeLayerId = defaultDefenseProjectLayers.find((layer) => layer.isActive)?.id ?? defaultDefenseProjectLayers[0]?.id;
   return {
@@ -631,6 +668,22 @@ export function updateLayerGeometryFromRadii(
   };
 }
 
+export function updateLayerGeometryFromPolygon(
+  layer: EditableDefenseLayer,
+  coordinates: Coordinates[],
+  isClosed: boolean,
+): EditableDefenseLayer {
+  return {
+    ...layer,
+    geometryType: "polygon",
+    geometry: {
+      type: "polygon",
+      coordinates: coordinates.map((point) => ({ ...point })),
+      isClosed,
+    },
+  };
+}
+
 export function createRingLayer(
   project: DefenseProject,
   data: Partial<EditableDefenseLayer> & { innerRadiusM?: number; widthM?: number } = {},
@@ -660,20 +713,31 @@ export function createRingLayer(
     isLocked: data.isLocked ?? false,
   };
 
-  return data.geometry?.type === "ring" ? { ...layer, geometry: data.geometry, geometryType: "ring" } : layer;
+  if (data.geometry?.type === "ring") return { ...layer, geometry: data.geometry, geometryType: "ring" };
+  if (data.geometry?.type === "polygon") {
+    return {
+      ...layer,
+      distanceFromObjectMin: data.distanceFromObjectMin,
+      distanceFromObjectMax: data.distanceFromObjectMax,
+      geometry: data.geometry,
+      geometryType: "polygon",
+    };
+  }
+  return layer;
 }
 
 export function isPointInsideLayerGeometry(layer: EditableDefenseLayer, coordinates: Coordinates): boolean {
   const geometry = layer.geometry;
   if (geometry.type === "circle") {
-    return distanceMeters(geometry.center, coordinates) <= geometry.radiusM;
+    return distanceMeters(geometry.center, coordinates) <= (geometry.outerRadiusM ?? geometry.radiusM ?? 0);
   }
   if (geometry.type === "ring") {
     const distance = distanceMeters(geometry.center, coordinates);
     return distance >= geometry.minRadiusM && distance <= geometry.maxRadiusM;
   }
   if (geometry.type === "polygon" || geometry.type === "freeform") {
-    return geometry.points.length >= 3 ? pointInPolygon(coordinates, geometry.points) : false;
+    const points = getPolygonCoordinates(geometry);
+    return points.length >= 3 ? isPointInPolygon(coordinates, points) : false;
   }
   return false;
 }
@@ -692,6 +756,14 @@ export function validateObjectPlacement(
   if (!layer) return { isValid: false, level: "error", message: "Эшелон не найден" };
   const asset = project.assetLibrary.find((item) => item.id === assetId);
   if (!asset) return { isValid: false, level: "error", message: "Средство защиты не найдено" };
+
+  if (layer.geometry.type === "polygon" && !isPointInsideLayerGeometry(layer, coordinates)) {
+    return {
+      isValid: false,
+      level: "error",
+      message: "Нельзя разместить средство вне выбранного эшелона. Выберите точку внутри контура или измените границы эшелона.",
+    };
+  }
 
   return { isValid: true, level: "success" };
 }
@@ -1085,6 +1157,86 @@ function normalizeProjectAssetLibrary(assetLibrary: DefenseProject["assetLibrary
   return [...canonicalAssets, ...customAssets];
 }
 
+function normalizeLayerGeometry(
+  layer: EditableDefenseLayer,
+  baseCenter: Coordinates,
+): EditableDefenseLayer {
+  const legacyLayer = layer as EditableDefenseLayer & {
+    center?: Coordinates;
+    innerRadiusM?: number;
+    outerRadiusM?: number;
+    widthM?: number;
+  };
+  const geometry = legacyLayer.geometry;
+  if (!geometry) {
+    const innerRadiusM = normalizeMeters(
+      legacyLayer.innerRadiusM ?? layer.distanceFromObjectMin,
+      layer.distanceFromObjectMin ?? 0,
+    );
+    const outerRadiusM = normalizeMeters(
+      legacyLayer.outerRadiusM ?? layer.distanceFromObjectMax,
+      layer.distanceFromObjectMax ?? innerRadiusM + normalizeMeters(legacyLayer.widthM, 1000),
+    );
+    return {
+      ...layer,
+      distanceFromObjectMin: innerRadiusM,
+      distanceFromObjectMax: Math.max(innerRadiusM, outerRadiusM),
+      geometryType: "ring",
+      geometry: {
+        type: "ring",
+        center: legacyLayer.center ?? baseCenter,
+        minRadiusM: innerRadiusM,
+        maxRadiusM: Math.max(innerRadiusM, outerRadiusM),
+      },
+    };
+  }
+
+  if (geometry.type === "polygon") {
+    return {
+      ...layer,
+      geometryType: "polygon",
+      geometry: {
+        type: "polygon",
+        coordinates: getPolygonCoordinates(geometry),
+        isClosed: geometry.isClosed === true,
+      },
+    };
+  }
+
+  if (geometry.type === "circle") {
+    const innerRadiusM = geometry.innerRadiusM ?? 0;
+    const outerRadiusM = geometry.outerRadiusM ?? geometry.radiusM ?? layer.distanceFromObjectMax ?? 0;
+    return {
+      ...layer,
+      distanceFromObjectMin: innerRadiusM,
+      distanceFromObjectMax: outerRadiusM,
+      geometryType: "circle",
+      geometry: {
+        type: "circle",
+        center: geometry.center ?? baseCenter,
+        innerRadiusM,
+        outerRadiusM,
+        widthM: geometry.widthM ?? Math.max(0, outerRadiusM - innerRadiusM),
+      },
+    };
+  }
+
+  if (geometry.type === "ring") {
+    return {
+      ...layer,
+      distanceFromObjectMin: geometry.minRadiusM,
+      distanceFromObjectMax: geometry.maxRadiusM,
+      geometryType: "ring",
+      geometry: {
+        ...geometry,
+        center: geometry.center ?? baseCenter,
+      },
+    };
+  }
+
+  return layer;
+}
+
 export function buildPlacedDefenseCompoundProfile(
   asset: DefenseProject["assetLibrary"][number] | undefined,
 ): PlacedDefenseCompoundProfile | undefined {
@@ -1173,6 +1325,8 @@ export function importDefenseProjectJson(raw: string): DefenseProject {
   return syncPlacedObjectConflictFlags({
     ...parsed,
     assetLibrary: normalizeProjectAssetLibrary(parsed.assetLibrary),
-    layers: parsed.layers.map((layer) => ({ ...layer, isVisible: isLayerVisible(layer) })),
+    layers: parsed.layers.map((layer) =>
+      normalizeLayerGeometry({ ...layer, isVisible: isLayerVisible(layer) }, parsed.baseObject.center),
+    ),
   });
 }

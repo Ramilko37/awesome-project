@@ -1,4 +1,5 @@
 import type { PlacedDefenseCompoundProfile } from "@/shared/types/defense-configuration";
+import type { Coordinates } from "@/shared/types/defense-project";
 
 export type DefenseLayerId =
   | "layer_01_external_warning"
@@ -44,6 +45,11 @@ export type DefenseLayer = {
     min: number;
     max: number;
     label: string;
+  };
+  geometry?: {
+    type: "polygon";
+    coordinates: Coordinates[];
+    isClosed?: boolean;
   };
 };
 

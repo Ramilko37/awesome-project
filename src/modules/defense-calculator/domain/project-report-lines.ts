@@ -3,6 +3,7 @@ import {
   getVisibleMogCoverageWeaponIds,
   priceForPlacedObject,
 } from "@/shared/lib/defense-project";
+import { getPolygonArea, getPolygonCoordinates } from "@/shared/lib/defense-layer-geometry";
 import type { DefenseProject } from "@/shared/types/defense-project";
 import type { PlacedDefenseCompoundProfile } from "@/shared/types/defense-configuration";
 
@@ -11,6 +12,8 @@ export type ProjectObjectReportLine = {
   layerId: string;
   layerCode: string;
   layerName: string;
+  layerGeometryLabel: string;
+  layerAreaHa?: number;
   assetId: string;
   assetName: string;
   quantity: number;
@@ -58,6 +61,22 @@ function buildCompoundAzimuthSummary(profile: PlacedDefenseCompoundProfile) {
   return `Азимут: ${azimuth} · Дальность/сектор: ${normalizeOptionalText(profile.sectorOrRange)}${coverageWeaponLabel}`;
 }
 
+function roundAreaHa(areaM2: number) {
+  return Math.round((areaM2 / 10_000) * 10) / 10;
+}
+
+function getLayerGeometryReportMeta(layer: DefenseProject["layers"][number] | undefined) {
+  if (!layer) return { layerGeometryLabel: "—" };
+  if (layer.geometry.type === "polygon") {
+    const areaHa = roundAreaHa(getPolygonArea(getPolygonCoordinates(layer.geometry)));
+    return {
+      layerGeometryLabel: "произвольный контур",
+      ...(areaHa > 0 ? { layerAreaHa: areaHa } : {}),
+    };
+  }
+  return { layerGeometryLabel: "круг" };
+}
+
 export function buildProjectReportObjectLines(project: DefenseProject): ProjectObjectReportLine[] {
   const layersById = new Map(project.layers.map((layer) => [layer.id, layer]));
   const assetsById = new Map(project.assetLibrary.map((asset) => [asset.id, asset]));
@@ -68,12 +87,14 @@ export function buildProjectReportObjectLines(project: DefenseProject): ProjectO
     const unitPriceMln = priceForPlacedObject(project, object);
     const isCompoundPost = object.compoundProfile?.kind === "compound-post";
     const compoundProfile = object.compoundProfile;
+    const geometryMeta = getLayerGeometryReportMeta(layer);
 
     return {
       objectId: object.id,
       layerId: object.layerId,
       layerCode: layer?.code ?? "—",
       layerName: layer?.name ?? "—",
+      ...geometryMeta,
       assetId: object.assetId,
       assetName: object.name ?? asset?.name ?? object.assetId,
       quantity: object.quantity,
