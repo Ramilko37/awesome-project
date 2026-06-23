@@ -34,6 +34,490 @@
   --prototype-shadow-soft: 0 12px 28px rgba(15, 23, 42, 0.08);
   --prototype-control-sm: 2rem;
   --prototype-control-md: 2.25rem;
+  --studio-appbar: #0f172a;
+  --studio-blue: #2563eb;
+  --studio-surface: #ffffff;
+  --studio-surface-soft: #f8fafc;
+  --studio-surface-muted: #f1f5f9;
+  --studio-border: #d9e2ee;
+  --studio-border-strong: #b9c8da;
+  --studio-text: #172033;
+  --studio-text-muted: #64748b;
+  --studio-success: #10b981;
+  --studio-amber: #f59e0b;
+  --studio-danger: #ef4444;
+  --studio-radius: 8px;
+  --studio-shadow: 0 14px 34px rgba(15, 23, 42, 0.1);
+}
+
+.studioWorkspace,
+.studioScenarioWorkspace {
+  min-height: 100%;
+  color: var(--studio-text);
+  background: #e8eef5;
+}
+
+.studioWorkspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.studioScenarioWorkspace {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.studioPanel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: var(--studio-shadow);
+}
+
+.studioLeftPanel,
+.studioInspector {
+  display: flex;
+  min-height: 0;
+  max-height: min(66vh, 720px);
+  flex-direction: column;
+}
+
+.studioPanelHeader {
+  display: grid;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgba(217, 226, 238, 0.86);
+  padding: 0.75rem;
+  background: var(--studio-surface);
+}
+
+.studioTopTabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+  border-bottom: 1px solid rgba(217, 226, 238, 0.86);
+  padding: 0.5rem;
+  background: var(--studio-surface-soft);
+}
+
+.studioTabButton,
+.studioToggleButton {
+  min-height: 2.125rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--studio-radius) - 2px);
+  color: var(--studio-text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.studioTabButton[data-active="true"],
+.studioToggleButton[data-active="true"] {
+  border-color: rgba(37, 99, 235, 0.3);
+  color: #ffffff;
+  background: var(--studio-blue);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+}
+
+.studioTabButton:hover,
+.studioToggleButton:hover {
+  border-color: rgba(37, 99, 235, 0.32);
+  color: var(--studio-blue);
+  background: #eff6ff;
+}
+
+.studioTabButton[data-active="true"]:hover,
+.studioToggleButton[data-active="true"]:hover {
+  color: #ffffff;
+  background: #1d4ed8;
+}
+
+.studioPanelBody,
+.studioInspectorBody {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+.studioSectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.studioEchelonTree {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.studioEchelonCard {
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius);
+  background: var(--studio-surface);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.studioEchelonCard[data-hovered="true"],
+.studioEchelonCard:hover {
+  border-color: rgba(37, 99, 235, 0.36);
+  background: #fbfdff;
+}
+
+.studioEchelonCard[data-selected="true"] {
+  border-color: rgba(37, 99, 235, 0.58);
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.studioEchelonHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.65rem;
+}
+
+.studioEchelonMain {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: flex-start;
+  gap: 0.55rem;
+  text-align: left;
+}
+
+.studioEchelonActions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.studioEchelonMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  border-top: 1px solid rgba(217, 226, 238, 0.68);
+  padding: 0.5rem 0.65rem;
+  color: var(--studio-text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.studioEchelonObjects {
+  display: grid;
+  gap: 0.35rem;
+  border-top: 1px solid rgba(217, 226, 238, 0.68);
+  padding: 0.5rem;
+  background: var(--studio-surface-soft);
+}
+
+.studioEchelonObject {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--studio-radius) - 2px);
+  padding: 0.45rem;
+  color: var(--studio-text);
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.studioEchelonObject:hover,
+.studioEchelonObject[data-selected="true"] {
+  border-color: rgba(37, 99, 235, 0.32);
+  background: #eff6ff;
+}
+
+.studioObjectCode {
+  display: inline-flex;
+  min-width: 2.2rem;
+  max-width: 3rem;
+  height: 1.65rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: #1d4ed8;
+  background: #dbeafe;
+  font-family: var(--font-ibm-plex-mono);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.studioEmptyState,
+.studioInspectorEmpty {
+  border: 1px dashed var(--studio-border-strong);
+  border-radius: var(--studio-radius);
+  padding: 0.75rem;
+  color: var(--studio-text-muted);
+  background: var(--studio-surface-soft);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.studioField {
+  width: 100%;
+  min-height: 2.25rem;
+  border: 1px solid var(--studio-border);
+  border-radius: calc(var(--studio-radius) - 2px);
+  background: var(--studio-surface);
+  padding: 0.5rem 0.65rem;
+  color: var(--studio-text);
+  font-size: 0.8rem;
+  font-weight: 650;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.studioField:focus {
+  border-color: rgba(37, 99, 235, 0.62);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.13);
+}
+
+.studioLibraryScroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.studioMapStage {
+  position: relative;
+  min-height: 64vh;
+  overflow: hidden;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius);
+  background: #dbe5ef;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.46);
+}
+
+.studioNoticeFloat {
+  position: absolute;
+  z-index: 40;
+  top: 1rem;
+  left: 1rem;
+  max-width: min(24rem, calc(100% - 2rem));
+  box-shadow: var(--studio-shadow);
+}
+
+.studioMapToolbar,
+.studioWarningStack,
+.studioMapFooter {
+  position: absolute;
+  z-index: 30;
+  pointer-events: auto;
+}
+
+.studioMapToolbar {
+  top: 5.25rem;
+  left: 1rem;
+  display: flex;
+  max-width: calc(100% - 2rem);
+  gap: 0.35rem;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: var(--studio-radius);
+  background: rgba(255, 255, 255, 0.93);
+  padding: 0.35rem;
+  box-shadow: var(--studio-shadow);
+  backdrop-filter: blur(12px);
+}
+
+.studioToggleButton {
+  padding: 0 0.75rem;
+  background: transparent;
+}
+
+.studioWarningStack {
+  top: 5.25rem;
+  right: 1rem;
+  display: grid;
+  width: min(21rem, calc(100% - 2rem));
+  gap: 0.45rem;
+}
+
+.studioNotice,
+.studioWarning {
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: var(--studio-radius);
+  padding: 0.6rem 0.7rem;
+  color: #1e3a8a;
+  background: rgba(239, 246, 255, 0.94);
+  font-size: 0.75rem;
+  font-weight: 750;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.studioWarning {
+  border-color: rgba(245, 158, 11, 0.34);
+  color: #92400e;
+  background: rgba(255, 251, 235, 0.96);
+}
+
+.studioMapFooter {
+  right: 1rem;
+  bottom: 0.85rem;
+  left: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: var(--studio-radius);
+  background: rgba(15, 23, 42, 0.88);
+  padding: 0.55rem 0.75rem;
+  color: #dbeafe;
+  font-family: var(--font-ibm-plex-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  backdrop-filter: blur(10px);
+}
+
+.studioMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.studioMetricCard {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius);
+  padding: 0.6rem;
+  background: var(--studio-surface-soft);
+}
+
+.studioMetricCard span,
+.studioFieldGroup > span {
+  color: var(--studio-text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.studioMetricCard strong {
+  color: var(--studio-text);
+  font-family: var(--font-ibm-plex-mono);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.studioFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.studioFieldGroup {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.studioSegmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius);
+  background: var(--studio-surface-soft);
+  padding: 0.25rem;
+}
+
+.studioSegmented button {
+  min-height: 2rem;
+  border-radius: 6px;
+  color: var(--studio-text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.studioSegmented button[data-active="true"] {
+  color: #ffffff;
+  background: var(--studio-appbar);
+}
+
+.studioTextarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+.studioInspectorActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+@media (min-width: 1024px) {
+  .studioWorkspace {
+    height: 100%;
+    min-height: 0;
+    grid-template-columns: minmax(280px, 312px) minmax(0, 1fr) minmax(300px, 328px);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 0;
+    padding: 0;
+  }
+
+  .studioPanel,
+  .studioMapStage {
+    height: 100%;
+    border-top: 0;
+    border-bottom: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .studioLeftPanel,
+  .studioInspector {
+    max-height: none;
+  }
+
+  .studioLeftPanel {
+    border-left: 0;
+  }
+
+  .studioInspector {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .studioMetricGrid,
+  .studioFormGrid,
+  .studioInspectorActions {
+    grid-template-columns: 1fr;
+  }
+
+  .studioMapToolbar {
+    top: 5rem;
+    right: 0.6rem;
+    left: 0.6rem;
+    max-width: calc(100% - 1.2rem);
+    overflow-x: auto;
+  }
+
+  .studioWarningStack {
+    top: 8.9rem;
+    right: 0.6rem;
+    width: calc(100% - 1.2rem);
+  }
+
+  .studioMapFooter {
+    right: 0.6rem;
+    bottom: 0.6rem;
+    left: 0.6rem;
+  }
 }
 
 .prototypeSidebar,

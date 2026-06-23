@@ -82,6 +82,9 @@ type GisBoardProps = {
   locateTarget: { lon: number; lat: number; at: number } | null;
   onSelectPlacement: (placementId: string) => void;
   onDropAsset: (args: { groupId: string; layerId: DefenseLayerId; slotId: string; mapRef: { lon: number; lat: number } }) => void;
+  showCoverage?: boolean;
+  showPlacementLabels?: boolean;
+  showConstraintWarnings?: boolean;
 };
 
 function hexCoverageByLayer(layerCoverage: DefenseLayersResponse | null) {
@@ -223,6 +226,9 @@ export function GisBoard({
   locateTarget,
   onSelectPlacement,
   onDropAsset,
+  showCoverage = true,
+  showPlacementLabels = true,
+  showConstraintWarnings = true,
 }: GisBoardProps) {
   const availableBaseMapSources = useMemo(() => getAvailableBaseMapSources(), []);
   const defaultBaseMapSourceId = useMemo(
@@ -542,18 +548,20 @@ export function GisBoard({
     (item: EchelonMapPlacement): MarkerState => {
       const placement = placementById.get(item.id.split(":")[0]);
       if (!placement) return "default";
-      return getMarkerState({
+      const state = getMarkerState({
         placement,
         selectedPlacementId,
         hoveredPlacementId,
         isDuplicateInSlot: Boolean(placement.slotId && contestedSlotIds.has(placement.slotId)),
       });
+      if (showConstraintWarnings) return state;
+      return state === "warning" || state === "conflict" ? "default" : state;
     },
-    [placementById, selectedPlacementId, hoveredPlacementId, contestedSlotIds],
+    [placementById, selectedPlacementId, hoveredPlacementId, contestedSlotIds, showConstraintWarnings],
   );
 
   const coverageLayers = useMemo(() => {
-    if (!selectedFacility) return [];
+    if (!showCoverage || !selectedFacility) return [];
 
     const coveredPlacements = (() => {
       if (selectedPlacementId) {
@@ -613,7 +621,7 @@ export function GisBoard({
       }
     }
     return layers;
-  }, [configuration.placements, placementById, selectedFacility, selectedPlacementId]);
+  }, [configuration.placements, placementById, selectedFacility, selectedPlacementId, showCoverage]);
 
   const polygonDraftLayers = useMemo(() => {
     if (!polygonDraft?.isActive || polygonDraft.points.length === 0) return [];
@@ -837,7 +845,9 @@ export function GisBoard({
         }),
         new TextLayer<EchelonMapPlacement>({
           id: "echelon-placement-labels",
-          data: echelonModel.placements.filter((item) => item.layerId === selectedLayerId && !item.catalogGroupId),
+          data: showPlacementLabels
+            ? echelonModel.placements.filter((item) => item.layerId === selectedLayerId && !item.catalogGroupId)
+            : [],
           getPosition: (item) => item.position,
           getText: (item) => item.label,
           getColor: [15, 23, 42, 255],
@@ -912,6 +922,7 @@ export function GisBoard({
       selectedFacility?.center.lon,
       selectedLayerId,
       selectedPlacementId,
+      showPlacementLabels,
       protectedObjectPerimeter,
       visibleFacilities,
     ],
@@ -1064,7 +1075,7 @@ export function GisBoard({
               x={x}
               y={y}
               zoom={viewState.zoom}
-              layerLabel={layerLabel}
+              layerLabel={showPlacementLabels ? layerLabel : undefined}
               isHovered={hoveredPlacementId === placement.id}
               onSelect={(nextPlacement) => {
                 const slot = nextPlacement.slotId ? echelonModel.slots.find((item) => item.id === nextPlacement.slotId) : null;

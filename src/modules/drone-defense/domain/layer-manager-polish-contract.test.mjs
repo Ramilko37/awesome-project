@@ -16,8 +16,12 @@ assert(
   "Layer wizard must use clearer creation copy for new echelons",
 );
 assert(
-  source.includes("Развернуть") && source.includes("activeLayerSummary"),
-  "Collapsed layer panel must show a compact summary of the active echelon before reopening",
+  source.includes("studioLeftTab") && source.includes("Эшелоны") && source.includes("Библиотека"),
+  "Layer manager must live in the Studio left panel with Echelons/Library tabs",
+);
+assert(
+  source.includes("studioEchelonTree") && source.includes("studioEchelonObject"),
+  "Layer manager must render a left-side echelon tree with nested placed objects",
 );
 
 console.log("layer-manager-polish-contract.test.mjs: layer manager polish contract wired");
