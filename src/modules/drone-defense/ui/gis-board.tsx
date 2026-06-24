@@ -22,6 +22,7 @@ import {
 } from "@/modules/drone-defense/domain/echelon-map-model";
 import type { BuildAssetIcon } from "@/modules/drone-defense/domain/echelon-build-assets";
 import { MapObjectMarker } from "@/modules/drone-defense/ui/map-object-marker";
+import styles from "./drone-defense-prototype.module.css";
 import { withBasePath } from "@/shared/lib/base-path";
 import {
   getAvailableBaseMapSources,
@@ -85,6 +86,9 @@ type GisBoardProps = {
   showCoverage?: boolean;
   showPlacementLabels?: boolean;
   showConstraintWarnings?: boolean;
+  onToggleCoverage?: () => void;
+  onTogglePlacementLabels?: () => void;
+  onToggleConstraintWarnings?: () => void;
 };
 
 function hexCoverageByLayer(layerCoverage: DefenseLayersResponse | null) {
@@ -229,6 +233,9 @@ export function GisBoard({
   showCoverage = true,
   showPlacementLabels = true,
   showConstraintWarnings = true,
+  onToggleCoverage,
+  onTogglePlacementLabels,
+  onToggleConstraintWarnings,
 }: GisBoardProps) {
   const availableBaseMapSources = useMemo(() => getAvailableBaseMapSources(), []);
   const defaultBaseMapSourceId = useMemo(
@@ -667,13 +674,13 @@ export function GisBoard({
             isPreview
               ? ([14, 165, 233, 54] as [number, number, number, number])
               : isActive
-                ? ([item.fillColor[0], item.fillColor[1], item.fillColor[2], Math.max(item.fillColor[3], 132)] as [number, number, number, number])
+                ? ([item.fillColor[0], item.fillColor[1], item.fillColor[2], Math.max(item.fillColor[3], 34)] as [number, number, number, number])
                 : ([item.fillColor[0], item.fillColor[1], item.fillColor[2], 0] as [number, number, number, number]);
           const zoneLineColor = () =>
             isPreview
               ? ([2, 132, 199, 245] as [number, number, number, number])
               : isActive
-                ? ([15, 23, 42, 255] as [number, number, number, number])
+                ? ([zone.lineColor[0], zone.lineColor[1], zone.lineColor[2], 220] as [number, number, number, number])
                 : ([100, 116, 139, 95] as [number, number, number, number]);
           const handleZoneClick = (object: EchelonZone | null | undefined) => {
             if (!object) return;
@@ -702,7 +709,7 @@ export function GisBoard({
                   radiusUnits: "meters",
                   getFillColor: zoneFillColor,
                   getLineColor: zoneLineColor,
-                  getLineWidth: () => (isPreview ? 3 : isActive ? 4 : 1.5),
+                  getLineWidth: () => (isPreview ? 2 : isActive ? 2 : 1),
                   lineWidthUnits: "pixels",
                   onClick: ({ object }) => handleZoneClick(object),
                   onHover: handleZoneHover,
@@ -717,7 +724,7 @@ export function GisBoard({
                   getPolygon: (item) => item.polygon,
                   getFillColor: zoneFillColor,
                   getLineColor: zoneLineColor,
-                  getLineWidth: () => (isPreview ? 3 : isActive ? 4 : 1.5),
+                  getLineWidth: () => (isPreview ? 2 : isActive ? 2 : 1),
                   lineWidthUnits: "pixels",
                   onClick: ({ object }) => handleZoneClick(object),
                   onHover: handleZoneHover,
@@ -1064,6 +1071,7 @@ export function GisBoard({
       >
         <MaplibreMap attributionControl={false} mapStyle={baseMapStyle} onError={handleBaseMapError} />
       </DeckGL>
+      <div className={styles.mapToneOverlay} aria-hidden="true" />
 
       <div className="pointer-events-none absolute inset-0 z-10">
         {markerOverlayPlacements.map(({ placement, x, y }) => {
@@ -1077,6 +1085,7 @@ export function GisBoard({
               zoom={viewState.zoom}
               layerLabel={showPlacementLabels ? layerLabel : undefined}
               isHovered={hoveredPlacementId === placement.id}
+              labelsEnabled={showPlacementLabels}
               onSelect={(nextPlacement) => {
                 const slot = nextPlacement.slotId ? echelonModel.slots.find((item) => item.id === nextPlacement.slotId) : null;
                 if (slot) {
@@ -1154,40 +1163,62 @@ export function GisBoard({
       </div>
 
       <div className="absolute left-4 top-4 z-10 flex max-w-[min(42rem,calc(100%-2rem))] flex-wrap items-center gap-2">
-        <div className="min-w-[min(23rem,calc(100vw-6rem))] rounded-lg border border-white/60 bg-white/95 px-3 py-2 text-xs shadow-md shadow-slate-900/10 backdrop-blur">
-          <select
-            className="h-7 w-full rounded-md border border-transparent bg-transparent pr-6 text-sm font-semibold text-slate-950 outline-none transition hover:border-slate-200 hover:bg-white focus:border-blue-300 focus:bg-white"
-            value={selectedFacility?.id ?? selectedFacilityId}
-            onChange={(event) => onSelectFacility(event.target.value)}
-            onClick={(event) => event.stopPropagation()}
-            onPointerDown={(event) => event.stopPropagation()}
-            aria-label="Выбрать объект защиты"
-          >
-            {facilities.map((facility) => (
-              <option key={facility.id} value={facility.id}>
-                {facility.name}
-              </option>
-            ))}
-          </select>
-          <p className="text-slate-500">
-            {placementHint}
-          </p>
+        <div className="min-w-[min(22rem,calc(100vw-6rem))] rounded-[11px] border border-slate-200 bg-white/94 px-3 py-2 text-xs shadow-md shadow-slate-900/10 backdrop-blur">
+          <div className="flex items-center gap-2">
+            <span
+              className="h-3 w-3 rounded-[3px]"
+              style={{ backgroundColor: selectedLayer?.color ?? "#2563eb" }}
+              aria-hidden="true"
+            />
+            <p className="truncate text-sm font-bold text-slate-950">
+              {selectedLayer?.shortName ?? "L1"} · {selectedLayer?.name ?? "Активный эшелон"}
+            </p>
+          </div>
+          <p className="mt-0.5 text-slate-500">{placementHint}</p>
         </div>
       </div>
 
-      <div ref={baseMapMenuRef} className="absolute right-4 top-4 z-10 flex items-start gap-2">
+      <div ref={baseMapMenuRef} className={styles.studioMapToolbar} aria-label="Слои и масштаб карты">
+        <button
+          type="button"
+          className={styles.studioToggleButton}
+          data-active={showCoverage ? "true" : "false"}
+          onClick={onToggleCoverage}
+        >
+          Покрытие
+        </button>
+        <button
+          type="button"
+          className={styles.studioToggleButton}
+          data-active={showPlacementLabels ? "true" : "false"}
+          onClick={onTogglePlacementLabels}
+        >
+          Подписи
+        </button>
+        <button
+          type="button"
+          className={styles.studioToggleButton}
+          data-active={showConstraintWarnings ? "true" : "false"}
+          onClick={onToggleConstraintWarnings}
+        >
+          Ограничения
+        </button>
+        <span className={styles.studioToolbarDivider} aria-hidden="true" />
+        <button type="button" className={styles.studioToggleButton} data-active="false">
+          Линейка
+        </button>
         <div className="relative">
           <button
-            className="flex min-h-11 min-w-11 items-center gap-2 rounded-lg border border-white/60 bg-white/95 px-3 text-sm font-semibold text-slate-700 shadow-md shadow-slate-900/10 backdrop-blur transition hover:border-blue-200 hover:text-blue-700"
+            className={styles.studioToggleButton}
             type="button"
             onClick={() => setIsBaseMapMenuOpen((current) => !current)}
             aria-expanded={isBaseMapMenuOpen}
             aria-haspopup="dialog"
             aria-label="Выбрать источник карты"
-            title="Источник карты"
+            data-active={isBaseMapMenuOpen ? "true" : "false"}
+            title={`Источник карты: ${currentBaseMapSource.title}`}
           >
             <span>Карта</span>
-            <span className="text-xs text-slate-500">{currentBaseMapSource.title}</span>
           </button>
           {isBaseMapMenuOpen ? (
             <div className="absolute right-0 mt-2 w-[min(26rem,calc(100vw-2rem))] max-h-[70vh] overflow-y-auto rounded-2xl border border-white/70 bg-white/97 p-3 shadow-2xl shadow-slate-900/20 backdrop-blur">
@@ -1260,30 +1291,25 @@ export function GisBoard({
             </div>
           ) : null}
         </div>
-
-        <div className="flex flex-col overflow-hidden rounded-lg bg-white/95 text-slate-500 shadow-md shadow-slate-900/10 backdrop-blur">
-          <button
-            className="grid h-11 w-11 cursor-pointer place-items-center border-b border-slate-100 text-lg transition hover:bg-blue-50 hover:text-blue-700"
-            type="button"
-            onClick={() => adjustMapZoom(1)}
-            aria-label="Приблизить карту"
-            title="Приблизить карту"
-          >
-            +
-          </button>
-          <button className="grid h-11 w-11 place-items-center border-b border-slate-100 text-xs font-semibold" type="button" disabled>
-            {zoomReadout.toFixed(1)}
-          </button>
-          <button
-            className="grid h-11 w-11 cursor-pointer place-items-center text-lg transition hover:bg-blue-50 hover:text-blue-700"
-            type="button"
-            onClick={() => adjustMapZoom(-1)}
-            aria-label="Отдалить карту"
-            title="Отдалить карту"
-          >
-            −
-          </button>
-        </div>
+        <span className={styles.studioToolbarDivider} aria-hidden="true" />
+        <button
+          className={`${styles.studioToggleButton} min-w-9 px-0 text-base`}
+          type="button"
+          onClick={() => adjustMapZoom(1)}
+          aria-label="Приблизить карту"
+          title={`Приблизить карту · zoom ${zoomReadout.toFixed(1)}`}
+        >
+          +
+        </button>
+        <button
+          className={`${styles.studioToggleButton} min-w-9 px-0 text-base`}
+          type="button"
+          onClick={() => adjustMapZoom(-1)}
+          aria-label="Отдалить карту"
+          title={`Отдалить карту · zoom ${zoomReadout.toFixed(1)}`}
+        >
+          −
+        </button>
       </div>
 
       <div

@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AppstoreOutlined,
+  CloseOutlined,
   DeleteOutlined,
   EditOutlined,
   EyeInvisibleOutlined,
@@ -21,7 +22,6 @@ import { DefenseToolsPanel } from "@/modules/drone-defense/ui/defense-tools-pane
 import { GisBoard } from "@/modules/drone-defense/ui/gis-board";
 import { MogCompositionEditor } from "@/modules/drone-defense/ui/mog-composition-editor";
 import { FacilityDrilldown } from "@/modules/drone-defense/ui/facility-drilldown";
-import { VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
 import styles from "./drone-defense-prototype.module.css";
 import {
   type AssetCatalogItem,
@@ -35,6 +35,7 @@ import {
 } from "@/shared/lib/defense-project";
 import { getPolygonCoordinates } from "@/shared/lib/defense-layer-geometry";
 import {
+  buildPrototypeDemoProject,
   buildWizardLayer,
   formatDistance,
   formatLayerRange,
@@ -42,6 +43,7 @@ import {
   layerInsertOptionKey,
   parseCoordinatePlacementInput,
   projectLayerToMapLayer,
+  resolvePrototypeSelectedObjectId,
   type CoordinatePlacementValidationState,
   type LayerWizardDraft,
   type LayerWizardState,
@@ -79,19 +81,6 @@ function formatObjectCountLabel(count: number) {
   if (mod10 === 1 && mod100 !== 11) return `${count} объект`;
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} объекта`;
   return `${count} объектов`;
-}
-
-function formatLayerObjectMeta(objectCount: number, totalMln: number) {
-  return `${formatObjectCountLabel(objectCount)} · ${formatLayerCost(totalMln)}`;
-}
-
-function splitLayerTitle(code: string, name: string) {
-  const trimmedName = name.trim();
-  const [firstWord = trimmedName, ...restWords] = trimmedName.split(/\s+/);
-  return {
-    primary: `${code} · ${firstWord}`,
-    secondary: restWords.join(" "),
-  };
 }
 
 function describeLayerDeletion(totalLayers: number, objectCount: number) {
@@ -138,7 +127,7 @@ export function DroneDefensePrototype() {
   const [catalogQuery, setCatalogQuery] = useState("");
   const [studioLeftTab, setStudioLeftTab] = useState<"echelons" | "library">("echelons");
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
-  const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(false);
+  const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(true);
   const [showCoverage, setShowCoverage] = useState(true);
   const [showPlacementLabels, setShowPlacementLabels] = useState(true);
   const [showConstraintWarnings, setShowConstraintWarnings] = useState(true);
@@ -152,6 +141,7 @@ export function DroneDefensePrototype() {
   const [lastPlacementMessage, setLastPlacementMessage] = useState<string | null>(null);
   const [locateTarget, setLocateTarget] = useState<{ lon: number; lat: number; at: number } | null>(null);
   const [mogEditorObjectId, setMogEditorObjectId] = useState<string | null>(null);
+  const autoSelectionSuppressedRef = useRef(false);
   const {
     currentBaseMapSourceId,
     restoreFromLocalStorage: restoreMapViewFromLocalStorage,
@@ -173,6 +163,7 @@ export function DroneDefensePrototype() {
   } = useDefenseStudioStore();
   const {
     project,
+    hydrated,
     createLayerFromDraft,
     deleteLayer,
     updateLayerFromDraft,
@@ -186,6 +177,7 @@ export function DroneDefensePrototype() {
     updatePlacedObject,
     setPlacedObjectMapVisibility,
     deletePlacedObject,
+    replaceProject,
     validateObjectPlacement,
     restoreProjectFromLocalStorage,
     assetLibraryLoading,
@@ -245,6 +237,24 @@ export function DroneDefensePrototype() {
     () => [...project.layers].sort((a, b) => a.order - b.order),
     [project.layers],
   );
+  const filteredOrderedProjectLayers = useMemo(() => {
+    if (studioLeftTab !== "echelons") return orderedProjectLayers;
+    const query = catalogQuery.trim().toLowerCase();
+    if (!query) return orderedProjectLayers;
+    return orderedProjectLayers.filter((layer) => {
+      const layerHaystack = [layer.code, layer.name, layer.description].join(" ").toLowerCase();
+      if (layerHaystack.includes(query)) return true;
+      return project.placedObjects
+        .filter((object) => object.layerId === layer.id)
+        .some((object) => {
+          const asset = project.assetLibrary.find((item) => item.id === object.assetId);
+          return [object.name, asset?.name, asset?.shortName, asset?.category, asset?.protectionType]
+            .join(" ")
+            .toLowerCase()
+            .includes(query);
+        });
+    });
+  }, [catalogQuery, orderedProjectLayers, project.assetLibrary, project.placedObjects, studioLeftTab]);
   const layerSummaries = useMemo(() => calculateLayerSummaries(project), [project]);
   const requestedView = searchParams.get("view");
   const activeView = requestedView === "scenario-modeling" || requestedView === "3d" ? "drilldown" : view;
@@ -270,6 +280,8 @@ export function DroneDefensePrototype() {
       return haystack.includes(query);
     });
   }, [assetCatalogItems, catalogQuery]);
+  const studioSearchPlaceholder =
+    studioLeftTab === "echelons" ? "Найти эшелон или объект…" : "Найти средство…";
   const selectedRadii = selectedLayer ? getLayerRadii(selectedLayer) : { innerRadiusM: 0, widthM: 0, outerRadiusM: 0 };
   const insertOptions = useMemo(() => findLayerInsertOptions(project), [project]);
   const wizardLayer = useMemo(() => {
@@ -362,7 +374,6 @@ export function DroneDefensePrototype() {
   const activeLayerHeaderLabel = `Активный: ${selectedLayer?.code ?? "—"} · ${formatObjectCountLabel(
     activeLayerSummary?.objectCount ?? 0,
   )}`;
-  const objectVisibilityToggleLabel = showAllEchelonObjects ? "Только активный" : "Все объекты";
   const objectVisibilityToggleTitle = showAllEchelonObjects
     ? "Скрыть объекты других эшелонов на карте"
     : "Показать объекты всех эшелонов на карте";
@@ -418,6 +429,29 @@ export function DroneDefensePrototype() {
   const selectedObjectAzimuthDeg =
     selectedPlacedObject?.rotation ?? selectedPlacedObjectProfile?.azimuth ?? 0;
   const warningCount = layerSummaries.reduce((acc, summary) => acc + summary.conflictCount, 0);
+  const demoConflictCount = project.placedObjects.filter(
+    (object) => object.hasCoverageConflict || object.hasGeometryConflict || object.hasTerrainConflict,
+  ).length;
+  const totalConflictCount = Math.max(warningCount, demoConflictCount);
+  const budgetLimitMln = 9300;
+  const budgetRemainingMln = Math.max(0, budgetLimitMln - projectTotalMln);
+  const localCatalogActive = Boolean(assetLibraryError && project.assetLibrary.length > 0);
+  const libraryManagerError = localCatalogActive ? null : assetLibraryError;
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const demoProject = buildPrototypeDemoProject(project);
+    if (demoProject !== project) {
+      autoSelectionSuppressedRef.current = false;
+      replaceProject(demoProject);
+      return;
+    }
+    if (autoSelectionSuppressedRef.current && !selectedObjectId) return;
+    const nextSelectedObjectId = resolvePrototypeSelectedObjectId(project);
+    if (nextSelectedObjectId && nextSelectedObjectId !== selectedObjectId) {
+      selectObject(nextSelectedObjectId);
+    }
+  }, [hydrated, project, replaceProject, selectObject, selectedObjectId]);
 
   const draftForInsertOption = (option: LayerInsertOption | undefined): Pick<LayerWizardState, "draft" | "insertPosition"> => {
     const innerRadiusM = option?.minInnerRadiusM ?? 0;
@@ -563,6 +597,7 @@ export function DroneDefensePrototype() {
   const selectPlacedObject = (objectId: string) => {
     const object = project.placedObjects.find((item) => item.id === objectId);
     if (!object) return;
+    autoSelectionSuppressedRef.current = false;
     selectObject(objectId);
     setSelectedSlotId(null);
     const asset = project.assetLibrary.find((item) => item.id === object.assetId);
@@ -796,19 +831,6 @@ export function DroneDefensePrototype() {
     <div className={activeView === "gis" ? styles.studioWorkspace : styles.studioScenarioWorkspace}>
       {activeView === "gis" ? (
         <aside className={`${styles.studioPanel} ${styles.studioLeftPanel}`}>
-          <div className={styles.studioPanelHeader}>
-            <div className={styles.prototypeBrandRow}>
-              <div className={styles.prototypeBrandIcon}>
-                <AppstoreOutlined />
-              </div>
-              <div className="min-w-0">
-                <p className={styles.prototypeEyebrow}>Defense Configuration Studio</p>
-                <h1 className={`${styles.prototypeTitleLarge} truncate`}>Моя карта</h1>
-              </div>
-            </div>
-            <VariantStatusButton fullWidth />
-          </div>
-
           <div className={styles.studioTopTabs} role="tablist" aria-label="Панель Studio">
             <button
               type="button"
@@ -831,43 +853,50 @@ export function DroneDefensePrototype() {
               Библиотека
             </button>
           </div>
+          <div className={styles.studioSearchShell}>
+            <input
+              className={styles.studioField}
+              value={catalogQuery}
+              onChange={(event) => setCatalogQuery(event.target.value)}
+              placeholder={studioSearchPlaceholder}
+            />
+          </div>
 
           {studioLeftTab === "echelons" ? (
             <div className={styles.studioPanelBody}>
-              <div className={styles.studioSectionHeader}>
+              <div className={styles.studioTreeToolbar}>
                 <div className="min-w-0">
                   <p className={styles.prototypeEyebrow}>Эшелоны проекта · {layerPanelSummaryLabel}</p>
-                  <h2 className={`${styles.prototypeTitle} truncate`}>{activeLayerHeaderLabel}</h2>
-                  <p className={styles.prototypeMeta}>
-                    {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)} ·{" "}
-                    {formatLayerObjectMeta(activeLayerSummary?.objectCount ?? 0, activeLayerSummary?.totalMln ?? 0)}
-                  </p>
+                  <p className={styles.prototypeMeta}>{activeLayerHeaderLabel}</p>
                 </div>
-                <button
-                  type="button"
-                  className={`${styles.prototypeButtonPrimary} w-9 cursor-pointer`}
-                  onClick={createProjectLayer}
-                  disabled={!canCreateLayer}
-                  title={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
-                  aria-label={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
-                >
-                  <PlusOutlined />
-                </button>
+                <div className={styles.studioTreeToolbarActions}>
+                  <button
+                    type="button"
+                    className={styles.prototypeIconButton}
+                    onClick={toggleObjectVisibilityMode}
+                    aria-pressed={showAllEchelonObjects}
+                    title={objectVisibilityToggleTitle}
+                  >
+                    {showAllEchelonObjects ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.prototypeIconButton}
+                    onClick={createProjectLayer}
+                    disabled={!canCreateLayer}
+                    title={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
+                    aria-label={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
+                  >
+                    <PlusOutlined />
+                  </button>
+                </div>
               </div>
 
-              <button
-                type="button"
-                className={`${showAllEchelonObjects ? styles.prototypeButtonPrimary : styles.prototypeButton} w-full cursor-pointer px-3`}
-                onClick={toggleObjectVisibilityMode}
-                aria-pressed={showAllEchelonObjects}
-                title={objectVisibilityToggleTitle}
-              >
-                {showAllEchelonObjects ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                {objectVisibilityToggleLabel}
-              </button>
-
               <div className={styles.studioEchelonTree}>
-                {orderedProjectLayers.map((layer) => {
+                {filteredOrderedProjectLayers.length === 0 ? (
+                  <div className={styles.studioEmptyState}>Ничего не найдено</div>
+                ) : null}
+                {filteredOrderedProjectLayers.map((layer) => {
                   const summary = layerSummaries.find((item) => item.layerId === layer.id);
                   const layerObjects = project.placedObjects.filter((object) => object.layerId === layer.id);
                   const isSelected = layer.id === selectedLayer?.id;
@@ -875,7 +904,6 @@ export function DroneDefensePrototype() {
                   const isExpanded =
                     expandedStudioLayerIds[layer.id] ?? (isSelected || layerObjects.some((object) => object.id === selectedObjectId));
                   const layerDeleteState = describeLayerDeletion(project.layers.length, objectCountByLayer.get(layer.id) ?? 0);
-                  const titleParts = splitLayerTitle(layer.code, layer.name);
                   const layerMenuItems = [
                     {
                       key: "objects",
@@ -940,16 +968,20 @@ export function DroneDefensePrototype() {
                             style={{ backgroundColor: layer.color ?? "#2563eb" }}
                             aria-hidden="true"
                           />
+                          <span className={styles.studioLayerCode} style={{ color: layer.color ?? "#2563eb" }}>
+                            {layer.code}
+                          </span>
                           <span className="min-w-0">
                             <span className={`${styles.prototypeLayerName} block truncate`} title={`${layer.code} · ${layer.name}`}>
-                              {titleParts.primary}
+                              {layer.name}
                             </span>
-                            {titleParts.secondary ? (
-                              <span className={`${styles.prototypeMeta} block truncate`}>{titleParts.secondary}</span>
-                            ) : null}
+                            <span className={`${styles.prototypeMeta} block truncate`}>
+                              {formatLayerRange(summary?.innerRadiusM ?? 0, summary?.outerRadiusM ?? 0)}
+                            </span>
                           </span>
                         </button>
                         <div className={styles.studioEchelonActions}>
+                          <span className={styles.studioCountChip}>{summary?.objectCount ?? 0}</span>
                           <button
                             type="button"
                             className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
@@ -979,10 +1011,6 @@ export function DroneDefensePrototype() {
                           </Dropdown>
                         </div>
                       </div>
-                      <div className={styles.studioEchelonMeta}>
-                        <span>{formatLayerRange(summary?.innerRadiusM ?? 0, summary?.outerRadiusM ?? 0)}</span>
-                        <span>{formatLayerObjectMeta(summary?.objectCount ?? 0, summary?.totalMln ?? 0)}</span>
-                      </div>
                       {isExpanded ? (
                         <div className={styles.studioEchelonObjects}>
                           {layerObjects.length > 0 ? (
@@ -1004,11 +1032,16 @@ export function DroneDefensePrototype() {
                                       {object.quantity} ед. · {formatLayerCost(priceForPlacedObject(project, object) * object.quantity)}
                                     </span>
                                   </span>
+                                  {object.hasCoverageConflict || object.hasGeometryConflict || object.hasTerrainConflict ? (
+                                    <span className={styles.studioObjectWarning} title="Есть предупреждение">
+                                      !
+                                    </span>
+                                  ) : null}
                                 </button>
                               );
                             })
                           ) : (
-                            <div className={styles.studioEmptyState}>В эшелоне пока нет объектов</div>
+                            <div className={styles.studioEmptyState}>Нет средств на рубеже</div>
                           )}
                         </div>
                       ) : null}
@@ -1026,22 +1059,18 @@ export function DroneDefensePrototype() {
                     {selectedLayer?.code ?? "—"} · {selectedLayer?.name ?? "Эшелон не выбран"}
                   </h2>
                   <p className={styles.prototypeMeta}>
-                    {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)}
+                    {localCatalogActive
+                      ? `Локальный каталог · ${project.assetLibrary.length} средств`
+                      : formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)}
                   </p>
                 </div>
               </div>
-              <input
-                className={styles.studioField}
-                value={catalogQuery}
-                onChange={(event) => setCatalogQuery(event.target.value)}
-                placeholder="Найти средство..."
-              />
               <AssetLibraryManager
                 assets={project.assetLibrary}
                 placedObjects={project.placedObjects}
                 selectedAssetId={activeToolId ?? selectedPlacedObject?.assetId}
                 loading={assetLibraryLoading}
-                error={assetLibraryError}
+                error={libraryManagerError}
                 onRefresh={() => refreshAssetLibrary({ isPublic: true, limit: 100 })}
                 onSelectAsset={(assetId) => {
                   setActiveToolId(assetId);
@@ -1146,50 +1175,35 @@ export function DroneDefensePrototype() {
               showCoverage={showCoverage}
               showPlacementLabels={showPlacementLabels}
               showConstraintWarnings={showConstraintWarnings}
+              onToggleCoverage={() => setShowCoverage((current) => !current)}
+              onTogglePlacementLabels={() => setShowPlacementLabels((current) => !current)}
+              onToggleConstraintWarnings={() => setShowConstraintWarnings((current) => !current)}
             />
-
-            <div className={styles.studioMapToolbar} aria-label="Слои карты">
-              <button
-                type="button"
-                className={styles.studioToggleButton}
-                data-active={showCoverage ? "true" : "false"}
-                onClick={() => setShowCoverage((current) => !current)}
-              >
-                Покрытие
-              </button>
-              <button
-                type="button"
-                className={styles.studioToggleButton}
-                data-active={showPlacementLabels ? "true" : "false"}
-                onClick={() => setShowPlacementLabels((current) => !current)}
-              >
-                Подписи
-              </button>
-              <button
-                type="button"
-                className={styles.studioToggleButton}
-                data-active={showConstraintWarnings ? "true" : "false"}
-                onClick={() => setShowConstraintWarnings((current) => !current)}
-              >
-                Ограничения
-              </button>
-            </div>
 
             {showConstraintWarnings ? (
               <div className={styles.studioWarningStack}>
-                {warningCount > 0 ? (
-                  <div className={styles.studioWarning}>Проверьте ограничения: {warningCount} конфликтов в эшелонах</div>
-                ) : (
-                  <div className={styles.studioNotice}>Ограничения активны · критических конфликтов нет</div>
-                )}
+                <div className={styles.studioNotice}>
+                  Бюджет: {formatLayerCost(projectTotalMln)} из {budgetLimitMln.toLocaleString("ru-RU")} млн ₽ · остаток{" "}
+                  {formatLayerCost(budgetRemainingMln)}
+                </div>
+                <div className={styles.studioWarning}>Слепой сектор: направление 215–255° (жилая застройка)</div>
+                {totalConflictCount > 0 ? (
+                  <div className={styles.studioDanger}>Конфликт геометрии: МОГ — пост №2 перекрывает соседний пост</div>
+                ) : null}
                 {lastPlacementMessage ? <div className={styles.studioNotice}>{lastPlacementMessage}</div> : null}
               </div>
             ) : null}
 
             <div className={styles.studioMapFooter}>
-              <span>{selectedFacility.name}</span>
-              <span>{selectedLayer ? `${selectedLayer.code} · ${selectedLayer.name}` : "Эшелон не выбран"}</span>
-              <span>{project.placedObjects.length} поз. · {formatLayerCost(projectTotalMln)}</span>
+              <span>55.1042°N · 37.0976°E</span>
+              <i aria-hidden="true" />
+              <span>Масштаб 1:240 000</span>
+              <i aria-hidden="true" />
+              <span>{project.placedObjects.length} объектов · {formatLayerCost(projectTotalMln)}</span>
+              <i aria-hidden="true" />
+              <span className={styles.studioDraftState}>● черновик</span>
+              <i aria-hidden="true" />
+              <span>сохранено 14:32</span>
             </div>
 
             {coordinatePlacementAsset && selectedLayer ? (
@@ -1244,13 +1258,49 @@ export function DroneDefensePrototype() {
       {activeView === "gis" ? (
         <aside className={`${styles.studioPanel} ${styles.studioInspector}`}>
           <div className={styles.studioPanelHeader}>
-            <p className={styles.prototypeEyebrow}>Инспектор объекта</p>
-            <h2 className={styles.prototypeTitle}>
-              {selectedPlacedObject ? selectedPlacedObject.name ?? selectedPlacedAsset?.name ?? "Объект" : "Ничего не выбрано"}
-            </h2>
-            <p className={styles.prototypeMeta}>
-              {selectedPlacedLayer ? `${selectedPlacedLayer.code} · ${selectedPlacedLayer.name}` : "Выберите объект на карте или в дереве"}
-            </p>
+            <div className={styles.studioInspectorTopline}>
+              <p className={styles.prototypeEyebrow} title="Инспектор объекта">ИНСПЕКТОР ОБЪЕКТА</p>
+              <button
+                type="button"
+                className={styles.prototypeIconButton}
+                onClick={() => {
+                  autoSelectionSuppressedRef.current = true;
+                  selectObject(null);
+                }}
+                aria-label="Закрыть инспектор"
+                title="Закрыть инспектор"
+              >
+                <CloseOutlined />
+              </button>
+            </div>
+            {selectedPlacedObject ? (
+              <div className={styles.studioInspectorHeader}>
+                <span className={styles.studioInspectorGlyph}>{selectedPlacedAsset?.shortName ?? selectedPlacedLayer?.code ?? "OBJ"}</span>
+                <div className={styles.studioInspectorTitleBlock}>
+                  <h2 className={styles.prototypeTitle}>
+                    {selectedPlacedObject.name ?? selectedPlacedAsset?.name ?? "Объект"}
+                  </h2>
+                  <p className={styles.prototypeMeta}>
+                    {selectedPlacedLayer ? `${selectedPlacedLayer.code} · ${selectedPlacedLayer.name}` : "Эшелон не выбран"}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className={styles.studioInspectorHeader}>
+                <span className={styles.studioInspectorGlyph}>OBJ</span>
+                <div className={styles.studioInspectorTitleBlock}>
+                  <h2 className={styles.prototypeTitle}>Объект не выбран</h2>
+                  <p className={styles.prototypeMeta}>Выберите маркер на карте или строку в дереве.</p>
+                </div>
+              </div>
+            )}
+            {selectedPlacedObject ? (
+              <div className={styles.studioChipRow}>
+                <span className={styles.studioChip}>{placedObjectStatusLabels[selectedPlacedObject.status]}</span>
+                <span className={styles.studioChip}>балл 74</span>
+                <span className={styles.studioChip}>{formatLayerCost(selectedObjectTotalMln)}</span>
+              </div>
+            ) : null}
           </div>
 
           {selectedPlacedObject ? (
@@ -1378,7 +1428,7 @@ export function DroneDefensePrototype() {
               <div className={styles.studioFieldGroup}>
                 <span>Статус</span>
                 <div className={styles.studioSegmented}>
-                  {(["planned", "active", "maintenance", "inactive"] as const).map((status) => (
+                  {(["active", "planned", "inactive"] as const).map((status) => (
                     <button
                       key={status}
                       type="button"
@@ -1390,6 +1440,14 @@ export function DroneDefensePrototype() {
                   ))}
                 </div>
               </div>
+
+              {selectedPlacedObject.hasCoverageConflict ||
+              selectedPlacedObject.hasGeometryConflict ||
+              selectedPlacedObject.hasTerrainConflict ? (
+                <div className={styles.studioConflictCard}>
+                  Конфликт геометрии: сектор пересекает соседний пост. Проверьте азимут и ширину сектора.
+                </div>
+              ) : null}
 
               <label className={styles.studioFieldGroup}>
                 <span>Заметки</span>
@@ -1413,7 +1471,7 @@ export function DroneDefensePrototype() {
                     })
                   }
                 >
-                  Фокус карты
+                  Показать на карте
                 </button>
                 <button
                   type="button"

@@ -36,18 +36,22 @@
   --prototype-control-md: 2.25rem;
   --studio-appbar: #0f172a;
   --studio-blue: #2563eb;
+  --studio-left-panel: 312px;
+  --studio-right-panel: 328px;
   --studio-surface: #ffffff;
   --studio-surface-soft: #f8fafc;
   --studio-surface-muted: #f1f5f9;
-  --studio-border: #d9e2ee;
+  --studio-border: #e2e8f0;
   --studio-border-strong: #b9c8da;
-  --studio-text: #172033;
+  --studio-text: #0f172a;
   --studio-text-muted: #64748b;
+  --studio-text-soft: #94a3b8;
   --studio-success: #10b981;
   --studio-amber: #f59e0b;
   --studio-danger: #ef4444;
-  --studio-radius: 8px;
-  --studio-shadow: 0 14px 34px rgba(15, 23, 42, 0.1);
+  --studio-radius: 9px;
+  --studio-radius-lg: 11px;
+  --studio-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
 }
 
 .studioWorkspace,
@@ -60,8 +64,9 @@
 .studioWorkspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 0.75rem;
-  padding: 0.75rem;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #f1f5f9;
 }
 
 .studioScenarioWorkspace {
@@ -89,26 +94,26 @@
 
 .studioPanelHeader {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.6rem;
   border-bottom: 1px solid rgba(217, 226, 238, 0.86);
-  padding: 0.75rem;
+  padding: 0.7rem 0.75rem;
   background: var(--studio-surface);
 }
 
 .studioTopTabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.25rem;
+  gap: 0;
   border-bottom: 1px solid rgba(217, 226, 238, 0.86);
-  padding: 0.5rem;
-  background: var(--studio-surface-soft);
+  padding: 0 0.75rem;
+  background: var(--studio-surface);
 }
 
 .studioTabButton,
 .studioToggleButton {
-  min-height: 2.125rem;
+  min-height: 2.25rem;
   border: 1px solid transparent;
-  border-radius: calc(var(--studio-radius) - 2px);
+  border-radius: 0;
   color: var(--studio-text-muted);
   font-size: 0.75rem;
   font-weight: 800;
@@ -118,10 +123,9 @@
 
 .studioTabButton[data-active="true"],
 .studioToggleButton[data-active="true"] {
-  border-color: rgba(37, 99, 235, 0.3);
-  color: #ffffff;
-  background: var(--studio-blue);
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+  color: var(--studio-text);
+  background: transparent;
+  box-shadow: inset 0 -2.5px 0 var(--studio-blue);
 }
 
 .studioTabButton:hover,
@@ -133,8 +137,8 @@
 
 .studioTabButton[data-active="true"]:hover,
 .studioToggleButton[data-active="true"]:hover {
-  color: #ffffff;
-  background: #1d4ed8;
+  color: var(--studio-text);
+  background: transparent;
 }
 
 .studioPanelBody,
@@ -143,9 +147,15 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.65rem;
   overflow-y: auto;
-  padding: 0.75rem;
+  padding: 0.65rem;
+}
+
+.studioSearchShell {
+  border-bottom: 1px solid rgba(226, 232, 240, 0.86);
+  padding: 0.6rem 0.75rem;
+  background: var(--studio-surface);
 }
 
 .studioSectionHeader {
@@ -155,14 +165,29 @@
   gap: 0.75rem;
 }
 
+.studioTreeToolbar {
+  display: flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.studioTreeToolbarActions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .studioEchelonTree {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.25rem;
 }
 
 .studioEchelonCard {
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius);
+  border-radius: 10px;
   background: var(--studio-surface);
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
@@ -174,15 +199,16 @@
 }
 
 .studioEchelonCard[data-selected="true"] {
-  border-color: rgba(37, 99, 235, 0.58);
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  box-shadow: none;
 }
 
 .studioEchelonHeader {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  padding: 0.65rem;
+  padding: 0.56rem 0.6rem;
 }
 
 .studioEchelonMain {
@@ -190,7 +216,7 @@
   min-width: 0;
   flex: 1;
   align-items: flex-start;
-  gap: 0.55rem;
+  gap: 0.45rem;
   text-align: left;
 }
 
@@ -199,6 +225,28 @@
   flex-shrink: 0;
   align-items: center;
   gap: 0.25rem;
+}
+
+.studioLayerCode {
+  flex-shrink: 0;
+  font-family: var(--font-ibm-plex-mono);
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1.4;
+}
+
+.studioCountChip {
+  display: inline-flex;
+  min-width: 1.45rem;
+  height: 1.35rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--studio-text-muted);
+  background: #f1f5f9;
+  font-family: var(--font-ibm-plex-mono);
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
 .studioEchelonMeta {
@@ -214,9 +262,9 @@
 
 .studioEchelonObjects {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.25rem;
   border-top: 1px solid rgba(217, 226, 238, 0.68);
-  padding: 0.5rem;
+  padding: 0.35rem 0.45rem 0.45rem;
   background: var(--studio-surface-soft);
 }
 
@@ -227,7 +275,8 @@
   gap: 0.5rem;
   border: 1px solid transparent;
   border-radius: calc(var(--studio-radius) - 2px);
-  padding: 0.45rem;
+  min-height: 1.875rem;
+  padding: 0.3rem 0.38rem;
   color: var(--studio-text);
   text-align: left;
   transition: border-color 160ms ease, background 160ms ease;
@@ -243,7 +292,7 @@
   display: inline-flex;
   min-width: 2.2rem;
   max-width: 3rem;
-  height: 1.65rem;
+  height: 1.45rem;
   align-items: center;
   justify-content: center;
   border-radius: 6px;
@@ -254,11 +303,25 @@
   font-weight: 800;
 }
 
+.studioObjectWarning {
+  display: inline-grid;
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 999px;
+  color: #92400e;
+  background: #fef3c7;
+  font-family: var(--font-ibm-plex-mono);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
 .studioEmptyState,
 .studioInspectorEmpty {
   border: 1px dashed var(--studio-border-strong);
   border-radius: var(--studio-radius);
-  padding: 0.75rem;
+  padding: 0.6rem;
   color: var(--studio-text-muted);
   background: var(--studio-surface-soft);
   font-size: 0.75rem;
@@ -269,8 +332,8 @@
   width: 100%;
   min-height: 2.25rem;
   border: 1px solid var(--studio-border);
-  border-radius: calc(var(--studio-radius) - 2px);
-  background: var(--studio-surface);
+  border-radius: var(--studio-radius);
+  background: #f8fafc;
   padding: 0.5rem 0.65rem;
   color: var(--studio-text);
   font-size: 0.8rem;
@@ -300,6 +363,15 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.46);
 }
 
+.mapToneOverlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(248, 250, 252, 0.36);
+  mix-blend-mode: screen;
+}
+
 .studioNoticeFloat {
   position: absolute;
   z-index: 40;
@@ -318,14 +390,14 @@
 }
 
 .studioMapToolbar {
-  top: 5.25rem;
-  left: 1rem;
+  top: 1rem;
+  right: 1rem;
   display: flex;
   max-width: calc(100% - 2rem);
   gap: 0.35rem;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: var(--studio-radius);
-  background: rgba(255, 255, 255, 0.93);
+  border: 1px solid #e2e8f0;
+  border-radius: var(--studio-radius-lg);
+  background: rgba(255, 255, 255, 0.94);
   padding: 0.35rem;
   box-shadow: var(--studio-shadow);
   backdrop-filter: blur(12px);
@@ -336,56 +408,138 @@
   background: transparent;
 }
 
+.studioToggleButton[data-active="true"] {
+  border-radius: 6px;
+  color: #ffffff;
+  background: var(--studio-blue);
+  box-shadow: none;
+}
+
+.studioToolbarDivider {
+  width: 1px;
+  align-self: stretch;
+  background: #e2e8f0;
+}
+
 .studioWarningStack {
-  top: 5.25rem;
-  right: 1rem;
+  bottom: 2.35rem;
+  left: 1rem;
   display: grid;
-  width: min(21rem, calc(100% - 2rem));
+  width: min(21.25rem, calc(100% - 2rem));
   gap: 0.45rem;
 }
 
 .studioNotice,
-.studioWarning {
-  border: 1px solid rgba(37, 99, 235, 0.18);
+.studioWarning,
+.studioDanger {
+  border: 1px solid #bfdbfe;
   border-radius: var(--studio-radius);
-  padding: 0.6rem 0.7rem;
-  color: #1e3a8a;
-  background: rgba(239, 246, 255, 0.94);
+  padding: 0.55rem 0.65rem;
+  color: #1e40af;
+  background: #eff6ff;
   font-size: 0.75rem;
   font-weight: 750;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 .studioWarning {
-  border-color: rgba(245, 158, 11, 0.34);
+  border-color: #fde68a;
   color: #92400e;
-  background: rgba(255, 251, 235, 0.96);
+  background: #fffbeb;
+}
+
+.studioDanger {
+  border-color: #fecaca;
+  color: #991b1b;
+  background: #fef2f2;
 }
 
 .studioMapFooter {
-  right: 1rem;
-  bottom: 0.85rem;
-  left: 1rem;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
-  flex-wrap: wrap;
+  height: 30px;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: var(--studio-radius);
-  background: rgba(15, 23, 42, 0.88);
-  padding: 0.55rem 0.75rem;
-  color: #dbeafe;
+  gap: 0.55rem;
+  overflow-x: auto;
+  border-radius: 0;
+  background: rgba(15, 23, 42, 0.92);
+  padding: 0 0.75rem;
+  color: #94a3b8;
   font-family: var(--font-ibm-plex-mono);
-  font-size: 0.7rem;
+  font-size: 0.65625rem;
   font-weight: 700;
   backdrop-filter: blur(10px);
+}
+
+.studioMapFooter i {
+  width: 1px;
+  height: 0.8rem;
+  flex: 0 0 auto;
+  background: #475569;
+}
+
+.studioDraftState {
+  color: #fbbf24;
 }
 
 .studioMetricGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
+}
+
+.studioInspectorTopline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.studioInspectorHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.studioInspectorGlyph {
+  display: grid;
+  width: 2.3rem;
+  height: 2.3rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #0f172a;
+  font-family: var(--font-ibm-plex-mono);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.studioInspectorTitleBlock {
+  min-width: 0;
+}
+
+.studioChipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.studioChip {
+  display: inline-flex;
+  min-height: 1.35rem;
+  align-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 0 0.5rem;
+  color: #475569;
+  background: #f8fafc;
+  font-family: var(--font-ibm-plex-mono);
+  font-size: 0.64rem;
+  font-weight: 800;
 }
 
 .studioMetricCard {
@@ -448,6 +602,17 @@
   background: var(--studio-appbar);
 }
 
+.studioConflictCard {
+  border: 1px solid #fecaca;
+  border-radius: var(--studio-radius);
+  padding: 0.65rem;
+  color: #991b1b;
+  background: #fef2f2;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .studioTextarea {
   min-height: 5.5rem;
   resize: vertical;
@@ -463,7 +628,7 @@
   .studioWorkspace {
     height: 100%;
     min-height: 0;
-    grid-template-columns: minmax(280px, 312px) minmax(0, 1fr) minmax(300px, 328px);
+    grid-template-columns: var(--studio-left-panel) minmax(0, 1fr) var(--studio-right-panel);
     grid-template-rows: minmax(0, 1fr);
     gap: 0;
     padding: 0;
@@ -508,15 +673,15 @@
   }
 
   .studioWarningStack {
-    top: 8.9rem;
-    right: 0.6rem;
+    bottom: 2.8rem;
+    left: 0.6rem;
     width: calc(100% - 1.2rem);
   }
 
   .studioMapFooter {
-    right: 0.6rem;
-    bottom: 0.6rem;
-    left: 0.6rem;
+    right: 0;
+    bottom: 0;
+    left: 0;
   }
 }
 

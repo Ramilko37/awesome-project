@@ -87,6 +87,22 @@ export function getAssetMarkerIcon(placement: EchelonMapPlacement): ReactNode {
   }
 }
 
+export function getAssetMarkerGlyph(placement: EchelonMapPlacement): string {
+  const category = placement.markerCategory ?? layerCategoryFallback[placement.layerId] ?? "infrastructure";
+  const label = placement.label.toLowerCase();
+  if (label.includes("мог")) return "МОГ";
+  if (label.includes("рэб") || label.includes("подав")) return "РЭБ";
+  if (label.includes("gps") || label.includes("gnss") || label.includes("спуф")) return "GPS";
+  if (label.includes("рлс") || label.includes("радар")) return "РЛС";
+  if (label.includes("тепловиз") || label.includes("тв")) return "ТВ";
+  if (label.includes("дрон") || category === "interceptor") return "ДРН";
+  if (category === "kinetic") return "КИН";
+  if (category === "detection") return "РЛС";
+  if (category === "jamming" || category === "spoofing") return "РЭБ";
+  if (category === "classification") return "ТВ";
+  return "СЗ";
+}
+
 export function getMarkerState(placement: EchelonMapPlacement, isHovered: boolean): MapMarkerState {
   if (placement.isSelected) return "selected";
   if (isHovered) return "hover";
@@ -112,6 +128,7 @@ type MapObjectMarkerProps = {
   zoom: number;
   layerLabel?: string;
   isHovered: boolean;
+  labelsEnabled: boolean;
   onSelect: (placement: EchelonMapPlacement) => void;
   onDoubleClick: (placement: EchelonMapPlacement) => void;
   onHover: (placement: EchelonMapPlacement | null) => void;
@@ -124,6 +141,7 @@ export function MapObjectMarker({
   zoom,
   layerLabel,
   isHovered,
+  labelsEnabled,
   onSelect,
   onDoubleClick,
   onHover,
@@ -131,7 +149,8 @@ export function MapObjectMarker({
   const pendingClickRef = useRef<number | null>(null);
   const state = getMarkerState(placement, isHovered);
   const categoryColor = getAssetCategoryColor(placement);
-  const showLabel = shouldShowLabel({ zoom, isSelected: Boolean(placement.isSelected), isHovered });
+  const markerGlyph = getAssetMarkerGlyph(placement);
+  const showLabel = labelsEnabled && shouldShowLabel({ zoom, isSelected: Boolean(placement.isSelected), isHovered });
   const markerSize = placement.isSelected ? 46 : isHovered ? 40 : 36;
   const markerBadge = placement.qty > 1 ? placement.qty : null;
   const markerStyle = {
@@ -153,8 +172,8 @@ export function MapObjectMarker({
   return (
     <button
       type="button"
-      className={`pointer-events-auto absolute z-20 grid place-items-center rounded-[11px] border-2 bg-slate-950/90 text-[17px] text-white shadow-lg shadow-slate-950/30 outline-none transition duration-150 hover:scale-[1.08] focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
-        placement.isSelected ? "ring-2 ring-white/90" : ""
+      className={`pointer-events-auto absolute z-20 grid place-items-center rounded-[11px] border-2 bg-[#0f172a]/94 text-white shadow-lg shadow-slate-950/30 outline-none transition duration-150 hover:scale-[1.08] focus-visible:ring-2 focus-visible:ring-[#2563eb] focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
+        placement.isSelected ? "ring-2 ring-[#2563eb] ring-offset-2 ring-offset-white" : ""
       } border-[var(--marker-color)]`}
       style={markerStyle}
       aria-label={`${placement.label}, ${layerLabel ?? placement.layerId}, ${placement.qty} ед.`}
@@ -184,8 +203,11 @@ export function MapObjectMarker({
       onMouseEnter={() => onHover(placement)}
       onMouseLeave={() => onHover(null)}
     >
-      <span className="grid place-items-center" aria-hidden="true">
-        {getAssetMarkerIcon(placement)}
+      <span
+        className="grid place-items-center font-(family-name:--font-ibm-plex-mono) text-[10px] font-black leading-none tracking-normal"
+        aria-hidden="true"
+      >
+        {markerGlyph}
       </span>
       <span
         className="absolute -bottom-0.5 -left-0.5 h-2 w-2 rounded-full border border-slate-950 bg-[var(--marker-color)]"
