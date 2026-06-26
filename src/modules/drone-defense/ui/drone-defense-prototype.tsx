@@ -651,7 +651,7 @@ export function DroneDefensePrototype() {
   const placeDroppedAssetOnMap = (args: {
     groupId: string;
     layerId: DefenseLayerId;
-    slotId: string;
+    slotId: string | null;
     mapRef: { lon: number; lat: number };
   }) => {
     const asset =

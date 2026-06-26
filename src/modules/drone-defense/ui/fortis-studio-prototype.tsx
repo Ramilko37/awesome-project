@@ -299,13 +299,19 @@ export function FortisStudioPrototype() {
     const compoundProfile = buildPlacedDefenseCompoundProfile(asset);
     const validation = placeObject(asset.id, activeLayer.id, { lat, lng }, compoundProfile ? { compoundProfile } : undefined);
     setLastMessage(validation.message ?? `${asset.name} размещено в эшелоне ${activeLayer.code}`);
-    setLeftTab("echelons");
+    if (validation.isValid) {
+      setActiveToolId(null);
+      setSelectedSlotId(null);
+      setCoordinatePlacementAssetId(null);
+      setCoordinatePlacementValidation(null);
+      setLeftTab("echelons");
+    }
   };
 
   const placeDroppedAssetOnMap = (args: {
     groupId: string;
     layerId: DefenseLayerId;
-    slotId: string;
+    slotId: string | null;
     mapRef: { lon: number; lat: number };
   }) => {
     const asset =
@@ -321,7 +327,7 @@ export function FortisStudioPrototype() {
       setLastMessage(validation.message ?? "Не удалось разместить объект");
       return;
     }
-    setActiveToolId(asset.id);
+    setActiveToolId(null);
     setSelectedSlotId(args.slotId);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
@@ -385,7 +391,7 @@ export function FortisStudioPrototype() {
       setLastMessage(message);
       return;
     }
-    setActiveToolId(coordinatePlacementAsset.id);
+    setActiveToolId(null);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
     setLeftTab("echelons");

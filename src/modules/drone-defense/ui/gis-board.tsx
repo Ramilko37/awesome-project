@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from "react";
 import DeckGL, { type DeckGLRef } from "@deck.gl/react";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
@@ -82,7 +82,7 @@ type GisBoardProps = {
   selectedPlacementId: string | null;
   locateTarget: { lon: number; lat: number; at: number } | null;
   onSelectPlacement: (placementId: string) => void;
-  onDropAsset: (args: { groupId: string; layerId: DefenseLayerId; slotId: string; mapRef: { lon: number; lat: number } }) => void;
+  onDropAsset: (args: { groupId: string; layerId: DefenseLayerId; slotId: string | null; mapRef: { lon: number; lat: number } }) => void;
   showCoverage?: boolean;
   showPlacementLabels?: boolean;
   showConstraintWarnings?: boolean;
@@ -999,15 +999,35 @@ export function GisBoard({
         activeLayerId: selectedLayerId as DefenseLayerId,
         slots: echelonModel.slots,
       });
-      if (!slot) return;
       onDropAsset({
         groupId,
         layerId: selectedLayerId as DefenseLayerId,
-        slotId: slot.id,
-        mapRef: { lon: slot.position[0], lat: slot.position[1] },
+        slotId: slot?.id ?? null,
+        mapRef: slot ? { lon: slot.position[0], lat: slot.position[1] } : { lon: coord[0], lat: coord[1] },
       });
     },
     [unprojectClientPoint, selectedLayerId, echelonModel.slots, onDropAsset],
+  );
+
+  const isMapControlTarget = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof Element)) return false;
+    return Boolean(target.closest("button,a,input,textarea,select,[role='button'],[role='menu'],[data-map-control='true']"));
+  }, []);
+
+  const handleSectionClick = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      if (isMapControlTarget(event.target)) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      const coord = unprojectClientPoint(event.clientX, event.clientY, rect);
+      if (!coord) return;
+      if (polygonDraft?.isActive) {
+        polygonDraft.onAddPoint({ lng: coord[0], lat: coord[1] });
+        return;
+      }
+      if (!activeToolId || !onPlaceActiveTool) return;
+      onPlaceActiveTool({ lng: coord[0], lat: coord[1] });
+    },
+    [activeToolId, isMapControlTarget, onPlaceActiveTool, polygonDraft, unprojectClientPoint],
   );
 
   const handleBaseMapSelect = useCallback(
@@ -1048,6 +1068,7 @@ export function GisBoard({
       onDragOver={handleSectionDragOver}
       onDragLeave={handleSectionDragLeave}
       onDrop={handleSectionDrop}
+      onClick={handleSectionClick}
     >
       <DeckGL
         ref={deckRef}
@@ -1067,14 +1088,6 @@ export function GisBoard({
         }}
         controller={deckControllerOptions}
         layers={deckLayers}
-        onClick={(info) => {
-          if (polygonDraft?.isActive && info.coordinate) {
-            polygonDraft.onAddPoint({ lng: info.coordinate[0], lat: info.coordinate[1] });
-            return;
-          }
-          if (!activeToolId || !info.coordinate || !onPlaceActiveTool) return;
-          onPlaceActiveTool({ lng: info.coordinate[0], lat: info.coordinate[1] });
-        }}
       >
         <MaplibreMap attributionControl={false} mapStyle={baseMapStyle} onError={handleBaseMapError} />
       </DeckGL>

@@ -10,8 +10,10 @@
   --fs-sans: var(--font-manrope), system-ui, sans-serif;
   --fs-display: var(--font-syne), sans-serif;
   display: flex;
+  height: 100dvh;
   min-height: 100dvh;
   flex-direction: column;
+  overflow: hidden;
   overflow-x: hidden;
   background: #f1f5f9;
   color: var(--fs-slate);

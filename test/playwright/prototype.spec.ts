@@ -177,6 +177,51 @@ test("prototype edits, persists, places and deletes DefenseProject objects", asy
   await expect(page.getByText("60 млн").first()).toBeVisible();
 });
 
+test("prototype places an asset by clicking the live GIS map", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`${baseUrl}/prototype`);
+  await page.evaluate((project) => {
+    window.localStorage.setItem("fortis-defense-project", JSON.stringify(project));
+  }, buildSeedProject());
+  await page.reload();
+
+  await page.getByRole("tab", { name: "Библиотека" }).click();
+  await page.getByPlaceholder("Найти средство…").fill("QA Radar");
+  await page.getByRole("button", { name: /QA Radar Unique/ }).first().click();
+
+  const canvasBox = await page.locator("canvas").first().boundingBox();
+  expect(canvasBox).not.toBeNull();
+  await page.mouse.click(canvasBox!.x + canvasBox!.width * 0.48, canvasBox!.y + 360);
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = window.localStorage.getItem("fortis-defense-project");
+        const project = raw ? JSON.parse(raw) : null;
+        return {
+          count: project?.placedObjects?.length ?? 0,
+          selectedObjectId: project?.selectedObjectId,
+          lastAssetId: project?.placedObjects?.at(-1)?.assetId,
+        };
+      }),
+    )
+    .toMatchObject({
+      count: 2,
+      lastAssetId: "asset-qa-radar",
+    });
+
+  await page.mouse.click(canvasBox!.x + canvasBox!.width * 0.58, canvasBox!.y + 420);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = window.localStorage.getItem("fortis-defense-project");
+        const project = raw ? JSON.parse(raw) : null;
+        return project?.placedObjects?.length ?? 0;
+      }),
+    )
+    .toBe(2);
+});
+
 test("calculator desktop renders compact Studio sibling summary", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto(`${baseUrl}/calculator`);
