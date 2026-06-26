@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+
+test.setTimeout(60_000);
 
 function buildSeedProject() {
   const now = new Date("2026-06-23T00:00:00.000Z").toISOString();
@@ -38,8 +40,8 @@ function buildSeedProject() {
     ],
     assetLibrary: [
       {
-        id: "asset-playwright-radar",
-        name: "Playwright Radar",
+        id: "asset-qa-radar",
+        name: "QA Radar Unique",
         shortName: "PWR",
         category: "detection",
         roles: ["detect", "track"],
@@ -56,10 +58,10 @@ function buildSeedProject() {
     ],
     placedObjects: [
       {
-        id: "placed-playwright-radar",
-        assetId: "asset-playwright-radar",
+        id: "placed-qa-radar",
+        assetId: "asset-qa-radar",
         layerId: "layer_01_l1",
-        name: "Playwright Radar",
+        name: "QA Radar Unique",
         coordinates: { lat: 55.72, lng: 37.1 },
         rotation: 35,
         quantity: 2,
@@ -71,8 +73,8 @@ function buildSeedProject() {
       },
     ],
     activeLayerId: "layer_01_l1",
-    selectedAssetId: "asset-playwright-radar",
-    selectedObjectId: "placed-playwright-radar",
+    selectedAssetId: "asset-qa-radar",
+    selectedObjectId: "placed-qa-radar",
     mode: "view",
     source: "custom",
     updatedAt: now,
@@ -80,6 +82,13 @@ function buildSeedProject() {
 }
 
 test("prototype desktop renders Studio shell, tabs, tree, library and inspector", async ({ page }) => {
+  const hydrationMessages: string[] = [];
+  page.on("console", (message) => {
+    const text = message.text();
+    if ((message.type() === "error" || message.type() === "warning") && /hydration|did not match/i.test(text)) {
+      hydrationMessages.push(text);
+    }
+  });
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto(`${baseUrl}/prototype`);
   await page.evaluate((project) => {
@@ -94,15 +103,78 @@ test("prototype desktop renders Studio shell, tabs, tree, library and inspector"
   await expect(page.getByRole("tab", { name: "Эшелоны" })).toBeVisible();
   await expect(page.getByText("Инспектор объекта")).toBeVisible();
 
-  const placedObject = page.getByRole("button", { name: /Playwright Radar/ }).first();
+  const placedObject = page.getByRole("button", { name: /QA Radar Unique/ }).first();
   await expect(placedObject).toBeVisible();
+  await expect(page.getByText("МОГ — пост №1")).toHaveCount(0);
   await placedObject.click();
-  await expect(page.getByText("Широта")).toBeVisible();
-  await expect(page.getByText("Долгота")).toBeVisible();
-  await expect(page.getByText("Кол-во")).toBeVisible();
+  await expect(page.getByLabel("Широта")).toBeVisible();
+  await expect(page.getByLabel("Долгота")).toBeVisible();
+  await expect(page.getByLabel("Кол-во")).toBeVisible();
 
   await page.getByRole("tab", { name: "Библиотека" }).click();
-  await expect(page.getByPlaceholder("Найти средство...")).toBeVisible();
+  await expect(page.getByPlaceholder("Найти средство…")).toBeVisible();
+  expect(hydrationMessages).toEqual([]);
+});
+
+test("prototype edits, persists, places and deletes DefenseProject objects", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`${baseUrl}/prototype`);
+  await page.evaluate((project) => {
+    window.localStorage.setItem("fortis-defense-project", JSON.stringify(project));
+  }, buildSeedProject());
+  await page.reload();
+
+  await page.getByRole("button", { name: /QA Radar Unique/ }).first().click();
+  await page.getByLabel("Кол-во").fill("5");
+  await page.getByRole("button", { name: "План" }).click();
+  await page.getByLabel("Заметки").fill("persisted Playwright note");
+  await page.reload();
+
+  await expect(page.getByRole("button", { name: /QA Radar Unique/ }).first()).toBeVisible();
+  await expect(page.getByLabel("Кол-во")).toHaveValue("5");
+  await expect(page.getByLabel("Заметки")).toHaveValue("persisted Playwright note");
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = window.localStorage.getItem("fortis-defense-project");
+        const project = raw ? JSON.parse(raw) : null;
+        return project?.placedObjects?.[0]?.status;
+      }),
+    )
+    .toBe("planned");
+
+  await page.getByRole("tab", { name: "Библиотека" }).click();
+  await page.getByPlaceholder("Найти средство…").fill("QA Radar");
+  await page.getByLabel("Ввести координаты для QA Radar Unique").click();
+  const coordinateForm = page.locator("form").filter({ hasText: "Размещение по координатам" });
+  await coordinateForm.getByLabel("Широта").fill("55.75");
+  await coordinateForm.getByLabel("Долгота").fill("37.10");
+  await coordinateForm.getByRole("button", { name: "Разместить" }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = window.localStorage.getItem("fortis-defense-project");
+        const project = raw ? JSON.parse(raw) : null;
+        return project?.placedObjects?.length ?? 0;
+      }),
+    )
+    .toBe(2);
+
+  await page.getByRole("button", { name: "Удалить" }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = window.localStorage.getItem("fortis-defense-project");
+        const project = raw ? JSON.parse(raw) : null;
+        return project?.placedObjects?.length ?? 0;
+      }),
+    )
+    .toBe(1);
+
+  await page.goto(`${baseUrl}/calculator`);
+  await expect(page.getByRole("heading", { name: "Калькулятор защиты от БПЛА" })).toBeVisible();
+  await expect(page.getByText("QA Radar Unique").first()).toBeVisible();
+  await expect(page.getByText("60 млн").first()).toBeVisible();
 });
 
 test("calculator desktop renders compact Studio sibling summary", async ({ page }) => {

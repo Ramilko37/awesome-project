@@ -69,6 +69,88 @@ useDefenseProjectStore.getState().restoreProjectFromLocalStorage();
 assert(useDefenseProjectStore.getState().hydrated, "restore must mark store hydrated");
 assert(useDefenseProjectStore.getState().project.placedObjects.length === 2, "restore must load placed objects");
 
+const rawProject = {
+  schemaVersion: 1 as const,
+  projectId: "qa-raw-project",
+  projectName: "QA raw project",
+  baseObject: {
+    id: "qa-facility",
+    name: "QA Facility",
+    center: { lat: 55.1, lng: 37.1 },
+  },
+  layers: [
+    {
+      id: "qa-layer-l1",
+      name: "QA Layer",
+      code: "QA",
+      order: 1,
+      geometryType: "ring" as const,
+      geometry: {
+        type: "ring" as const,
+        center: { lat: 55.1, lng: 37.1 },
+        minRadiusM: 1000,
+        maxRadiusM: 3000,
+      },
+      isActive: true,
+      isVisible: true,
+      isLocked: false,
+    },
+  ],
+  assetLibrary: [
+    {
+      id: "qa-radar",
+      name: "QA Radar Unique",
+      shortName: "QAR",
+      category: "detection" as const,
+      roles: ["detect" as const],
+      pricePerUnitMln: 12,
+      currency: "RUB" as const,
+      unitLabel: "ед.",
+      recommendedLayerCodes: ["QA"],
+      compatibleLayerCodes: ["QA"],
+      coverageType: "circle" as const,
+      coverageRadius: 7000,
+      deploymentType: "static" as const,
+      placementType: "map-object" as const,
+    },
+  ],
+  placedObjects: [
+    {
+      id: "qa-radar-placed",
+      assetId: "qa-radar",
+      layerId: "qa-layer-l1",
+      name: "QA Radar Unique",
+      coordinates: { lat: 55.11, lng: 37.11 },
+      quantity: 3,
+      status: "active" as const,
+      isVisibleOnMap: true,
+      notes: "raw storage contract",
+      createdAt: "2026-06-23T00:00:00.000Z",
+      updatedAt: "2026-06-23T00:00:00.000Z",
+    },
+  ],
+  activeLayerId: "qa-layer-l1",
+  selectedAssetId: "qa-radar",
+  selectedObjectId: "qa-radar-placed",
+  mode: "view" as const,
+  source: "custom" as const,
+  updatedAt: "2026-06-23T00:00:00.000Z",
+};
+storage.set(FORTIS_DEFENSE_PROJECT_STORAGE_KEY, JSON.stringify(rawProject));
+useDefenseProjectStore.setState(useDefenseProjectStore.getInitialState(), true);
+useDefenseProjectStore.getState().restoreProjectFromLocalStorage();
+assert(
+  useDefenseProjectStore.getState().project.placedObjects.some((object) => object.name === "QA Radar Unique"),
+  "restore must load a raw DefenseProject stored at fortis-defense-project",
+);
+assert(
+  useDefenseProjectStore.getState().selectedObjectId === "qa-radar-placed",
+  "restore must sync selected object from raw DefenseProject",
+);
+if (saved) storage.set(FORTIS_DEFENSE_PROJECT_STORAGE_KEY, saved);
+useDefenseProjectStore.setState(useDefenseProjectStore.getInitialState(), true);
+useDefenseProjectStore.getState().restoreProjectFromLocalStorage();
+
 useDefenseProjectStore.getState().deletePlacedObject(useDefenseProjectStore.getState().project.placedObjects[0].id);
 assert(useDefenseProjectStore.getState().project.placedObjects.length === 1, "deletePlacedObject must remove an object");
 useDefenseProjectStore.getState().selectObject(useDefenseProjectStore.getState().project.placedObjects[0].id);

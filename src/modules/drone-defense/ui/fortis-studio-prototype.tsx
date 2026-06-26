@@ -1,731 +1,866 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
+import { CoordinatePlacementPanel, type CoordinatePlacementInput } from "@/modules/drone-defense/ui/coordinate-placement-panel";
+import { GisBoard } from "@/modules/drone-defense/ui/gis-board";
+import { placedObjectsToMapPlacements } from "@/modules/drone-defense/domain/project-map-adapter";
+import { useDefenseStudioStore, studioPreviewData } from "@/modules/drone-defense/domain/use-defense-studio-store";
+import {
+  buildPlacedDefenseCompoundProfile,
+  calculateLayerSummaries,
+  getAssetCatalogItems,
+  getLayerRadii,
+  priceForPlacedObject,
+  type AssetCatalogItem,
+} from "@/shared/lib/defense-project";
+import {
+  formatDistance,
+  parseCoordinatePlacementInput,
+  projectLayerToMapLayer,
+  type CoordinatePlacementValidationState,
+} from "@/modules/drone-defense/domain/prototype-workflow";
+import { useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
+import { useMapViewStore } from "@/shared/lib/use-map-view-store";
+import type { DefenseLayerId } from "@/shared/types/drone-defense";
+import type { PlacedDefenseObject, ProtectedObjectOption } from "@/shared/types/defense-project";
+import styles from "./fortis-studio-prototype.module.css";
 
-/**
- * Faithful, self-contained reproduction of the Fortis Studio reference mock
- * (the provided HTML образец): dark topbar with the "F" logo and 3 tabs, an
- * echelon tree / library on the left, a radar-style coverage visualization in
- * the center, and an object inspector on the right, plus the calculator view.
- *
- * Styling is kept as inline styles to stay pixel-identical to the reference.
- * Fonts map onto the next/font CSS variables defined on <html> in the root layout.
- */
+const defenseAssetDragMimeType = "application/x-fortis-defense-asset";
+const budgetLimitMln = 9300;
 
-const SYNE = "var(--font-syne), sans-serif";
-const SANS = "var(--font-manrope), system-ui, sans-serif";
-const MONO = "var(--font-ibm-plex-mono), monospace";
-
-type Status = "active" | "planned" | "off";
-
-interface Echelon {
-  code: string;
-  name: string;
-  range: string;
-  color: string;
-  r: number;
-}
-
-interface DefObject {
-  id: string;
-  layer: string;
-  name: string;
-  glyph: string;
-  deg: number;
-  az: number;
-  sector: number;
-  range: number;
-  cost: number;
-  qty: number;
-  status: Status;
-  score: number;
-  lat: string;
-  lng: string;
-  notes: string;
-  conflict?: boolean;
-}
-
-interface LibraryItem {
-  glyph: string;
-  name: string;
-  meta: string;
-}
-
-interface LibraryGroup {
-  title: string;
-  items: LibraryItem[];
-}
-
-const ECHELONS: Echelon[] = [
-  { code: "L1", name: "Внешнее предупреждение", range: "60–120 км", color: "#2563eb", r: 382 },
-  { code: "L2", name: "Обнаружение", range: "30–60 км", color: "#0891b2", r: 332 },
-  { code: "L3", name: "Идентификация", range: "15–30 км", color: "#0d9488", r: 286 },
-  { code: "L4", name: "Подавление", range: "8–15 км", color: "#059669", r: 242 },
-  { code: "L5", name: "Средний рубеж", range: "4–8 км", color: "#65a30d", r: 198 },
-  { code: "L6", name: "Последний рубеж", range: "1,5–4 км", color: "#ca8a04", r: 154 },
-  { code: "L7", name: "Срыв точности", range: "0,5–1,5 км", color: "#ea580c", r: 112 },
-  { code: "L8", name: "Пассивная защита", range: "100–500 м", color: "#dc2626", r: 72 },
-  { code: "L9", name: "Hardening", range: "0–100 м", color: "#7c3aed", r: 36 },
-];
-
-const SEED: DefObject[] = [
-  { id: "o1", layer: "L2", name: "Оптико-электронные системы", glyph: "ОЭ", deg: 55, az: 60, sector: 90, range: 42, cost: 12, qty: 1, status: "active", score: 79, lat: "55.1421", lng: "37.0312", notes: "" },
-  { id: "o2", layer: "L2", name: "Тепловизионные системы", glyph: "ТВ", deg: 118, az: 130, sector: 80, range: 38, cost: 10, qty: 1, status: "active", score: 77, lat: "55.0712", lng: "37.1620", notes: "" },
-  { id: "o3", layer: "L3", name: "Мобильная РЛС обзора", glyph: "РЛС", deg: 92, az: 90, sector: 120, range: 25, cost: 20, qty: 1, status: "active", score: 79, lat: "55.0998", lng: "37.1810", notes: "" },
-  { id: "o4", layer: "L4", name: "РЭБ узкополосный (GNSS)", glyph: "РЭБ", deg: 208, az: 220, sector: 140, range: 14, cost: 15, qty: 1, status: "active", score: 78, lat: "55.0610", lng: "37.0540", notes: "" },
-  { id: "o5", layer: "L4", name: "GPS-спуферы", glyph: "GPS", deg: 252, az: 250, sector: 100, range: 12, cost: 9, qty: 2, status: "planned", score: 74, lat: "55.0720", lng: "37.0210", notes: "" },
-  { id: "o6", layer: "L5", name: "МОГ — пост №1", glyph: "МОГ", deg: 35, az: 40, sector: 70, range: 7, cost: 18, qty: 1, status: "active", score: 74, lat: "55.1180", lng: "37.1240", notes: "" },
-  { id: "o7", layer: "L5", name: "МОГ — пост №2", glyph: "МОГ", deg: 328, az: 320, sector: 70, range: 7, cost: 18, qty: 1, status: "active", score: 72, lat: "55.1230", lng: "37.0810", notes: "", conflict: true },
-  { id: "o8", layer: "L5", name: "Турельный комплекс", glyph: "КИН", deg: 158, az: 165, sector: 60, range: 6, cost: 32.9, qty: 1, status: "active", score: 80, lat: "55.0790", lng: "37.1450", notes: "" },
-  { id: "o9", layer: "L6", name: "Дроны-перехватчики", glyph: "ДРН", deg: 285, az: 285, sector: 45, range: 3, cost: 7, qty: 1, status: "planned", score: 74, lat: "55.0930", lng: "37.0680", notes: "" },
-];
-
-const LIBRARY: LibraryGroup[] = [
-  {
-    title: "Обнаружение",
-    items: [
-      { glyph: "ОЭ", name: "Оптико-электронные системы", meta: "12 млн · 30–60 км" },
-      { glyph: "ТВ", name: "Тепловизионные системы", meta: "10 млн · 30–60 км" },
-      { glyph: "РЛС", name: "РЛС обзорная", meta: "20 млн · 15–30 км" },
-      { glyph: "АК", name: "Акустические массивы", meta: "6 млн · 8–15 км" },
-    ],
-  },
-  {
-    title: "РЭБ / Подавление",
-    items: [
-      { glyph: "РЭБ", name: "РЭБ узкополосный (GNSS)", meta: "15 млн · 8–15 км" },
-      { glyph: "РЭБ", name: "РЭБ широкополосный", meta: "18 млн · 8–15 км" },
-      { glyph: "GPS", name: "GPS-спуферы", meta: "9 млн · 8–15 км" },
-    ],
-  },
-  {
-    title: "Огневое поражение",
-    items: [
-      { glyph: "КИН", name: "Турельный комплекс", meta: "32,9 млн · 4–8 км" },
-      { glyph: "ДРН", name: "Дроны-перехватчики", meta: "7 млн · 1,5–4 км" },
-      { glyph: "МОГ", name: "МОГ — мобильная группа", meta: "18 млн · 4–8 км" },
-    ],
-  },
-  {
-    title: "Пассивная защита",
-    items: [
-      { glyph: "ФБС", name: "ФБС-ограждение", meta: "8 млн · 100–500 м" },
-      { glyph: "СЕТ", name: "Сеточная тросовая завеса", meta: "6 млн · 0–100 м" },
-    ],
-  },
-];
-
-const STATUS_MAP: Record<Status, [string, string, string]> = {
-  active: ["Активен", "#047857", "#d1fae5"],
-  planned: ["План", "#475569", "#f1f5f9"],
-  off: ["Отключён", "#b91c1c", "#fee2e2"],
+const statusLabels: Record<PlacedDefenseObject["status"], string> = {
+  active: "Активен",
+  planned: "План",
+  inactive: "Отключён",
+  maintenance: "Сервис",
 };
 
-function fmt(n: number): string {
-  const v = Math.round(n * 10) / 10;
-  return (Number.isInteger(v) ? v : v.toFixed(1)).toString().replace(".", ",");
+const statusClassNames: Record<PlacedDefenseObject["status"], string> = {
+  active: styles.statusActive,
+  planned: styles.statusPlanned,
+  inactive: styles.statusInactive,
+  maintenance: styles.statusMaintenance,
+};
+
+function protectedObjectToFacility(object: ProtectedObjectOption) {
+  return {
+    id: object.id,
+    name: object.name,
+    region: object.address ?? "Объект защиты",
+    center: {
+      lat: object.center.lat,
+      lon: object.center.lng,
+    },
+    priorityWeight: 1,
+    status: object.status ?? "active",
+  } as const;
 }
 
-function polar(r: number, deg: number): [number, number] {
-  const a = (deg * Math.PI) / 180;
-  return [400 + r * Math.sin(a), 400 - r * Math.cos(a)];
+function formatMln(value: number) {
+  return value.toLocaleString("ru-RU", { maximumFractionDigits: 1 });
 }
 
-const SCOPED_CSS = `
-.fsx-root *{box-sizing:border-box}
-.fsx-root ::-webkit-scrollbar{width:8px;height:8px}
-.fsx-root ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:8px}
-.fsx-root ::-webkit-scrollbar-track{background:transparent}
-@keyframes fsx-fpulse{0%,100%{opacity:.35;transform:scale(1)}50%{opacity:.7;transform:scale(1.25)}}
-.fsx-icbtn:hover{background:#334155 !important;color:#e2e8f0 !important}
-.fsx-save:hover{background:#1d4ed8 !important}
-.fsx-exp:hover{background:#334155 !important}
-.fsx-objrow:hover{background:#f1f5f9 !important}
-.fsx-libitem:hover{border-color:#bfdbfe !important;background:#f8fafc !important}
-.fsx-tool:hover{background:#f1f5f9 !important}
-.fsx-locate:hover{background:#f8fafc !important}
-.fsx-remove:hover{background:#fef2f2 !important}
-.fsx-input:focus{border-color:#2563eb !important}
-`;
+function formatLayerCost(value: number) {
+  return `${formatMln(value)} млн ₽`;
+}
+
+function formatRange(innerRadiusM: number, outerRadiusM: number) {
+  return `${formatDistance(innerRadiusM)}-${formatDistance(outerRadiusM)}`;
+}
+
+function objectDisplayName(project: ReturnType<typeof useDefenseProjectStore.getState>["project"], object: PlacedDefenseObject) {
+  const asset = project.assetLibrary.find((item) => item.id === object.assetId);
+  const fallbackName = asset?.name ?? object.assetId;
+  if (object.name && object.name !== fallbackName) return object.name;
+  if ((asset?.shortName ?? asset?.name ?? "").toLowerCase().includes("мог")) {
+    const sameAssetObjects = project.placedObjects
+      .filter((item) => item.assetId === object.assetId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const index = sameAssetObjects.findIndex((item) => item.id === object.id);
+    return `МОГ — пост №${index >= 0 ? index + 1 : 1}`;
+  }
+  return object.name ?? asset?.name ?? object.assetId;
+}
+
+function assetGlyph(asset: AssetCatalogItem | undefined, fallback = "OBJ") {
+  return (asset?.title ?? fallback).slice(0, 4).toUpperCase();
+}
+
+function projectAssetGlyph(shortName: string | undefined, name: string | undefined, fallback = "OBJ") {
+  return (shortName ?? name ?? fallback).slice(0, 4).toUpperCase();
+}
 
 export function FortisStudioPrototype() {
-  const [view, setView] = useState<"studio" | "calc">("studio");
   const [leftTab, setLeftTab] = useState<"echelons" | "library">("echelons");
-  const [selectedLayer, setSelectedLayer] = useState<string>("L5");
-  const [selectedId, setSelectedId] = useState<string | null>("o6");
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ L2: true, L4: true, L5: true });
-  const [coverage, setCoverage] = useState(true);
-  const [labels, setLabels] = useState(false);
-  const [constraints, setConstraints] = useState(true);
-  const [objects, setObjects] = useState<DefObject[]>(() => SEED.map((o) => ({ ...o })));
+  const [query, setQuery] = useState("");
+  const [expandedLayerIds, setExpandedLayerIds] = useState<Record<string, boolean>>({});
+  const [activeToolId, setActiveToolId] = useState<string | null>(null);
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [locateTarget, setLocateTarget] = useState<{ lon: number; lat: number; at: number } | null>(null);
+  const [showCoverage, setShowCoverage] = useState(true);
+  const [showPlacementLabels, setShowPlacementLabels] = useState(true);
+  const [showConstraintWarnings, setShowConstraintWarnings] = useState(true);
+  const [coordinatePlacementAssetId, setCoordinatePlacementAssetId] = useState<string | null>(null);
+  const [coordinatePlacementValidation, setCoordinatePlacementValidation] =
+    useState<CoordinatePlacementValidationState | null>(null);
+  const [lastMessage, setLastMessage] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
 
-  const selO = objects.find((o) => o.id === selectedId) ?? null;
-  const selE = selO ? ECHELONS.find((e) => e.code === selO.layer) ?? null : null;
-  const selLayer = ECHELONS.find((e) => e.code === selectedLayer) ?? null;
+  const {
+    project,
+    selectedObjectId,
+    selectLayer,
+    selectAsset,
+    selectObject,
+    placeObject,
+    updatePlacedObject,
+    deletePlacedObject,
+    validateObjectPlacement,
+    restoreProjectFromLocalStorage,
+    saveProjectToLocalStorage,
+    protectedObjects,
+  } = useDefenseProjectStore();
 
-  const placedCount = objects.length;
-  const totalNum = objects.reduce((a, o) => a + o.cost * o.qty, 0);
-  const totalMln = fmt(totalNum);
-  const remaining = fmt(9300 - totalNum);
+  const {
+    init,
+    scenarioId,
+    configuration: studioConfiguration,
+    catalog,
+    layers,
+  } = useDefenseStudioStore();
 
-  function selectObj(id: string) {
-    const o = objects.find((x) => x.id === id);
-    setSelectedId(id);
-    if (o) setSelectedLayer(o.layer);
-  }
+  const {
+    currentBaseMapSourceId,
+    restoreFromLocalStorage: restoreMapViewFromLocalStorage,
+    setBaseMapSource,
+  } = useMapViewStore();
 
-  function patchSel(patch: Partial<DefObject>) {
-    setObjects((prev) => prev.map((o) => (o.id === selectedId ? { ...o, ...patch } : o)));
-  }
+  useEffect(() => {
+    void init();
+  }, [init]);
 
-  // ── Radar visualization ────────────────────────────────────────────────
-  const rings = ECHELONS.map((e) => {
-    const on = e.code === selectedLayer;
-    return (
-      <circle
-        key={`r${e.code}`}
-        cx={400}
-        cy={400}
-        r={e.r}
-        fill={e.color}
-        fillOpacity={on ? 0.14 : 0.045}
-        stroke={e.color}
-        strokeOpacity={on ? 0.85 : 0.22}
-        strokeWidth={on ? 2 : 1}
-      />
-    );
-  });
+  useEffect(() => {
+    restoreProjectFromLocalStorage();
+    restoreMapViewFromLocalStorage();
+  }, [restoreMapViewFromLocalStorage, restoreProjectFromLocalStorage]);
 
-  const coverageSectors =
-    coverage &&
-    objects.map((o) => {
-      const e = ECHELONS.find((x) => x.code === o.layer);
-      if (!e) return null;
-      const r = e.r + 16;
-      const a1 = o.az - o.sector / 2;
-      const a2 = o.az + o.sector / 2;
-      const [x1, y1] = polar(r, a1);
-      const [x2, y2] = polar(r, a2);
-      const large = o.sector > 180 ? 1 : 0;
-      return (
-        <path
-          key={`c${o.id}`}
-          d={`M400 400 L${x1.toFixed(1)} ${y1.toFixed(1)} A${r} ${r} 0 ${large} 1 ${x2.toFixed(1)} ${y2.toFixed(1)} Z`}
-          fill={e.color}
-          fillOpacity={o.id === selectedId ? 0.22 : 0.1}
-          stroke={e.color}
-          strokeOpacity={0.25}
-          strokeWidth={1}
-        />
-      );
-    });
+  const orderedLayers = useMemo(() => [...project.layers].sort((a, b) => a.order - b.order), [project.layers]);
+  const activeLayerId = project.activeLayerId ?? orderedLayers[0]?.id ?? "";
+  const activeLayer = useMemo(
+    () => orderedLayers.find((layer) => layer.id === activeLayerId) ?? orderedLayers[0] ?? null,
+    [activeLayerId, orderedLayers],
+  );
+  const selectedObject = useMemo(
+    () => project.placedObjects.find((object) => object.id === selectedObjectId) ?? null,
+    [project.placedObjects, selectedObjectId],
+  );
+  const selectedAsset = useMemo(
+    () => project.assetLibrary.find((asset) => asset.id === selectedObject?.assetId) ?? null,
+    [project.assetLibrary, selectedObject?.assetId],
+  );
+  const selectedLayer = useMemo(
+    () => project.layers.find((layer) => layer.id === selectedObject?.layerId) ?? null,
+    [project.layers, selectedObject?.layerId],
+  );
+  const selectedObjectUnitPriceMln = selectedObject ? priceForPlacedObject(project, selectedObject) : 0;
+  const selectedObjectTotalMln = selectedObject ? selectedObjectUnitPriceMln * selectedObject.quantity : 0;
+  const selectedObjectRadiusM = selectedObject?.customCoverageRadius ?? selectedAsset?.coverageRadius ?? 0;
+  const selectedObjectAngleDeg = selectedObject?.customCoverageAngle ?? selectedAsset?.coverageAngle ?? 360;
+  const selectedObjectAzimuthDeg = selectedObject?.rotation ?? selectedObject?.compoundProfile?.azimuth ?? 0;
 
-  const markers = objects.map((o) => {
-    const e = ECHELONS.find((x) => x.code === o.layer);
-    if (!e) return null;
-    const [x, y] = polar(e.r, o.deg);
-    const isSel = o.id === selectedId;
-    const stroke = o.conflict
-      ? "#f59e0b"
-      : o.status === "active"
-        ? "#10b981"
-        : o.status === "planned"
-          ? "#94a3b8"
-          : "#64748b";
-    const showLabel = labels || isSel;
-    const w = Math.max(58, o.name.length * 6.0 + 18);
-    return (
-      <g key={`m${o.id}`}>
-        {isSel && (
-          <circle cx={x} cy={y} r={23} fill="none" stroke="#2563eb" strokeWidth={2.5} strokeOpacity={0.9} />
-        )}
-        <rect
-          x={x - 17}
-          y={y - 12}
-          width={34}
-          height={24}
-          rx={7}
-          fill="#0f172a"
-          stroke={isSel ? "#2563eb" : stroke}
-          strokeWidth={isSel ? 2 : 1.5}
-        />
-        <text
-          x={x}
-          y={y + 1}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fill="#fff"
-          fontSize={9}
-          fontFamily={MONO}
-          fontWeight={600}
-        >
-          {o.glyph}
-        </text>
-        <circle cx={x + 15} cy={y - 10} r={3.5} fill={stroke} stroke="#fff" strokeWidth={1} />
-        {showLabel && (
-          <g>
-            <rect x={x + 22} y={y - 12} width={w} height={24} rx={6} fill="#0f172a" opacity={0.94} />
-            <text x={x + 30} y={y + 1} dominantBaseline="middle" fill="#fff" fontSize={10} fontFamily={SANS} fontWeight={600}>
-              {o.name}
-            </text>
-          </g>
-        )}
-        <circle cx={x} cy={y} r={18} fill="transparent" style={{ cursor: "pointer" }} onClick={() => selectObj(o.id)} />
-      </g>
-    );
-  });
+  const layerSummaries = useMemo(() => calculateLayerSummaries(project), [project]);
+  const projectTotalMln = layerSummaries.reduce((acc, summary) => acc + summary.totalMln, 0);
+  const unitCount = project.placedObjects.reduce((acc, object) => acc + object.quantity, 0);
+  const conflictCount = project.placedObjects.filter(
+    (object) => object.hasCoverageConflict || object.hasGeometryConflict || object.hasTerrainConflict,
+  ).length;
+  const budgetRemainingMln = Math.max(0, budgetLimitMln - projectTotalMln);
 
-  const mapSvg = (
-    <svg viewBox="0 0 800 800" width="100%" height="100%" style={{ display: "block" }}>
-      {rings}
-      {coverageSectors}
-      {markers}
-      <circle
-        cx={400}
-        cy={400}
-        r={14}
-        fill="#2563eb"
-        fillOpacity={0.25}
-        style={{ transformOrigin: "400px 400px", animation: "fsx-fpulse 2.4s ease-in-out infinite" }}
-      />
-      <rect x={392} y={392} width={16} height={16} rx={3} fill="#2563eb" stroke="#fff" strokeWidth={2} transform="rotate(45 400 400)" />
-    </svg>
+  const selectedProtectedObject = useMemo(
+    () =>
+      protectedObjects.find((item) => item.id === project.baseObject.id) ?? {
+        ...project.baseObject,
+        enterpriseId: project.baseObject.id,
+        source: "fallback" as const,
+      },
+    [project.baseObject, protectedObjects],
+  );
+  const mapFacilities = useMemo(() => {
+    const options = protectedObjects.some((item) => item.id === selectedProtectedObject.id)
+      ? protectedObjects
+      : [selectedProtectedObject, ...protectedObjects];
+    return options.map(protectedObjectToFacility);
+  }, [protectedObjects, selectedProtectedObject]);
+
+  const mapLayers = useMemo(() => orderedLayers.map(projectLayerToMapLayer), [orderedLayers]);
+  const projectPlacements = useMemo(
+    () =>
+      placedObjectsToMapPlacements({
+        project,
+        facilityId: project.baseObject.id,
+        scenarioId,
+      }).filter((placement) => {
+        const object = project.placedObjects.find((item) => item.id === placement.id);
+        return object?.isVisibleOnMap !== false;
+      }),
+    [project, scenarioId],
+  );
+  const mapConfiguration = useMemo(
+    () => ({
+      ...studioConfiguration,
+      placements: projectPlacements,
+    }),
+    [projectPlacements, studioConfiguration],
   );
 
-  // ── Warnings ───────────────────────────────────────────────────────────
-  const warnings = [
-    { icon: "◷", text: "Бюджет: 142 из 9 300 млн ₽ · остаток 9 158 млн", bg: "#eff6ff", border: "#dbeafe", textCol: "#1e3a8a" },
-    { icon: "⚠", text: "Слепой сектор: направление 215–255° (жилая застройка)", bg: "#fffbeb", border: "#fde68a", textCol: "#92400e" },
-    { icon: "⚠", text: "Конфликт геометрии: МОГ — пост №2 перекрывает соседний пост", bg: "#fef2f2", border: "#fecaca", textCol: "#991b1b" },
-  ];
+  const assetItems = useMemo(
+    () => getAssetCatalogItems(project, activeLayer?.code, project.placedObjects),
+    [activeLayer?.code, project],
+  );
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredLayers = useMemo(() => {
+    if (leftTab !== "echelons" || !normalizedQuery) return orderedLayers;
+    return orderedLayers.filter((layer) => {
+      const layerText = [layer.code, layer.name, layer.description].join(" ").toLowerCase();
+      if (layerText.includes(normalizedQuery)) return true;
+      return project.placedObjects
+        .filter((object) => object.layerId === layer.id)
+        .some((object) => {
+          const asset = project.assetLibrary.find((item) => item.id === object.assetId);
+          return [object.name, asset?.name, asset?.shortName, asset?.category, asset?.protectionType]
+            .join(" ")
+            .toLowerCase()
+            .includes(normalizedQuery);
+        });
+    });
+  }, [leftTab, normalizedQuery, orderedLayers, project.assetLibrary, project.placedObjects]);
+  const filteredAssets = useMemo(() => {
+    if (leftTab !== "library" || !normalizedQuery) return assetItems;
+    return assetItems.filter((asset) =>
+      [
+        asset.title,
+        asset.subtitle,
+        asset.categoryLabel,
+        asset.rangeLabel,
+        asset.priceLabel,
+        asset.coverageLabel,
+        asset.category,
+        ...asset.roles,
+        ...asset.tags,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery),
+    );
+  }, [assetItems, leftTab, normalizedQuery]);
+  const groupedAssets = useMemo(() => {
+    const groups = new Map<string, AssetCatalogItem[]>();
+    for (const asset of filteredAssets) {
+      const group = groups.get(asset.categoryLabel) ?? [];
+      group.push(asset);
+      groups.set(asset.categoryLabel, group);
+    }
+    return [...groups.entries()];
+  }, [filteredAssets]);
 
-  // ── Calculator rows ────────────────────────────────────────────────────
-  const calcRows = ECHELONS.filter((e) => objects.some((o) => o.layer === e.code)).map((e) => {
-    const items = objects.filter((o) => o.layer === e.code);
-    const total = items.reduce((a, o) => a + o.cost * o.qty, 0);
-    return {
-      code: e.code,
-      name: e.name,
-      range: e.range,
-      color: e.color,
-      total: fmt(total),
-      items: items.map((o) => ({
-        name: o.name,
-        unit: "×" + o.qty,
-        line: fmt(o.cost * o.qty),
-        statusCol: o.status === "active" ? "#10b981" : "#94a3b8",
-      })),
-    };
-  });
+  const selectLayerFromUi = (layerId: string) => {
+    selectLayer(layerId);
+    setExpandedLayerIds((current) => ({ ...current, [layerId]: !current[layerId] }));
+    setSelectedSlotId(null);
+    setLastMessage(null);
+  };
 
-  const tabColor = (on: boolean) => (on ? "#0f172a" : "#64748b");
-  const sm = selO ? STATUS_MAP[selO.status] ?? STATUS_MAP.active : STATUS_MAP.active;
-  const stBtn = (target: Status) => !!selO && selO.status === target;
+  const selectPlacedObject = (objectId: string) => {
+    const object = project.placedObjects.find((item) => item.id === objectId);
+    if (!object) return;
+    selectObject(objectId);
+    selectLayer(object.layerId);
+    setExpandedLayerIds((current) => ({ ...current, [object.layerId]: true }));
+    setLeftTab("echelons");
+  };
 
-  const inputStyle: CSSProperties = {
-    width: "100%",
-    height: 34,
-    border: "1px solid #e2e8f0",
-    borderRadius: 8,
-    padding: "0 10px",
-    fontFamily: MONO,
-    fontSize: 12,
-    outline: "none",
+  const selectTool = (asset: AssetCatalogItem) => {
+    const nextId = activeToolId === asset.assetId ? null : asset.assetId;
+    setActiveToolId(nextId);
+    selectAsset(asset.assetId);
+    setCoordinatePlacementAssetId(null);
+    setCoordinatePlacementValidation(null);
+    setLastMessage(nextId ? `${asset.title}: кликните по карте внутри активного эшелона` : null);
+  };
+
+  const placeActiveToolAtCoordinate = ({ lng, lat }: { lng: number; lat: number }) => {
+    if (!activeToolId || !activeLayer) return;
+    const asset = project.assetLibrary.find((item) => item.id === activeToolId);
+    if (!asset) {
+      setLastMessage("Средство защиты не найдено в библиотеке");
+      return;
+    }
+    const compoundProfile = buildPlacedDefenseCompoundProfile(asset);
+    const validation = placeObject(asset.id, activeLayer.id, { lat, lng }, compoundProfile ? { compoundProfile } : undefined);
+    setLastMessage(validation.message ?? `${asset.name} размещено в эшелоне ${activeLayer.code}`);
+    setLeftTab("echelons");
+  };
+
+  const placeDroppedAssetOnMap = (args: {
+    groupId: string;
+    layerId: DefenseLayerId;
+    slotId: string;
+    mapRef: { lon: number; lat: number };
+  }) => {
+    const asset =
+      project.assetLibrary.find((item) => item.id === args.groupId) ??
+      project.assetLibrary.find((item) => item.mapCatalogGroupIds?.includes(args.groupId));
+    if (!asset) {
+      setLastMessage("Средство защиты не найдено в библиотеке");
+      return;
+    }
+    const compoundProfile = buildPlacedDefenseCompoundProfile(asset);
+    const validation = placeObject(asset.id, args.layerId, { lat: args.mapRef.lat, lng: args.mapRef.lon }, compoundProfile ? { compoundProfile } : undefined);
+    if (!validation.isValid) {
+      setLastMessage(validation.message ?? "Не удалось разместить объект");
+      return;
+    }
+    setActiveToolId(asset.id);
+    setSelectedSlotId(args.slotId);
+    setCoordinatePlacementAssetId(null);
+    setCoordinatePlacementValidation(null);
+    setLeftTab("echelons");
+    setLastMessage(`${asset.name} размещено на карте`);
+  };
+
+  const openCoordinatePlacement = (asset: AssetCatalogItem) => {
+    if (!activeLayer) {
+      setLastMessage("Выберите эшелон для размещения.");
+      return;
+    }
+    setActiveToolId(asset.assetId);
+    selectAsset(asset.assetId);
+    setCoordinatePlacementAssetId(asset.assetId);
+    setCoordinatePlacementValidation(null);
+    setLastMessage(`${activeLayer.code} · ${asset.title}: введите координаты`);
+  };
+
+  const coordinatePlacementAsset = useMemo(
+    () => project.assetLibrary.find((asset) => asset.id === coordinatePlacementAssetId) ?? null,
+    [coordinatePlacementAssetId, project.assetLibrary],
+  );
+
+  const checkCoordinatePlacement = (input: CoordinatePlacementInput) => {
+    if (!coordinatePlacementAsset || !activeLayer) {
+      setCoordinatePlacementValidation({ level: "error", message: "Выберите средство и эшелон." });
+      return;
+    }
+    const parsed = parseCoordinatePlacementInput(input);
+    if (!parsed.ok) {
+      setCoordinatePlacementValidation({ level: "error", message: parsed.message });
+      setLastMessage(parsed.message);
+      return;
+    }
+    const validation = validateObjectPlacement(coordinatePlacementAsset.id, activeLayer.id, parsed.coordinates);
+    const message = validation.message ?? (validation.isValid ? "Точка допустима для размещения." : "Точка недопустима.");
+    setCoordinatePlacementValidation({ level: validation.level, message });
+    setLastMessage(message);
+  };
+
+  const placeCoordinateObject = (input: CoordinatePlacementInput) => {
+    if (!coordinatePlacementAsset || !activeLayer) {
+      setCoordinatePlacementValidation({ level: "error", message: "Выберите средство и эшелон." });
+      return;
+    }
+    const parsed = parseCoordinatePlacementInput(input);
+    if (!parsed.ok) {
+      setCoordinatePlacementValidation({ level: "error", message: parsed.message });
+      setLastMessage(parsed.message);
+      return;
+    }
+    const compoundProfile = buildPlacedDefenseCompoundProfile(coordinatePlacementAsset);
+    const validation = placeObject(coordinatePlacementAsset.id, activeLayer.id, parsed.coordinates, {
+      notes: parsed.notes,
+      ...(compoundProfile ? { compoundProfile } : {}),
+    });
+    if (!validation.isValid) {
+      const message = validation.message ?? "Точка недопустима для размещения.";
+      setCoordinatePlacementValidation({ level: validation.level, message });
+      setLastMessage(message);
+      return;
+    }
+    setActiveToolId(coordinatePlacementAsset.id);
+    setCoordinatePlacementAssetId(null);
+    setCoordinatePlacementValidation(null);
+    setLeftTab("echelons");
+    setLastMessage(`${coordinatePlacementAsset.name} размещено в эшелоне ${activeLayer.code}`);
+  };
+
+  const updateSelectedObject = (patch: Partial<PlacedDefenseObject>) => {
+    if (!selectedObject) return;
+    updatePlacedObject(selectedObject.id, patch);
+  };
+
+  const saveProject = () => {
+    saveProjectToLocalStorage();
+    setSavedAt(
+      new Intl.DateTimeFormat("ru-RU", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date()),
+    );
+  };
+
+  const dragAsset = (asset: AssetCatalogItem, event: DragEvent<HTMLDivElement>) => {
+    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.setData(defenseAssetDragMimeType, asset.assetId);
+    event.dataTransfer.setData("application/x-fortis-group", asset.assetId);
+    event.dataTransfer.setData("text/plain", asset.title);
+    setActiveToolId(asset.assetId);
+    selectAsset(asset.assetId);
+    setLastMessage(`${asset.title}: перетащите карточку на карту`);
   };
 
   return (
-    <div
-      className="fsx-root"
-      style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", background: "#f1f5f9", fontFamily: SANS, color: "#0f172a" }}
-    >
-      <style>{SCOPED_CSS}</style>
+    <div className={styles.root}>
+      <header className={styles.appBar}>
+        <Link href="/prototype" className={styles.brand} aria-label="Fortis Studio">
+          <span className={styles.brandMark}>F</span>
+          <span className={styles.brandName}>FORTIS</span>
+          <span className={styles.brandMode}>Studio</span>
+        </Link>
 
-      {/* ── Top bar ─────────────────────────────────────────── */}
-      <header style={{ display: "flex", alignItems: "center", gap: 18, height: 54, padding: "0 18px", background: "#0f172a", color: "#e2e8f0", flex: "none" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 26, height: 26, borderRadius: 7, background: "#2563eb", display: "grid", placeItems: "center", fontFamily: SYNE, fontWeight: 800, fontSize: 14, color: "#fff" }}>F</div>
-          <span style={{ fontFamily: SYNE, fontWeight: 700, fontSize: 15, letterSpacing: ".02em" }}>FORTIS</span>
-          <span style={{ fontFamily: MONO, fontSize: 11, color: "#64748b", letterSpacing: ".18em", textTransform: "uppercase" }}>Studio</span>
-        </div>
-
-        <nav style={{ display: "flex", gap: 2, background: "#1e293b", borderRadius: 9, padding: 3 }}>
-          <button onClick={() => setView("studio")} style={{ position: "relative", border: 0, background: "transparent", color: "#cbd5e1", font: "inherit", fontSize: 12.5, fontWeight: 600, padding: "6px 14px", borderRadius: 6, cursor: "pointer" }}>
-            {view === "studio" && <span style={{ position: "absolute", inset: 0, background: "#2563eb", borderRadius: 6 }} />}
-            <span style={{ position: "relative" }}>Карта защиты</span>
-          </button>
-          <button onClick={() => setView("calc")} style={{ position: "relative", border: 0, background: "transparent", color: "#cbd5e1", font: "inherit", fontSize: 12.5, fontWeight: 600, padding: "6px 14px", borderRadius: 6, cursor: "pointer" }}>
-            {view === "calc" && <span style={{ position: "absolute", inset: 0, background: "#2563eb", borderRadius: 6 }} />}
-            <span style={{ position: "relative" }}>Калькулятор</span>
-          </button>
-          <button style={{ position: "relative", border: 0, background: "transparent", color: "#475569", font: "inherit", fontSize: 12.5, fontWeight: 600, padding: "6px 14px", borderRadius: 6, cursor: "not-allowed", display: "flex", alignItems: "center", gap: 6 }}>
-            Сценарии <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 600, background: "#334155", color: "#94a3b8", padding: "1px 5px", borderRadius: 4, letterSpacing: ".06em" }}>BETA</span>
+        <nav className={styles.topNav} aria-label="Fortis Studio">
+          <Link href="/prototype" className={`${styles.navItem} ${styles.navItemActive}`}>
+            Карта защиты
+          </Link>
+          <Link href="/calculator" className={styles.navItem}>
+            Калькулятор
+          </Link>
+          <button type="button" className={`${styles.navItem} ${styles.navDisabled}`} disabled title="Сценарии в разработке">
+            Сценарии <span className={styles.beta}>BETA</span>
           </button>
         </nav>
 
-        <div style={{ flex: 1 }} />
-
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 11px", borderRadius: 8, background: "#1e293b", border: "1px solid #334155" }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#38bdf8" }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0" }}>Завод Альфа</span>
-          <span style={{ fontFamily: MONO, fontSize: 10.5, color: "#64748b" }}>· Вариант A</span>
+        <div className={styles.appBarSpacer} />
+        <div className={styles.facilityChip}>
+          <span aria-hidden="true" />
+          <strong>{project.baseObject.name}</strong>
+          <em>· {project.projectName}</em>
         </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 2, background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: 3 }}>
-          <button className="fsx-icbtn" title="Отменить" style={{ border: 0, background: "transparent", color: "#94a3b8", font: "inherit", fontSize: 14, width: 30, height: 28, borderRadius: 5, cursor: "pointer" }}>↺</button>
-          <button className="fsx-icbtn" title="Повторить" style={{ border: 0, background: "transparent", color: "#94a3b8", font: "inherit", fontSize: 14, width: 30, height: 28, borderRadius: 5, cursor: "pointer" }}>↻</button>
+        <div className={styles.historyGroup}>
+          <button type="button" disabled title="Отменить (скоро)" aria-label="Отменить">
+            ↺
+          </button>
+          <button type="button" disabled title="Повторить (скоро)" aria-label="Повторить">
+            ↻
+          </button>
         </div>
-
-        <button className="fsx-save" style={{ display: "flex", alignItems: "center", gap: 8, border: 0, background: "#2563eb", color: "#fff", font: "inherit", fontSize: 12.5, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer" }}>
-          Сохранить
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fbbf24" }} />
+        <button type="button" className={styles.saveButton} onClick={saveProject}>
+          Сохранить <span aria-hidden="true" />
         </button>
-        <button className="fsx-exp" title="Экспорт отчёта" style={{ border: "1px solid #334155", background: "#1e293b", color: "#cbd5e1", font: "inherit", fontSize: 14, padding: "8px 11px", borderRadius: 8, cursor: "pointer" }}>⤓</button>
+        <button type="button" className={styles.exportButton} disabled title="Экспорт отчёта доступен в калькуляторе" aria-label="Экспорт">
+          ⤓
+        </button>
       </header>
 
-      {/* ── STUDIO body ─────────────────────────────────────── */}
-      {view === "studio" && (
-        <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-          {/* Left panel */}
-          <aside style={{ width: 312, flex: "none", background: "#fff", borderRight: "1px solid #e2e8f0", display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <div style={{ display: "flex", gap: 3, padding: "10px 12px 0" }}>
-              <button onClick={() => setLeftTab("echelons")} style={{ position: "relative", flex: 1, border: 0, background: "transparent", font: "inherit", fontSize: 12, fontWeight: 700, padding: "8px 0 11px", color: "#64748b", cursor: "pointer" }}>
-                {leftTab === "echelons" && <span style={{ position: "absolute", left: 8, right: 8, bottom: 0, height: 2.5, background: "#2563eb", borderRadius: 2 }} />}
-                <span style={{ position: "relative", color: tabColor(leftTab === "echelons") }}>Эшелоны</span>
-              </button>
-              <button onClick={() => setLeftTab("library")} style={{ position: "relative", flex: 1, border: 0, background: "transparent", font: "inherit", fontSize: 12, fontWeight: 700, padding: "8px 0 11px", color: "#64748b", cursor: "pointer" }}>
-                {leftTab === "library" && <span style={{ position: "absolute", left: 8, right: 8, bottom: 0, height: 2.5, background: "#2563eb", borderRadius: 2 }} />}
-                <span style={{ position: "relative", color: tabColor(leftTab === "library") }}>Библиотека</span>
-              </button>
-            </div>
-            <div style={{ height: 1, background: "#e2e8f0" }} />
+      <div className={styles.workspace}>
+        <aside className={styles.leftPanel}>
+          <div className={styles.tabs} role="tablist" aria-label="Панель Fortis Studio">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={leftTab === "echelons"}
+              className={leftTab === "echelons" ? styles.tabActive : undefined}
+              onClick={() => setLeftTab("echelons")}
+            >
+              Эшелоны
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={leftTab === "library"}
+              className={leftTab === "library" ? styles.tabActive : undefined}
+              onClick={() => setLeftTab("library")}
+            >
+              Библиотека
+            </button>
+          </div>
 
-            <div style={{ padding: "12px 12px 8px" }}>
-              <div style={{ position: "relative" }}>
-                <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", fontSize: 13 }}>⌕</span>
-                <input
-                  placeholder={leftTab === "library" ? "Найти средство…" : "Найти эшелон или объект…"}
-                  className="fsx-input"
-                  style={{ width: "100%", height: 36, border: "1px solid #e2e8f0", borderRadius: 9, padding: "0 12px 0 30px", font: "inherit", fontSize: 13, outline: "none", background: "#f8fafc" }}
-                />
+          <div className={styles.searchBox}>
+            <span aria-hidden="true">⌕</span>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={leftTab === "library" ? "Найти средство…" : "Найти эшелон или объект…"}
+            />
+          </div>
+
+          {leftTab === "echelons" ? (
+            <div className={styles.panelScroll}>
+              <div className={styles.panelMeta}>
+                <span>{orderedLayers.length} рубежей обороны</span>
+                <span>{project.placedObjects.length} объектов</span>
               </div>
-            </div>
-
-            {/* Echelon tree */}
-            {leftTab === "echelons" && (
-              <div style={{ flex: 1, overflowY: "auto", padding: "2px 10px 16px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 4px 8px" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: "#94a3b8" }}>9 рубежей обороны</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: "#94a3b8" }}>{placedCount} объектов</span>
-                </div>
-                {ECHELONS.map((e) => {
-                  const items = objects.filter((o) => o.layer === e.code);
-                  const on = e.code === selectedLayer;
-                  const isExpanded = !!expanded[e.code];
-                  return (
-                    <div key={e.code} style={{ borderRadius: 10, marginBottom: 3, overflow: "hidden", border: `1px solid ${on ? "#bfdbfe" : "#eef2f7"}`, background: on ? "#f5f9ff" : "#fff" }}>
-                      <div
-                        onClick={() => {
-                          setSelectedLayer(e.code);
-                          setExpanded((st) => ({ ...st, [e.code]: !st[e.code] }));
-                        }}
-                        style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 10px", cursor: "pointer" }}
-                      >
-                        <span style={{ width: 9, height: 9, borderRadius: 3, flex: "none", background: e.color }} />
-                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: on ? "#2563eb" : "#64748b", flex: "none", width: 20 }}>{e.code}</span>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 12.5, fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.name}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: "#94a3b8" }}>{e.range}</div>
-                        </div>
-                        <span style={{ fontFamily: MONO, fontSize: 11, color: items.length ? "#0f172a" : "#94a3b8", background: items.length ? "#f1f5f9" : "#f8fafc", borderRadius: 6, padding: "2px 7px", flex: "none" }}>{items.length}</span>
-                        <span style={{ color: "#cbd5e1", fontSize: 10, flex: "none", width: 10, display: "inline-block", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
+              {filteredLayers.map((layer) => {
+                const summary = layerSummaries.find((item) => item.layerId === layer.id);
+                const layerObjects = project.placedObjects.filter((object) => object.layerId === layer.id);
+                const isActive = layer.id === activeLayerId;
+                const isExpanded = expandedLayerIds[layer.id] ?? (isActive || selectedObject?.layerId === layer.id);
+                const radii = getLayerRadii(layer);
+                return (
+                  <article key={layer.id} className={`${styles.layerCard} ${isActive ? styles.layerCardActive : ""}`}>
+                    <button type="button" className={styles.layerHeader} onClick={() => selectLayerFromUi(layer.id)}>
+                      <span className={styles.layerDot} style={{ backgroundColor: layer.color ?? "#2563eb" }} />
+                      <span className={styles.layerCode}>{layer.code}</span>
+                      <span className={styles.layerTitleBlock}>
+                        <strong>{layer.name}</strong>
+                        <em>{formatRange(radii.innerRadiusM, radii.outerRadiusM)}</em>
+                      </span>
+                      <span className={styles.layerCount}>{summary?.objectCount ?? layerObjects.length}</span>
+                      <span className={`${styles.caret} ${isExpanded ? styles.caretOpen : ""}`} aria-hidden="true">
+                        ›
+                      </span>
+                    </button>
+                    {isExpanded ? (
+                      <div className={styles.objectList}>
+                        {layerObjects.length > 0 ? (
+                          layerObjects.map((object) => {
+                            const isSelected = object.id === selectedObjectId;
+                            const hasConflict =
+                              object.hasCoverageConflict || object.hasGeometryConflict || object.hasTerrainConflict;
+                            return (
+                              <button
+                                type="button"
+                                key={object.id}
+                                className={`${styles.objectRow} ${isSelected ? styles.objectRowSelected : ""}`}
+                                onClick={() => selectPlacedObject(object.id)}
+                              >
+                                <span
+                                  className={`${styles.statusDot} ${
+                                    hasConflict ? styles.statusWarning : statusClassNames[object.status]
+                                  }`}
+                                />
+                                <span className={styles.objectName}>{objectDisplayName(project, object)}</span>
+                                <span className={styles.objectCost}>
+                                  {formatMln(priceForPlacedObject(project, object) * object.quantity)} млн
+                                </span>
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <div className={styles.emptyRow}>Нет средств на рубеже</div>
+                        )}
                       </div>
-                      {isExpanded && (
-                        <div style={{ padding: "0 8px 8px 8px", display: "flex", flexDirection: "column", gap: 3 }}>
-                          {items.map((o) => (
-                            <div
-                              key={o.id}
-                              className="fsx-objrow"
-                              onClick={() => selectObj(o.id)}
-                              style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", borderRadius: 8, cursor: "pointer", background: o.id === selectedId ? "#eff6ff" : "#f8fafc", border: `1px solid ${o.id === selectedId ? "#bfdbfe" : "transparent"}` }}
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className={styles.panelScroll}>
+              <div className={styles.panelMeta}>
+                <span>{activeLayer ? `${activeLayer.code} · ${activeLayer.name}` : "Эшелон не выбран"}</span>
+                <span>{project.assetLibrary.length} средств</span>
+              </div>
+              {groupedAssets.map(([groupName, assets]) => (
+                <section className={styles.libraryGroup} key={groupName}>
+                  <h2>{groupName}</h2>
+                  <div className={styles.libraryList}>
+                    {assets.map((asset) => {
+                      const projectAsset = project.assetLibrary.find((item) => item.id === asset.assetId);
+                      const isSelected = activeToolId === asset.assetId;
+                      return (
+                        <div
+                          key={asset.assetId}
+                          className={`${styles.libraryItem} ${isSelected ? styles.libraryItemSelected : ""}`}
+                          draggable
+                          onDragStart={(event) => dragAsset(asset, event)}
+                        >
+                          <button
+                            type="button"
+                            className={styles.assetSelectButton}
+                            onClick={() => selectTool(asset)}
+                            aria-pressed={isSelected}
+                          >
+                            <span className={styles.assetGlyph}>
+                              {projectAssetGlyph(projectAsset?.shortName, projectAsset?.name, assetGlyph(asset))}
+                            </span>
+                            <span className={styles.assetText}>
+                              <strong>{asset.title}</strong>
+                              <em>
+                                {asset.priceLabel}
+                                {asset.rangeLabel ? ` · ${asset.rangeLabel}` : ""}
+                              </em>
+                            </span>
+                          </button>
+                          <span className={styles.assetActions}>
+                            <button
+                              type="button"
+                              onClick={() => openCoordinatePlacement(asset)}
+                              title="Ввести координаты"
+                              aria-label={`Ввести координаты для ${asset.title}`}
                             >
-                              <span style={{ width: 6, height: 6, borderRadius: "50%", flex: "none", background: o.conflict ? "#f59e0b" : o.status === "active" ? "#10b981" : "#94a3b8" }} />
-                              <span style={{ fontSize: 12, color: "#1e293b", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.name}</span>
-                              {o.conflict && <span style={{ color: "#f59e0b", fontSize: 12, flex: "none" }}>⚠</span>}
-                              <span style={{ fontFamily: MONO, fontSize: 10.5, color: "#94a3b8", flex: "none" }}>{fmt(o.cost * o.qty)} млн</span>
-                            </div>
-                          ))}
-                          {items.length === 0 && (
-                            <div style={{ fontSize: 11.5, color: "#94a3b8", padding: "7px 9px", textAlign: "center", border: "1px dashed #e2e8f0", borderRadius: 8 }}>Нет средств на рубеже</div>
-                          )}
+                              +
+                            </button>
+                            <i aria-hidden="true">⠿</i>
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Library */}
-            {leftTab === "library" && (
-              <div style={{ flex: 1, overflowY: "auto", padding: "2px 10px 16px" }}>
-                {LIBRARY.map((g) => (
-                  <div key={g.title} style={{ marginBottom: 14 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "#94a3b8", padding: "4px 4px 7px" }}>{g.title}</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                      {g.items.map((it, i) => (
-                        <div key={`${g.title}-${i}`} className="fsx-libitem" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 11px", border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", cursor: "grab" }}>
-                          <span style={{ width: 30, height: 30, borderRadius: 8, flex: "none", background: "#0f172a", color: "#fff", display: "grid", placeItems: "center", fontFamily: MONO, fontSize: 9, fontWeight: 600 }}>{it.glyph}</span>
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ fontSize: 12.5, fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.name}</div>
-                            <div style={{ fontFamily: MONO, fontSize: 10.5, color: "#94a3b8" }}>{it.meta}</div>
-                          </div>
-                          <span style={{ color: "#cbd5e1", fontSize: 15, flex: "none" }}>⠿</span>
-                        </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
-            )}
-          </aside>
-
-          {/* Center map */}
-          <main style={{ position: "relative", flex: 1, minWidth: 0, background: "radial-gradient(circle at 50% 46%, #eef4fb 0%, #e3eaf2 55%, #dbe3ee 100%)", overflow: "hidden" }}>
-            {/* top floating controls */}
-            <div style={{ position: "absolute", left: 16, top: 14, right: 16, zIndex: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, pointerEvents: "none" }}>
-              <div style={{ pointerEvents: "auto", display: "flex", alignItems: "center", gap: 11, background: "rgba(255,255,255,.94)", border: "1px solid #e2e8f0", borderRadius: 11, padding: "9px 13px", boxShadow: "0 4px 16px rgba(15,23,42,.08)", backdropFilter: "blur(6px)" }}>
-                <span style={{ width: 9, height: 9, borderRadius: 3, background: selLayer ? selLayer.color : "#2563eb" }} />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{selLayer ? `${selLayer.code} · ${selLayer.name}` : "Эшелон не выбран"}</div>
-                  <div style={{ fontFamily: MONO, fontSize: 10.5, color: "#94a3b8" }}>Выберите средство и кликните по карте</div>
-                </div>
-              </div>
-              <div style={{ pointerEvents: "auto", display: "flex", gap: 4, background: "rgba(255,255,255,.94)", border: "1px solid #e2e8f0", borderRadius: 11, padding: 5, boxShadow: "0 4px 16px rgba(15,23,42,.08)", backdropFilter: "blur(6px)" }}>
-                <button onClick={() => setCoverage((v) => !v)} style={{ border: 0, font: "inherit", fontSize: 11.5, fontWeight: 600, padding: "7px 11px", borderRadius: 7, cursor: "pointer", color: coverage ? "#fff" : "#64748b", background: coverage ? "#2563eb" : "transparent" }}>Покрытие</button>
-                <button onClick={() => setLabels((v) => !v)} style={{ border: 0, font: "inherit", fontSize: 11.5, fontWeight: 600, padding: "7px 11px", borderRadius: 7, cursor: "pointer", color: labels ? "#fff" : "#64748b", background: labels ? "#2563eb" : "transparent" }}>Подписи</button>
-                <button onClick={() => setConstraints((v) => !v)} style={{ border: 0, font: "inherit", fontSize: 11.5, fontWeight: 600, padding: "7px 11px", borderRadius: 7, cursor: "pointer", color: constraints ? "#fff" : "#64748b", background: constraints ? "#2563eb" : "transparent" }}>Ограничения</button>
-                <div style={{ width: 1, background: "#e2e8f0", margin: "3px 2px" }} />
-                <button className="fsx-tool" title="Линейка" style={{ border: 0, font: "inherit", fontSize: 13, padding: "7px 10px", borderRadius: 7, cursor: "pointer", color: "#64748b", background: "transparent" }}>📐</button>
-                <button className="fsx-tool" title="Приблизить" style={{ border: 0, font: "inherit", fontSize: 14, padding: "7px 10px", borderRadius: 7, cursor: "pointer", color: "#64748b", background: "transparent" }}>＋</button>
-                <button className="fsx-tool" title="Отдалить" style={{ border: 0, font: "inherit", fontSize: 14, padding: "7px 10px", borderRadius: 7, cursor: "pointer", color: "#64748b", background: "transparent" }}>－</button>
-              </div>
-            </div>
-
-            {/* map viz */}
-            <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-              <div style={{ width: "min(86vh,720px)", height: "min(86vh,720px)", maxWidth: "100%" }}>{mapSvg}</div>
-            </div>
-
-            {/* warnings overlay */}
-            <div style={{ position: "absolute", left: 16, bottom: 46, zIndex: 20, display: "flex", flexDirection: "column", gap: 7, maxWidth: 340 }}>
-              {warnings.map((w, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "9px 12px", borderRadius: 10, background: w.bg, border: `1px solid ${w.border}`, boxShadow: "0 4px 14px rgba(15,23,42,.08)" }}>
-                  <span style={{ fontSize: 13, lineHeight: 1.2, flex: "none" }}>{w.icon}</span>
-                  <span style={{ fontSize: 12, fontWeight: 500, color: w.textCol, lineHeight: 1.35 }}>{w.text}</span>
-                </div>
+                </section>
               ))}
             </div>
+          )}
+        </aside>
 
-            {/* bottom status bar */}
-            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 15, display: "flex", alignItems: "center", gap: 18, height: 30, padding: "0 16px", background: "rgba(15,23,42,.92)", color: "#94a3b8", fontFamily: MONO, fontSize: 10.5, backdropFilter: "blur(4px)" }}>
-              <span>55.1042°N · 37.0976°E</span>
-              <span style={{ color: "#475569" }}>|</span>
-              <span>Масштаб 1:240 000</span>
-              <span style={{ color: "#475569" }}>|</span>
-              <span>{placedCount} объектов · {totalMln} млн</span>
-              <span style={{ flex: 1 }} />
-              <span style={{ color: "#fbbf24" }}>● черновик</span>
-              <span style={{ color: "#475569" }}>|</span>
-              <span>сохранено 14:32</span>
+        <main className={styles.mapStage}>
+          <GisBoard
+            className={styles.gisBoard}
+            facilities={mapFacilities}
+            selectedFacilityId={project.baseObject.id}
+            onSelectFacility={() => undefined}
+            hexCells={studioPreviewData.hexCells}
+            threatRoutes={studioPreviewData.threatRoutes}
+            layers={layers}
+            configuration={mapConfiguration}
+            catalog={catalog}
+            mapLayers={mapLayers}
+            selectedLayerId={activeLayerId}
+            selectedSlotId={selectedSlotId}
+            activeToolId={activeToolId}
+            baseMapSourceId={currentBaseMapSourceId}
+            placementHint={lastMessage ?? `Эшелон ${activeLayer?.code ?? "—"} · выберите средство и кликните по карте`}
+            onSelectBaseMapSource={setBaseMapSource}
+            onSelectLayer={selectLayer}
+            onHoverLayerChange={() => undefined}
+            onSelectSlot={(slot) => {
+              selectLayer(slot.layerId);
+              setSelectedSlotId(slot.id);
+              setExpandedLayerIds((current) => ({ ...current, [slot.layerId]: true }));
+            }}
+            onSelectTool={(groupId) => {
+              const asset =
+                project.assetLibrary.find((item) => item.id === groupId) ??
+                project.assetLibrary.find((item) => item.mapCatalogGroupIds?.includes(groupId));
+              if (!asset) return;
+              setActiveToolId(asset.id);
+              selectAsset(asset.id);
+              setLeftTab("library");
+            }}
+            onPlaceActiveTool={placeActiveToolAtCoordinate}
+            selectedPlacementId={selectedObjectId ?? null}
+            locateTarget={locateTarget}
+            onSelectPlacement={selectPlacedObject}
+            onDropAsset={placeDroppedAssetOnMap}
+            showCoverage={showCoverage}
+            showPlacementLabels={showPlacementLabels}
+            showConstraintWarnings={showConstraintWarnings}
+            showBaseMapSelector={false}
+            onToggleCoverage={() => setShowCoverage((current) => !current)}
+            onTogglePlacementLabels={() => setShowPlacementLabels((current) => !current)}
+            onToggleConstraintWarnings={() => setShowConstraintWarnings((current) => !current)}
+          />
+
+          {showConstraintWarnings ? (
+            <div className={styles.warningStack}>
+              <div className={styles.notice}>Бюджет: {formatLayerCost(projectTotalMln)} из {formatMln(budgetLimitMln)} млн ₽ · остаток {formatLayerCost(budgetRemainingMln)}</div>
+              {conflictCount > 0 ? (
+                <div className={styles.danger}>Конфликтов геометрии/покрытия: {conflictCount}. Проверьте выбранные позиции.</div>
+              ) : null}
+              {lastMessage ? <div className={styles.notice}>{lastMessage}</div> : null}
             </div>
-          </main>
+          ) : null}
 
-          {/* Right inspector */}
-          <aside style={{ width: 328, flex: "none", background: "#fff", borderLeft: "1px solid #e2e8f0", display: "flex", flexDirection: "column", minHeight: 0 }}>
-            {selO ? (
-              <>
-                <div style={{ padding: "16px 16px 14px", borderBottom: "1px solid #e2e8f0" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", color: "#2563eb", fontWeight: 600 }}>Инспектор объекта</span>
-                    <button onClick={() => setSelectedId(null)} style={{ border: 0, background: "transparent", color: "#94a3b8", font: "inherit", fontSize: 15, cursor: "pointer", padding: "0 2px" }}>✕</button>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 11 }}>
-                    <span style={{ width: 36, height: 36, borderRadius: 9, flex: "none", background: "#0f172a", color: "#fff", display: "grid", placeItems: "center", fontFamily: MONO, fontSize: 10, fontWeight: 600 }}>{selO.glyph}</span>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#0f172a", lineHeight: 1.2 }}>{selO.name}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{selE ? `${selE.code} · ${selE.name}` : "—"}</div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 7, marginTop: 12 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: sm[1], background: sm[2], padding: "4px 10px", borderRadius: 7 }}>{sm[0]}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: "#0f172a", background: "#f1f5f9", padding: "4px 10px", borderRadius: 7 }}>балл {selO.score}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: "#0f172a", background: "#eff6ff", padding: "4px 10px", borderRadius: 7 }}>{fmt(selO.cost * selO.qty)} млн</span>
-                  </div>
-                </div>
+          <div className={styles.mapFooter}>
+            <span>
+              {project.baseObject.center.lat.toFixed(4)}°N · {project.baseObject.center.lng.toFixed(4)}°E
+            </span>
+            <i aria-hidden="true" />
+            <span>{project.placedObjects.length} позиций · {unitCount} ед.</span>
+            <i aria-hidden="true" />
+            <span>{formatLayerCost(projectTotalMln)}</span>
+            <i aria-hidden="true" />
+            <span className={styles.draftState}>● {savedAt ? `сохранено ${savedAt}` : "черновик"}</span>
+          </div>
 
-                <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "#94a3b8", marginBottom: 10 }}>Геометрия размещения</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
-                    <label style={{ display: "block" }}>
-                      <span style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4 }}>Широта</span>
-                      <input value={selO.lat} onChange={(e) => patchSel({ lat: e.target.value })} className="fsx-input" style={inputStyle} />
-                    </label>
-                    <label style={{ display: "block" }}>
-                      <span style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4 }}>Долгота</span>
-                      <input value={selO.lng} onChange={(e) => patchSel({ lng: e.target.value })} className="fsx-input" style={inputStyle} />
-                    </label>
-                    <label style={{ display: "block" }}>
-                      <span style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4 }}>Азимут, °</span>
-                      <input value={selO.az} type="number" onChange={(e) => patchSel({ az: Number(e.target.value) || 0 })} className="fsx-input" style={inputStyle} />
-                    </label>
-                    <label style={{ display: "block" }}>
-                      <span style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4 }}>Сектор, °</span>
-                      <input value={selO.sector} type="number" onChange={(e) => patchSel({ sector: Number(e.target.value) || 0 })} className="fsx-input" style={inputStyle} />
-                    </label>
-                    <label style={{ display: "block" }}>
-                      <span style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4 }}>Дальность, км</span>
-                      <input value={selO.range} type="number" onChange={(e) => patchSel({ range: Number(e.target.value) || 0 })} className="fsx-input" style={inputStyle} />
-                    </label>
-                    <label style={{ display: "block" }}>
-                      <span style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4 }}>Кол-во, ед.</span>
-                      <input value={selO.qty} type="number" onChange={(e) => patchSel({ qty: Math.max(1, Number(e.target.value) || 1) })} className="fsx-input" style={inputStyle} />
-                    </label>
-                  </div>
+          {coordinatePlacementAsset && activeLayer ? (
+            <CoordinatePlacementPanel
+              key={`${coordinatePlacementAsset.id}:${activeLayer.id}`}
+              assetName={coordinatePlacementAsset.name}
+              layerLabel={`${activeLayer.code} · ${activeLayer.name}`}
+              validationMessage={coordinatePlacementValidation?.message}
+              validationLevel={coordinatePlacementValidation?.level}
+              onCheck={checkCoordinatePlacement}
+              onPlace={placeCoordinateObject}
+              onCancel={() => {
+                setCoordinatePlacementAssetId(null);
+                setCoordinatePlacementValidation(null);
+              }}
+            />
+          ) : null}
+        </main>
 
-                  <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "#94a3b8", margin: "18px 0 10px" }}>Статус</div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => patchSel({ status: "active" })} style={{ flex: 1, border: `1px solid ${stBtn("active") ? "#10b981" : "#e2e8f0"}`, background: stBtn("active") ? "#d1fae5" : "#fff", color: stBtn("active") ? "#047857" : "#64748b", font: "inherit", fontSize: 12, fontWeight: 600, padding: "8px 0", borderRadius: 8, cursor: "pointer" }}>Активен</button>
-                    <button onClick={() => patchSel({ status: "planned" })} style={{ flex: 1, border: `1px solid ${stBtn("planned") ? "#94a3b8" : "#e2e8f0"}`, background: stBtn("planned") ? "#f1f5f9" : "#fff", color: stBtn("planned") ? "#334155" : "#64748b", font: "inherit", fontSize: 12, fontWeight: 600, padding: "8px 0", borderRadius: 8, cursor: "pointer" }}>План</button>
-                    <button onClick={() => patchSel({ status: "off" })} style={{ flex: 1, border: `1px solid ${stBtn("off") ? "#f87171" : "#e2e8f0"}`, background: stBtn("off") ? "#fee2e2" : "#fff", color: stBtn("off") ? "#b91c1c" : "#64748b", font: "inherit", fontSize: 12, fontWeight: 600, padding: "8px 0", borderRadius: 8, cursor: "pointer" }}>Отключён</button>
-                  </div>
-
-                  {selO.conflict && (
-                    <div style={{ marginTop: 18, display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 12px", borderRadius: 10, background: "#fffbeb", border: "1px solid #fde68a" }}>
-                      <span style={{ fontSize: 14, flex: "none" }}>⚠</span>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#b45309" }}>Конфликт геометрии</div>
-                        <div style={{ fontSize: 11.5, color: "#92400e", marginTop: 2, lineHeight: 1.35 }}>Сектор перекрывается с соседним постом. Скорректируйте азимут или дальность.</div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "#94a3b8", margin: "18px 0 8px" }}>Заметки</div>
-                  <textarea value={selO.notes} onChange={(e) => patchSel({ notes: e.target.value })} placeholder="Примечание к размещению…" className="fsx-input" style={{ width: "100%", minHeight: 62, resize: "vertical", border: "1px solid #e2e8f0", borderRadius: 9, padding: "9px 10px", font: "inherit", fontSize: 12, outline: "none" }} />
-                </div>
-
-                <div style={{ padding: "12px 16px", borderTop: "1px solid #e2e8f0", display: "flex", gap: 8 }}>
-                  <button className="fsx-locate" style={{ flex: 1, border: "1px solid #e2e8f0", background: "#fff", color: "#334155", font: "inherit", fontSize: 12.5, fontWeight: 600, padding: "9px 0", borderRadius: 9, cursor: "pointer" }}>Показать на карте</button>
-                  <button
-                    className="fsx-remove"
-                    onClick={() => {
-                      setObjects((prev) => prev.filter((o) => o.id !== selectedId));
-                      setSelectedId(null);
-                    }}
-                    style={{ border: "1px solid #fecaca", background: "#fff", color: "#dc2626", font: "inherit", fontSize: 12.5, fontWeight: 600, padding: "9px 14px", borderRadius: 9, cursor: "pointer" }}
-                  >
-                    Удалить
+        <aside className={styles.inspector}>
+          {selectedObject ? (
+            <>
+              <div className={styles.inspectorHeader}>
+                <div className={styles.inspectorTopline}>
+                  <span>Инспектор объекта</span>
+                  <button type="button" onClick={() => selectObject(null)} aria-label="Закрыть инспектор">
+                    ×
                   </button>
                 </div>
-              </>
-            ) : (
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "30px 26px", gap: 14 }}>
-                <div style={{ width: 54, height: 54, borderRadius: 14, background: "#f1f5f9", display: "grid", placeItems: "center", fontSize: 22, color: "#94a3b8" }}>◎</div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#334155" }}>Объект не выбран</div>
-                  <div style={{ fontSize: 12.5, color: "#94a3b8", marginTop: 5, lineHeight: 1.45, maxWidth: 200 }}>Выберите средство защиты на карте или в дереве эшелонов, чтобы редактировать координаты, азимут и дальность.</div>
+                <div className={styles.inspectorTitle}>
+                  <span>{projectAssetGlyph(selectedAsset?.shortName, selectedAsset?.name)}</span>
+                  <div>
+                    <h1>{objectDisplayName(project, selectedObject)}</h1>
+                    <p>{selectedLayer ? `${selectedLayer.code} · ${selectedLayer.name}` : "Эшелон не выбран"}</p>
+                  </div>
+                </div>
+                <div className={styles.chipRow}>
+                  <span className={`${styles.chip} ${statusClassNames[selectedObject.status]}`}>
+                    {statusLabels[selectedObject.status]}
+                  </span>
+                  <span className={styles.chip}>балл {selectedAsset?.score ?? 74}</span>
+                  <span className={styles.chip}>{formatLayerCost(selectedObjectTotalMln)}</span>
                 </div>
               </div>
-            )}
-          </aside>
-        </div>
-      )}
 
-      {/* ── CALCULATOR body ─────────────────────────────────── */}
-      {view === "calc" && (
-        <div style={{ flex: 1, overflowY: "auto", background: "#f1f5f9" }}>
-          <div style={{ maxWidth: 1080, margin: "0 auto", padding: "30px 28px 60px" }}>
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, flexWrap: "wrap", borderBottom: "1px solid #e2e8f0", paddingBottom: 22 }}>
-              <div style={{ maxWidth: 560 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: ".18em", textTransform: "uppercase", color: "#94a3b8" }}>Калькулятор защиты от БПЛА</div>
-                <h1 style={{ fontFamily: SYNE, fontWeight: 800, fontSize: 30, lineHeight: 1.1, margin: "8px 0 0", color: "#0f172a" }}>Экономическое обоснование конфигурации</h1>
-                <p style={{ fontSize: 13.5, color: "#64748b", margin: "10px 0 0", lineHeight: 1.5 }}>Смета считается напрямую из размещения на карте — без ручного просчёта в&nbsp;Excel. Цель: дрон&nbsp;200&nbsp;кг (БЧ&nbsp;75&nbsp;кг), до&nbsp;200&nbsp;км/ч.</p>
-              </div>
-              <div style={{ textAlign: "right", background: "#fff", border: "1px solid #dbeafe", borderRadius: 16, padding: "16px 22px", boxShadow: "0 4px 16px rgba(15,23,42,.05)" }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".16em", textTransform: "uppercase", color: "#2563eb", fontWeight: 600 }}>Итого по конфигурации</div>
-                <div style={{ fontFamily: MONO, fontWeight: 600, fontSize: 40, lineHeight: 1, color: "#0f172a", marginTop: 6 }}>{totalMln} <span style={{ fontSize: 18, color: "#64748b" }}>млн ₽</span></div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: "#94a3b8", marginTop: 5 }}>{placedCount} объектов · 5 рубежей</div>
-              </div>
-            </div>
+              <div className={styles.inspectorBody}>
+                <p className={styles.sectionEyebrow}>Геометрия размещения</p>
+                <div className={styles.formGrid}>
+                  <label>
+                    <span>Широта</span>
+                    <input
+                      aria-label="Широта"
+                      type="number"
+                      step="0.000001"
+                      value={selectedObject.coordinates.lat}
+                      onChange={(event) => {
+                        const value = Number(event.target.value);
+                        if (Number.isFinite(value)) {
+                          updateSelectedObject({ coordinates: { ...selectedObject.coordinates, lat: value } });
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    <span>Долгота</span>
+                    <input
+                      aria-label="Долгота"
+                      type="number"
+                      step="0.000001"
+                      value={selectedObject.coordinates.lng}
+                      onChange={(event) => {
+                        const value = Number(event.target.value);
+                        if (Number.isFinite(value)) {
+                          updateSelectedObject({ coordinates: { ...selectedObject.coordinates, lng: value } });
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    <span>Азимут, °</span>
+                    <input
+                      aria-label="Азимут"
+                      type="number"
+                      min={0}
+                      max={359}
+                      value={selectedObjectAzimuthDeg}
+                      onChange={(event) => updateSelectedObject({ rotation: Math.max(0, Math.min(359, Number(event.target.value) || 0)) })}
+                    />
+                  </label>
+                  <label>
+                    <span>Сектор, °</span>
+                    <input
+                      aria-label="Сектор"
+                      type="number"
+                      min={1}
+                      max={360}
+                      value={selectedObjectAngleDeg}
+                      onChange={(event) => updateSelectedObject({ customCoverageAngle: Math.max(1, Math.min(360, Number(event.target.value) || 1)) })}
+                    />
+                  </label>
+                  <label>
+                    <span>Дальность, км</span>
+                    <input
+                      aria-label="Дальность"
+                      type="number"
+                      min={0}
+                      step="0.1"
+                      value={selectedObjectRadiusM / 1000}
+                      onChange={(event) => updateSelectedObject({ customCoverageRadius: Math.max(0, Number(event.target.value) || 0) * 1000 })}
+                    />
+                  </label>
+                  <label>
+                    <span>Кол-во, ед.</span>
+                    <input
+                      aria-label="Кол-во"
+                      type="number"
+                      min={1}
+                      value={selectedObject.quantity}
+                      onChange={(event) => updateSelectedObject({ quantity: Math.max(1, Math.trunc(Number(event.target.value) || 1)) })}
+                    />
+                  </label>
+                </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 11, marginTop: 18, padding: "11px 15px", borderRadius: 11, background: "#fff", border: "1px solid #e2e8f0" }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", flex: "none" }} />
-              <span style={{ fontSize: 13, color: "#334155" }}>Расчёт привязан к конфигурации <b style={{ color: "#0f172a" }}>Завод Альфа · Вариант A</b></span>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: "#94a3b8" }}>версия 12 · синхронизировано 14:32</span>
-              <span style={{ flex: 1 }} />
-              <button onClick={() => setView("studio")} style={{ border: "1px solid #e2e8f0", background: "#f8fafc", color: "#2563eb", font: "inherit", fontSize: 12, fontWeight: 600, padding: "7px 13px", borderRadius: 8, cursor: "pointer" }}>Открыть карту →</button>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, marginTop: 22, alignItems: "start" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {calcRows.map((c) => (
-                  <div key={c.code} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "15px 17px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 11, borderBottom: "1px solid #f1f5f9" }}>
-                      <span style={{ width: 9, height: 9, borderRadius: 3, background: c.color }} />
-                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: "#2563eb" }}>{c.code}</span>
-                      <span style={{ fontSize: 13.5, fontWeight: 700, color: "#0f172a" }}>{c.name}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: "#94a3b8" }}>{c.range}</span>
-                      <span style={{ flex: 1 }} />
-                      <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{c.total} млн</span>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 9 }}>
-                      {c.items.map((li, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 2px" }}>
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", flex: "none", background: li.statusCol }} />
-                          <span style={{ fontSize: 12.5, color: "#334155", flex: 1 }}>{li.name}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: "#94a3b8" }}>{li.unit}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 12, color: "#0f172a", width: 64, textAlign: "right" }}>{li.line} млн</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <aside style={{ position: "sticky", top: 0, display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 17 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "#94a3b8" }}>Смета по рубежам</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 13 }}>
-                    {calcRows.map((c) => (
-                      <div key={c.code} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 11, color: "#2563eb", width: 22 }}>{c.code}</span>
-                        <span style={{ color: "#475569", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</span>
-                        <span style={{ fontFamily: MONO, color: "#0f172a" }}>{c.total}</span>
-                      </div>
+                <div className={styles.fieldGroup}>
+                  <span>Статус</span>
+                  <div className={styles.segmented}>
+                    {(["active", "planned", "inactive", "maintenance"] as const).map((status) => (
+                      <button
+                        type="button"
+                        key={status}
+                        data-active={selectedObject.status === status ? "true" : "false"}
+                        onClick={() => updateSelectedObject({ status })}
+                      >
+                        {statusLabels[status]}
+                      </button>
                     ))}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid #e2e8f0", marginTop: 13, paddingTop: 13 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: "#2563eb", fontWeight: 600 }}>Итого</span>
-                    <span style={{ fontFamily: MONO, fontSize: 22, fontWeight: 600, color: "#0f172a" }}>{totalMln} млн</span>
-                  </div>
                 </div>
 
-                <div style={{ background: "#0f172a", borderRadius: 14, padding: 17, color: "#e2e8f0" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", color: "#64748b" }}>Бюджет</div>
-                  <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 600, marginTop: 8 }}>9 300 <span style={{ fontSize: 13, color: "#64748b" }}>млн ₽</span></div>
-                  <div style={{ height: 7, borderRadius: 5, background: "#1e293b", marginTop: 12, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: "1.5%", background: "linear-gradient(90deg,#2563eb,#38bdf8)", borderRadius: 5 }} />
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginTop: 9 }}>
-                    <span style={{ color: "#94a3b8" }}>распределено {totalMln}</span>
-                    <span style={{ color: "#10b981" }}>остаток {remaining}</span>
-                  </div>
-                  <p style={{ fontSize: 11.5, color: "#64748b", lineHeight: 1.5, margin: "13px 0 0" }}>Конфигурация укладывается в&nbsp;бюджет с&nbsp;запасом. Подбор под лимит — на&nbsp;карте, во&nbsp;вкладке «Эшелоны».</p>
-                </div>
-              </aside>
+                {selectedObject.hasCoverageConflict || selectedObject.hasGeometryConflict || selectedObject.hasTerrainConflict ? (
+                  <div className={styles.conflictCard}>Конфликт геометрии или покрытия. Проверьте азимут, сектор и позицию.</div>
+                ) : null}
+
+                <label className={styles.fieldGroup}>
+                  <span>Заметки</span>
+                  <textarea
+                    aria-label="Заметки"
+                    value={selectedObject.notes ?? ""}
+                    onChange={(event) => updateSelectedObject({ notes: event.target.value })}
+                    placeholder="Примечание к размещению…"
+                  />
+                </label>
+              </div>
+
+              <div className={styles.inspectorActions}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLocateTarget({
+                      lon: selectedObject.coordinates.lng,
+                      lat: selectedObject.coordinates.lat,
+                      at: Date.now(),
+                    })
+                  }
+                >
+                  Показать на карте
+                </button>
+                <button type="button" className={styles.deleteButton} onClick={() => deletePlacedObject(selectedObject.id)}>
+                  Удалить
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className={styles.emptyInspector}>
+              <p>Инспектор объекта</p>
+              <span>OBJ</span>
+              <h1>Объект не выбран</h1>
+              <p>Выберите маркер на карте или строку в дереве эшелонов.</p>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

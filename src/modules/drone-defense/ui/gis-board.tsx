@@ -86,6 +86,7 @@ type GisBoardProps = {
   showCoverage?: boolean;
   showPlacementLabels?: boolean;
   showConstraintWarnings?: boolean;
+  showBaseMapSelector?: boolean;
   onToggleCoverage?: () => void;
   onTogglePlacementLabels?: () => void;
   onToggleConstraintWarnings?: () => void;
@@ -120,6 +121,8 @@ const deckControllerOptions = {
   touchRotate: false,
   keyboard: true,
 } as const;
+const deckTextCharacterSet =
+  " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя.,:;!?()[]{}+-−–—·/№%₽";
 
 const baseMapCategoryLabels: Record<BaseMapSourceCategory, string> = {
   base: "Базовые",
@@ -233,6 +236,7 @@ export function GisBoard({
   showCoverage = true,
   showPlacementLabels = true,
   showConstraintWarnings = true,
+  showBaseMapSelector = true,
   onToggleCoverage,
   onTogglePlacementLabels,
   onToggleConstraintWarnings,
@@ -747,6 +751,7 @@ export function GisBoard({
             new TextLayer<EchelonMapSlot>({
               id: `echelon-${layerSlug}-slot-labels`,
               data: [],
+              characterSet: deckTextCharacterSet,
               getPosition: (item) => item.position,
               getText: (item) => item.label,
               getColor: (item) =>
@@ -855,6 +860,7 @@ export function GisBoard({
           data: showPlacementLabels
             ? echelonModel.placements.filter((item) => item.layerId === selectedLayerId && !item.catalogGroupId)
             : [],
+          characterSet: deckTextCharacterSet,
           getPosition: (item) => item.position,
           getText: (item) => item.label,
           getColor: [15, 23, 42, 255],
@@ -899,6 +905,7 @@ export function GisBoard({
         new TextLayer<Facility>({
           id: "facility-labels",
           data: visibleFacilities,
+          characterSet: deckTextCharacterSet,
           getPosition: (item) => [item.center.lon, item.center.lat],
           getText: (item) => item.name,
           getColor: [30, 41, 59, 255],
@@ -1162,8 +1169,16 @@ export function GisBoard({
         })}
       </div>
 
-      <div className="absolute left-4 top-4 z-10 flex max-w-[min(42rem,calc(100%-2rem))] flex-wrap items-center gap-2">
-        <div className="min-w-[min(22rem,calc(100vw-6rem))] rounded-[11px] border border-slate-200 bg-white/94 px-3 py-2 text-xs shadow-md shadow-slate-900/10 backdrop-blur">
+      <div
+        className={`absolute left-4 z-10 flex max-w-[min(42rem,calc(100%-2rem))] flex-wrap items-center gap-2 ${
+          showBaseMapSelector ? "top-4" : "top-[4.5rem]"
+        }`}
+      >
+        <div
+          className={`rounded-[11px] border border-slate-200 bg-white/94 px-3 py-2 text-xs shadow-md shadow-slate-900/10 backdrop-blur ${
+            showBaseMapSelector ? "min-w-[min(22rem,calc(100vw-6rem))]" : "max-w-[13rem]"
+          }`}
+        >
           <div className="flex items-center gap-2">
             <span
               className="h-3 w-3 rounded-[3px]"
@@ -1204,23 +1219,30 @@ export function GisBoard({
           Ограничения
         </button>
         <span className={styles.studioToolbarDivider} aria-hidden="true" />
-        <button type="button" className={styles.studioToggleButton} data-active="false">
-          Линейка
+        <button
+          type="button"
+          className={`${styles.studioToggleButton} min-w-9 px-0 text-base`}
+          data-active="false"
+          aria-label="Линейка"
+          title="Линейка"
+        >
+          📐
         </button>
-        <div className="relative">
-          <button
-            className={styles.studioToggleButton}
-            type="button"
-            onClick={() => setIsBaseMapMenuOpen((current) => !current)}
-            aria-expanded={isBaseMapMenuOpen}
-            aria-haspopup="dialog"
-            aria-label="Выбрать источник карты"
-            data-active={isBaseMapMenuOpen ? "true" : "false"}
-            title={`Источник карты: ${currentBaseMapSource.title}`}
-          >
-            <span>Карта</span>
-          </button>
-          {isBaseMapMenuOpen ? (
+        {showBaseMapSelector ? (
+          <div className="relative">
+            <button
+              className={`${styles.studioToggleButton} min-w-9 px-0 text-base`}
+              type="button"
+              onClick={() => setIsBaseMapMenuOpen((current) => !current)}
+              aria-expanded={isBaseMapMenuOpen}
+              aria-haspopup="dialog"
+              aria-label="Выбрать источник карты"
+              data-active={isBaseMapMenuOpen ? "true" : "false"}
+              title={`Источник карты: ${currentBaseMapSource.title}`}
+            >
+              <span aria-hidden="true">▰</span>
+            </button>
+            {isBaseMapMenuOpen ? (
             <div className="absolute right-0 mt-2 w-[min(26rem,calc(100vw-2rem))] max-h-[70vh] overflow-y-auto rounded-2xl border border-white/70 bg-white/97 p-3 shadow-2xl shadow-slate-900/20 backdrop-blur">
               <div className="mb-2 flex items-center justify-between">
                 <div>
@@ -1289,9 +1311,10 @@ export function GisBoard({
                 ))}
               </div>
             </div>
-          ) : null}
-        </div>
-        <span className={styles.studioToolbarDivider} aria-hidden="true" />
+            ) : null}
+          </div>
+        ) : null}
+        {showBaseMapSelector ? <span className={styles.studioToolbarDivider} aria-hidden="true" /> : null}
         <button
           className={`${styles.studioToggleButton} min-w-9 px-0 text-base`}
           type="button"
@@ -1299,7 +1322,7 @@ export function GisBoard({
           aria-label="Приблизить карту"
           title={`Приблизить карту · zoom ${zoomReadout.toFixed(1)}`}
         >
-          +
+          ＋
         </button>
         <button
           className={`${styles.studioToggleButton} min-w-9 px-0 text-base`}
@@ -1308,7 +1331,7 @@ export function GisBoard({
           aria-label="Отдалить карту"
           title={`Отдалить карту · zoom ${zoomReadout.toFixed(1)}`}
         >
-          −
+          －
         </button>
       </div>
 

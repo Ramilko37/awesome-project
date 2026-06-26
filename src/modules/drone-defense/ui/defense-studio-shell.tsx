@@ -137,10 +137,11 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               className="inline-flex h-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 text-xs font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
             />
             <button
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-slate-300 transition hover:bg-white/10 hover:text-white"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-slate-600 transition disabled:cursor-not-allowed disabled:opacity-70"
               type="button"
+              disabled
               aria-label="Экспорт"
-              title="Экспорт"
+              title="Экспорт отчёта доступен в калькуляторе"
             >
               <ExportOutlined />
             </button>

@@ -159,68 +159,63 @@ export function CalculatorPage() {
   const conflictCount = layerSummaries.reduce((acc, summary) => acc + summary.conflictCount, 0);
 
   return (
-    <div className="studioCalculatorShell font-(family-name:--font-manrope) min-h-full bg-[#eef3f8] text-slate-800">
-      <div className="relative mx-auto max-w-[1440px] px-4 py-4 lg:px-5 print:hidden">
-        <header className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded bg-blue-50 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-blue-700">
-                  Studio
-                </span>
-                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-slate-400">
-                  Калькулятор защиты
-                </span>
-              </div>
-              <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-950 lg:text-2xl">
-                Калькулятор защиты от БПЛА
-              </h1>
-              <p className="mt-0.5 max-w-2xl text-sm text-slate-500">
-                Смета, приоритет и покрытие по текущей конфигурации карты.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href="/prototype"
-                className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-blue-400 hover:text-blue-700"
-              >
-                Карта защиты
-              </Link>
-              <ThemeToggle />
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 font-mono text-[11px] uppercase tracking-wider text-slate-600 transition hover:border-blue-400 hover:text-blue-700"
-                title="Сформировать PDF-отчёт (Сохранить как PDF)"
-              >
-                <PrinterOutlined /> PDF-отчёт
-              </button>
-            </div>
+    <div className="studioCalculatorShell min-h-full bg-[#f1f5f9] font-(family-name:--font-manrope) text-slate-900">
+      <div className="relative mx-auto max-w-[1080px] px-4 py-6 sm:px-7 sm:py-[30px] print:hidden">
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <p className="font-(family-name:--font-ibm-plex-mono) text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-700">
+              Studio summary
+            </p>
+            <h1 className="mt-1 font-(family-name:--font-syne) text-2xl font-bold text-slate-950 sm:text-3xl">
+              Калькулятор защиты от БПЛА
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+              Смета, структура и риски по текущей карте защиты.
+            </p>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/prototype"
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-blue-400 hover:text-blue-700"
+            >
+              Карта защиты
+            </Link>
+            <ThemeToggle />
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 font-mono text-[11px] uppercase tracking-wider text-slate-600 transition hover:border-blue-400 hover:text-blue-700"
+              title="Сформировать PDF-отчёт (Сохранить как PDF)"
+            >
+              <PrinterOutlined /> PDF-отчёт
+            </button>
+          </div>
+        </header>
 
-          <div className="mt-3 grid gap-2 md:grid-cols-4">
-            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-blue-700">Итого</p>
-              <p className="font-mono text-2xl font-bold tabular-nums text-slate-950">{formatMln(totalMln)}</p>
+        <section className="mt-5 rounded-2xl bg-[#0f172a] p-4 text-white shadow-[0_16px_36px_rgba(15,23,42,0.16)] sm:p-5">
+          <div className="grid gap-3 md:grid-cols-[1.35fr_1fr_1fr_1fr]">
+            <div className="rounded-xl border border-white/10 bg-white/[0.08] px-4 py-3">
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-sky-200">Итого</p>
+              <p className="mt-1 font-mono text-3xl font-bold tabular-nums text-white">{formatMln(totalMln)}</p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">Единицы</p>
-              <p className="font-mono text-2xl font-bold tabular-nums text-slate-900">{placedCount}</p>
+            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-400">Единицы</p>
+              <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-white">{placedCount}</p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">Позиции / эшелоны</p>
-              <p className="font-mono text-2xl font-bold tabular-nums text-slate-900">{positionsCount} / {filledLayerCount}</p>
+            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-400">Позиции / эшелоны</p>
+              <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-white">{positionsCount} / {filledLayerCount}</p>
             </div>
-            <div className={`rounded-lg border px-3 py-2 ${conflictCount > 0 ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
-              <p className={`font-mono text-[10px] uppercase tracking-[0.14em] ${conflictCount > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+            <div className={`rounded-xl border px-4 py-3 ${conflictCount > 0 ? "border-amber-300/40 bg-amber-400/15" : "border-emerald-300/40 bg-emerald-400/15"}`}>
+              <p className={`font-mono text-[10px] uppercase tracking-[0.14em] ${conflictCount > 0 ? "text-amber-200" : "text-emerald-200"}`}>
                 Статус
               </p>
-              <p className={`font-mono text-2xl font-bold tabular-nums ${conflictCount > 0 ? "text-amber-900" : "text-emerald-900"}`}>
+              <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-white">
                 {conflictCount > 0 ? conflictCount : "OK"}
               </p>
             </div>
           </div>
-        </header>
+        </section>
 
         <div className={`mt-3 rounded-lg border px-4 py-3 text-sm ${
           isConfigurationEmpty ? "border-amber-200 bg-amber-50 text-amber-800" : "border-blue-100 bg-blue-50 text-blue-900"
