@@ -684,6 +684,16 @@
   color: #fbbf24;
 }
 
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
 .inspectorHeader {
   border-bottom: 1px solid var(--fs-border);
   padding: 15px 16px 14px;

@@ -685,6 +685,9 @@ export function FortisStudioPrototype() {
             <span>{formatLayerCost(projectTotalMln)}</span>
             <i aria-hidden="true" />
             <span className={styles.draftState}>● {savedAt ? `сохранено ${savedAt}` : "черновик"}</span>
+            <span className={styles.srOnly} aria-live="polite">
+              {savedAt ? `Проект сохранён локально в ${savedAt}` : lastMessage ?? ""}
+            </span>
           </div>
 
           {coordinatePlacementAsset && activeLayer ? (
@@ -815,6 +818,7 @@ export function FortisStudioPrototype() {
                       <button
                         type="button"
                         key={status}
+                        aria-pressed={selectedObject.status === status}
                         data-active={selectedObject.status === status ? "true" : "false"}
                         onClick={() => updateSelectedObject({ status })}
                       >

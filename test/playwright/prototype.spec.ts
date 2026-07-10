@@ -103,6 +103,26 @@ test("prototype desktop renders Studio shell, tabs, tree, library and inspector"
   await expect(page.getByRole("tab", { name: "Эшелоны" })).toBeVisible();
   await expect(page.getByText("Инспектор объекта")).toBeVisible();
 
+  const mapToolbar = page.getByRole("toolbar", { name: "Слои и масштаб карты" });
+  await expect(mapToolbar).toBeVisible();
+  for (const name of ["Покрытие", "Подписи", "Ограничения"]) {
+    await expect(mapToolbar.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+  }
+  await mapToolbar.getByRole("button", { name: "Покрытие" }).click();
+  await expect(mapToolbar.getByRole("button", { name: "Покрытие" })).toHaveAttribute("aria-pressed", "false");
+  await expect(mapToolbar.getByRole("button", { name: "Линейка" })).toBeDisabled();
+
+  await expect(page.getByRole("button", { name: "Активен" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "План" })).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", { name: "План" }).click();
+  await expect(page.getByRole("button", { name: "План" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Активен" })).toHaveAttribute("aria-pressed", "false");
+
+  const liveAnnouncement = page.locator('[aria-live="polite"]');
+  await expect(liveAnnouncement).toBeAttached();
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await expect(liveAnnouncement).toContainText(/Проект сохранён локально в \d{2}:\d{2}/);
+
   const placedObject = page.getByRole("button", { name: /QA Radar Unique/ }).first();
   await expect(placedObject).toBeVisible();
   await expect(page.getByText("МОГ — пост №1")).toHaveCount(0);

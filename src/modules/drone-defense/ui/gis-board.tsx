@@ -241,6 +241,7 @@ export function GisBoard({
   onTogglePlacementLabels,
   onToggleConstraintWarnings,
 }: GisBoardProps) {
+  const isMeasureEnabled = false;
   const availableBaseMapSources = useMemo(() => getAvailableBaseMapSources(), []);
   const defaultBaseMapSourceId = useMemo(
     () => resolveDefaultBaseMapSourceId(availableBaseMapSources),
@@ -1206,10 +1207,16 @@ export function GisBoard({
         </div>
       </div>
 
-      <div ref={baseMapMenuRef} className={styles.studioMapToolbar} aria-label="Слои и масштаб карты">
+      <div
+        ref={baseMapMenuRef}
+        className={styles.studioMapToolbar}
+        role="toolbar"
+        aria-label="Слои и масштаб карты"
+      >
         <button
           type="button"
           className={styles.studioToggleButton}
+          aria-pressed={showCoverage}
           data-active={showCoverage ? "true" : "false"}
           onClick={onToggleCoverage}
         >
@@ -1218,6 +1225,7 @@ export function GisBoard({
         <button
           type="button"
           className={styles.studioToggleButton}
+          aria-pressed={showPlacementLabels}
           data-active={showPlacementLabels ? "true" : "false"}
           onClick={onTogglePlacementLabels}
         >
@@ -1226,6 +1234,7 @@ export function GisBoard({
         <button
           type="button"
           className={styles.studioToggleButton}
+          aria-pressed={showConstraintWarnings}
           data-active={showConstraintWarnings ? "true" : "false"}
           onClick={onToggleConstraintWarnings}
         >
@@ -1236,8 +1245,9 @@ export function GisBoard({
           type="button"
           className={`${styles.studioToggleButton} min-w-9 px-0 text-base`}
           data-active="false"
+          disabled={!isMeasureEnabled}
           aria-label="Линейка"
-          title="Линейка"
+          title="Линейка будет доступна после включения режима измерения"
         >
           📐
         </button>
