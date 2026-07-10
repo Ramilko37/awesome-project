@@ -13,7 +13,7 @@
   height: 100dvh;
   min-height: 100dvh;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
   overflow-x: hidden;
   background: #f1f5f9;
   color: var(--fs-slate);
@@ -225,22 +225,10 @@
 }
 
 .workspace {
-  display: grid;
-  min-height: 0;
+  display: flex;
+  min-height: auto;
   flex: 1;
-  grid-template-columns: minmax(272px, 312px) minmax(0, 1fr) minmax(300px, 328px);
-}
-
-.workspace[data-left-open="false"][data-inspector-open="true"] {
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 328px);
-}
-
-.workspace[data-left-open="true"][data-inspector-open="false"] {
-  grid-template-columns: minmax(272px, 312px) minmax(0, 1fr);
-}
-
-.workspace[data-left-open="false"][data-inspector-open="false"] {
-  grid-template-columns: minmax(0, 1fr);
+  flex-direction: column;
 }
 
 .leftPanel,
@@ -252,11 +240,17 @@
 }
 
 .leftPanel {
-  border-right: 1px solid var(--fs-border);
+  order: 2;
+  min-height: 390px;
+  border-top: 1px solid var(--fs-border);
+  border-right: 0;
 }
 
 .inspector {
-  border-left: 1px solid var(--fs-border);
+  order: 3;
+  min-height: 420px;
+  border-top: 1px solid var(--fs-border);
+  border-left: 0;
 }
 
 .tabs {
@@ -619,8 +613,9 @@
 
 .mapStage {
   position: relative;
+  order: 1;
   min-width: 0;
-  min-height: 0;
+  min-height: 430px;
   overflow: hidden;
   background: radial-gradient(circle at 50% 46%, #eef4fb 0%, #e3eaf2 55%, #dbe3ee 100%);
 }
@@ -655,7 +650,7 @@
 
 .gisBoard {
   height: 100%;
-  min-height: 0;
+  min-height: 430px;
   border: 0;
   border-radius: 0;
 }
@@ -756,6 +751,10 @@
 }
 
 .inspectorTopline button {
+  display: grid;
+  min-width: 44px;
+  min-height: 44px;
+  place-items: center;
   border: 0;
   background: transparent;
   color: #94a3b8;
@@ -770,8 +769,7 @@
   margin-top: 11px;
 }
 
-.inspectorTitle > span,
-.emptyInspector span {
+.inspectorTitle > span {
   display: grid;
   width: 36px;
   height: 36px;
@@ -789,8 +787,7 @@
   min-width: 0;
 }
 
-.inspectorTitle h1,
-.emptyInspector h1 {
+.inspectorTitle h1 {
   margin: 0;
   color: #0f172a;
   font-size: 14.5px;
@@ -798,21 +795,11 @@
   line-height: 1.2;
 }
 
-.inspectorTitle p,
-.emptyInspector p {
+.inspectorTitle p {
   margin: 2px 0 0;
   color: #94a3b8;
   font-family: var(--fs-mono);
   font-size: 11px;
-}
-
-.emptyInspector > p:first-child {
-  margin: 0 0 14px;
-  color: var(--fs-blue);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 .chipRow {
@@ -1000,41 +987,13 @@
   color: #b91c1c;
 }
 
-.emptyInspector {
-  display: grid;
-  min-height: 100%;
-  align-content: center;
-  justify-items: center;
-  padding: 24px;
-  text-align: center;
-}
-
-.emptyInspector span {
-  margin-bottom: 14px;
-}
-
 @media (max-width: 1180px) {
   .facilityChip {
     display: none;
   }
-
-  .workspace {
-    grid-template-columns: 300px minmax(0, 1fr);
-  }
-
-  .inspector {
-    grid-column: 1 / -1;
-    min-height: 360px;
-    border-top: 1px solid var(--fs-border);
-    border-left: 0;
-  }
 }
 
 @media (max-width: 900px) {
-  .root {
-    overflow-y: auto;
-  }
-
   .appBar {
     min-height: auto;
     flex-wrap: wrap;
@@ -1060,36 +1019,6 @@
   .historyGroup,
   .exportButton {
     display: none;
-  }
-
-  .workspace {
-    display: flex;
-    min-height: auto;
-    flex: 1;
-    flex-direction: column;
-  }
-
-  .mapStage {
-    order: 1;
-    min-height: 430px;
-  }
-
-  .leftPanel {
-    order: 2;
-    min-height: 360px;
-    border-top: 1px solid var(--fs-border);
-    border-right: 0;
-  }
-
-  .inspector {
-    order: 3;
-    min-height: 420px;
-    border-top: 1px solid var(--fs-border);
-    border-left: 0;
-  }
-
-  .gisBoard {
-    min-height: 430px;
   }
 
   .warningStack {
@@ -1125,11 +1054,6 @@
     padding-inline: 10px;
   }
 
-  .leftPanel,
-  .inspector {
-    min-height: 390px;
-  }
-
   .formGrid,
   .metricGrid {
     grid-template-columns: 1fr;
@@ -1137,5 +1061,68 @@
 
   .segmented {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 768px) {
+  .root {
+    overflow: hidden;
+  }
+
+  .workspace {
+    display: grid;
+    min-height: 0;
+    grid-template-columns: minmax(17rem, 18.75rem) minmax(0, 1fr);
+  }
+
+  .workspace[data-left-open="false"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mapStage {
+    order: initial;
+    min-height: 0;
+  }
+
+  .leftPanel {
+    order: initial;
+    min-height: 0;
+    border-top: 0;
+    border-right: 1px solid var(--fs-border);
+  }
+
+  .inspector {
+    grid-column: 1 / -1;
+    order: initial;
+    min-height: 22.5rem;
+  }
+
+  .gisBoard {
+    min-height: 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .workspace {
+    grid-template-columns: minmax(17rem, 19.5rem) minmax(0, 1fr) minmax(18.75rem, 20.5rem);
+  }
+
+  .workspace[data-left-open="false"][data-inspector-open="true"] {
+    grid-template-columns: minmax(0, 1fr) minmax(18.75rem, 20.5rem);
+  }
+
+  .workspace[data-left-open="true"][data-inspector-open="false"] {
+    grid-template-columns: minmax(17rem, 19.5rem) minmax(0, 1fr);
+  }
+
+  .workspace[data-left-open="false"][data-inspector-open="false"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .inspector {
+    grid-column: auto;
+    min-height: 0;
+    border-top: 0;
+    border-left: 1px solid var(--fs-border);
   }
 }

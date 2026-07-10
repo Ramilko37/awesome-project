@@ -157,6 +157,58 @@ test("closing the object inspector returns width to the GIS canvas", async ({ pa
   await expect(page.getByRole("heading", { name: "QA Radar Unique" })).toBeVisible();
 });
 
+test("left panel collapse returns tablet width and exposes panel state", async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 900 });
+  await page.goto(`${baseUrl}/prototype`);
+  await page.evaluate((project) => {
+    window.localStorage.setItem("fortis-defense-project", JSON.stringify(project));
+  }, buildSeedProject());
+  await page.reload();
+
+  const workspace = page.locator('[data-left-open][data-inspector-open]');
+  const leftPanel = page
+    .getByRole("complementary")
+    .filter({ has: page.getByRole("tablist", { name: "Панель Fortis Studio" }) });
+  const canvas = page.locator("canvas").first();
+  const before = await canvas.boundingBox();
+
+  await expect(workspace).toHaveAttribute("data-left-open", "true");
+  await expect(workspace).toHaveAttribute("data-inspector-open", "true");
+  await expect(page.getByRole("button", { name: "Скрыть панель" })).toHaveAttribute("aria-expanded", "true");
+  await expect(leftPanel).toBeVisible();
+
+  await page.getByRole("button", { name: "Скрыть панель" }).click();
+  await expect(workspace).toHaveAttribute("data-left-open", "false");
+  await expect(page.getByRole("button", { name: "Открыть панель" })).toHaveAttribute("aria-expanded", "false");
+  await expect(leftPanel).toHaveCount(0);
+
+  const collapsed = await canvas.boundingBox();
+  expect(before).not.toBeNull();
+  expect(collapsed).not.toBeNull();
+  expect(collapsed!.width - before!.width).toBeGreaterThanOrEqual(280);
+
+  await page.getByRole("button", { name: "Открыть панель" }).click();
+  await expect(workspace).toHaveAttribute("data-left-open", "true");
+  await expect(page.getByRole("button", { name: "Скрыть панель" })).toHaveAttribute("aria-expanded", "true");
+  await expect(leftPanel).toBeVisible();
+  await expect.poll(async () => (await canvas.boundingBox())?.width ?? 0).toBeCloseTo(before!.width, 0);
+});
+
+test("mobile inspector close action is touch sized", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${baseUrl}/prototype`);
+  await page.evaluate((project) => {
+    window.localStorage.setItem("fortis-defense-project", JSON.stringify(project));
+  }, buildSeedProject());
+  await page.reload();
+
+  const closeButton = page.getByRole("button", { name: "Закрыть инспектор" });
+  const box = await closeButton.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.width).toBeGreaterThanOrEqual(44);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+});
+
 test("prototype edits, persists, places and deletes DefenseProject objects", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto(`${baseUrl}/prototype`);
