@@ -93,6 +93,8 @@ function projectAssetGlyph(shortName: string | undefined, name: string | undefin
 
 export function FortisStudioPrototype() {
   const [leftTab, setLeftTab] = useState<"echelons" | "library">("echelons");
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(true);
   const [query, setQuery] = useState("");
   const [expandedLayerIds, setExpandedLayerIds] = useState<Record<string, boolean>>({});
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
@@ -275,6 +277,7 @@ export function FortisStudioPrototype() {
     const object = project.placedObjects.find((item) => item.id === objectId);
     if (!object) return;
     selectObject(objectId);
+    setIsInspectorOpen(true);
     selectLayer(object.layerId);
     setExpandedLayerIds((current) => ({ ...current, [object.layerId]: true }));
     setLeftTab("echelons");
@@ -300,6 +303,7 @@ export function FortisStudioPrototype() {
     const validation = placeObject(asset.id, activeLayer.id, { lat, lng }, compoundProfile ? { compoundProfile } : undefined);
     setLastMessage(validation.message ?? `${asset.name} размещено в эшелоне ${activeLayer.code}`);
     if (validation.isValid) {
+      setIsInspectorOpen(true);
       setActiveToolId(null);
       setSelectedSlotId(null);
       setCoordinatePlacementAssetId(null);
@@ -328,6 +332,7 @@ export function FortisStudioPrototype() {
       return;
     }
     setActiveToolId(null);
+    setIsInspectorOpen(true);
     setSelectedSlotId(args.slotId);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
@@ -392,6 +397,7 @@ export function FortisStudioPrototype() {
       return;
     }
     setActiveToolId(null);
+    setIsInspectorOpen(true);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
     setLeftTab("echelons");
@@ -466,8 +472,13 @@ export function FortisStudioPrototype() {
         </button>
       </header>
 
-      <div className={styles.workspace}>
-        <aside className={styles.leftPanel}>
+      <div
+        className={styles.workspace}
+        data-left-open={isLeftPanelOpen}
+        data-inspector-open={Boolean(selectedObject && isInspectorOpen)}
+      >
+        {isLeftPanelOpen ? (
+          <aside className={styles.leftPanel}>
           <div className={styles.tabs} role="tablist" aria-label="Панель Fortis Studio">
             <button
               type="button"
@@ -615,9 +626,26 @@ export function FortisStudioPrototype() {
               ))}
             </div>
           )}
-        </aside>
+          </aside>
+        ) : null}
 
         <main className={styles.mapStage}>
+          <div className={styles.workspaceControls}>
+            <button
+              type="button"
+              aria-expanded={isLeftPanelOpen}
+              onClick={() => setIsLeftPanelOpen((value) => !value)}
+            >
+              {isLeftPanelOpen ? "Скрыть панель" : "Открыть панель"}
+            </button>
+            {selectedObject && !isInspectorOpen ? (
+              <button type="button" onClick={() => setIsInspectorOpen(true)}>
+                Открыть инспектор
+              </button>
+            ) : selectedObject ? null : (
+              <span>Инспектор объекта</span>
+            )}
+          </div>
           <GisBoard
             className={styles.gisBoard}
             facilities={mapFacilities}
@@ -707,13 +735,13 @@ export function FortisStudioPrototype() {
           ) : null}
         </main>
 
-        <aside className={styles.inspector}>
-          {selectedObject ? (
+        {selectedObject && isInspectorOpen ? (
+          <aside className={styles.inspector}>
             <>
               <div className={styles.inspectorHeader}>
                 <div className={styles.inspectorTopline}>
                   <span>Инспектор объекта</span>
-                  <button type="button" onClick={() => selectObject(null)} aria-label="Закрыть инспектор">
+                  <button type="button" onClick={() => setIsInspectorOpen(false)} aria-label="Закрыть инспектор">
                     ×
                   </button>
                 </div>
@@ -861,15 +889,8 @@ export function FortisStudioPrototype() {
                 </button>
               </div>
             </>
-          ) : (
-            <div className={styles.emptyInspector}>
-              <p>Инспектор объекта</p>
-              <span>OBJ</span>
-              <h1>Объект не выбран</h1>
-              <p>Выберите маркер на карте или строку в дереве эшелонов.</p>
-            </div>
-          )}
-        </aside>
+          </aside>
+        ) : null}
       </div>
     </div>
   );

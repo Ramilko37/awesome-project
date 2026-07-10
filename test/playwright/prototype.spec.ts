@@ -136,6 +136,27 @@ test("prototype desktop renders Studio shell, tabs, tree, library and inspector"
   expect(hydrationMessages).toEqual([]);
 });
 
+test("closing the object inspector returns width to the GIS canvas", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto(`${baseUrl}/prototype`);
+  await page.evaluate((project) => {
+    window.localStorage.setItem("fortis-defense-project", JSON.stringify(project));
+  }, buildSeedProject());
+  await page.reload();
+
+  const canvas = page.locator("canvas").first();
+  const before = await canvas.boundingBox();
+  await page.getByRole("button", { name: "Закрыть инспектор" }).click();
+  const after = await canvas.boundingBox();
+
+  expect(before).not.toBeNull();
+  expect(after).not.toBeNull();
+  expect(after!.width - before!.width).toBeGreaterThanOrEqual(280);
+
+  await page.getByRole("button", { name: "Открыть инспектор" }).click();
+  await expect(page.getByRole("heading", { name: "QA Radar Unique" })).toBeVisible();
+});
+
 test("prototype edits, persists, places and deletes DefenseProject objects", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto(`${baseUrl}/prototype`);

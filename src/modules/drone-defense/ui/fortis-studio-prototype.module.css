@@ -228,7 +228,19 @@
   display: grid;
   min-height: 0;
   flex: 1;
-  grid-template-columns: 312px minmax(0, 1fr) 328px;
+  grid-template-columns: minmax(272px, 312px) minmax(0, 1fr) minmax(300px, 328px);
+}
+
+.workspace[data-left-open="false"][data-inspector-open="true"] {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 328px);
+}
+
+.workspace[data-left-open="true"][data-inspector-open="false"] {
+  grid-template-columns: minmax(272px, 312px) minmax(0, 1fr);
+}
+
+.workspace[data-left-open="false"][data-inspector-open="false"] {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .leftPanel,
@@ -611,6 +623,34 @@
   min-height: 0;
   overflow: hidden;
   background: radial-gradient(circle at 50% 46%, #eef4fb 0%, #e3eaf2 55%, #dbe3ee 100%);
+}
+
+.workspaceControls {
+  position: absolute;
+  z-index: 40;
+  top: 0.9rem;
+  left: 1rem;
+  display: flex;
+  gap: 0.35rem;
+}
+
+.workspaceControls button,
+.workspaceControls span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  border: 1px solid var(--fs-border);
+  border-radius: 0.6rem;
+  background: rgba(255, 255, 255, 0.94);
+  color: #334155;
+  padding: 0 0.75rem;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.workspaceControls button {
+  cursor: pointer;
 }
 
 .gisBoard {
