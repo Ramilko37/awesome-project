@@ -254,6 +254,15 @@ async function main() {
   assert(useDefenseVariantsStore.getState().syncStatus === "clean", "loaded server version must be clean");
   console.log("project sync retry and reload: OK");
 
+  // 10. Reloading the browser restores the selected backend project instead of trusting a cached project body.
+  resetStore();
+  globalThis.localStorage.setItem("fortis-active-project-id", "I");
+  fetchHandler = () => ({ ok: true, status: 200, data: { ...minimalProject("I"), projectName: "версия с сервера" } });
+  await useDefenseVariantsStore.getState().restoreActiveVariant();
+  assert(useDefenseVariantsStore.getState().activeVariantId === "I", "reload must restore the active project id");
+  assert(useDefenseProjectStore.getState().project.projectName === "версия с сервера", "reload must use the server project body");
+  console.log("active backend project restore: OK");
+
   console.log("use-defense-variants-store.test.ts: variants store contracts passed");
 }
 

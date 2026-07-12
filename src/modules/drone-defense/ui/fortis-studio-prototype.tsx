@@ -131,6 +131,7 @@ export function FortisStudioPrototype() {
   } = useDefenseProjectStore();
 
   const { syncStatus, activeVariantId } = useDefenseVariantsStore();
+  const restoreActiveVariant = useDefenseVariantsStore((state) => state.restoreActiveVariant);
 
   const {
     init,
@@ -154,6 +155,10 @@ export function FortisStudioPrototype() {
     restoreProjectFromLocalStorage();
     restoreMapViewFromLocalStorage();
   }, [restoreMapViewFromLocalStorage, restoreProjectFromLocalStorage]);
+
+  useEffect(() => {
+    void restoreActiveVariant();
+  }, [restoreActiveVariant]);
 
   const orderedLayers = useMemo(() => [...project.layers].sort((a, b) => a.order - b.order), [project.layers]);
   const activeLayerId = project.activeLayerId ?? orderedLayers[0]?.id ?? "";

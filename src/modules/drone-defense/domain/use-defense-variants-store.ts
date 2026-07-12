@@ -19,6 +19,7 @@ import { useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
 import type { DefenseProject, VariantSummary } from "@/shared/types/defense-project";
 
 type Status = "idle" | "loading" | "error";
+const ACTIVE_PROJECT_STORAGE_KEY = "fortis-active-project-id";
 
 type VariantsState = {
   variants: VariantSummary[];
@@ -39,6 +40,7 @@ type VariantsState = {
   loadServerVersion: () => Promise<void>;
   saveConflictAsNewVariant: (name: string) => Promise<void>;
   loadVariant: (id: string) => Promise<void>;
+  restoreActiveVariant: () => Promise<void>;
   deleteVariant: (id: string) => Promise<void>;
 };
 
@@ -80,6 +82,17 @@ function clearRecovery(projectId: string) {
   if (storage) clearRecoveryDraft(storage, projectId);
 }
 
+function rememberActiveProject(projectId: string | null) {
+  const storage = browserStorage();
+  if (!storage) return;
+  if (projectId) storage.setItem(ACTIVE_PROJECT_STORAGE_KEY, projectId);
+  else storage.removeItem(ACTIVE_PROJECT_STORAGE_KEY);
+}
+
+function rememberedActiveProject() {
+  return browserStorage()?.getItem(ACTIVE_PROJECT_STORAGE_KEY) ?? null;
+}
+
 export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
   variants: [],
   activeVariantId: null,
@@ -118,6 +131,7 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
       useDefenseProjectStore.getState().replaceProject(persistedProject);
       clearRecovery(project.projectId);
       clearRecovery(persistedProject.projectId);
+      rememberActiveProject(summary.projectId);
       await get().fetchVariants();
     } catch (err) {
       const project = useDefenseProjectStore.getState().project;
@@ -146,6 +160,7 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
       });
       useDefenseProjectStore.getState().replaceProject(persistedProject);
       clearRecovery(persistedProject.projectId);
+      rememberActiveProject(persistedProject.projectId);
       await get().fetchVariants();
     } catch (err) {
       const errorMessage = isVersionConflict(err)
@@ -195,6 +210,7 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
       useDefenseProjectStore.getState().replaceProject(persistedProject);
       clearRecovery(staleProjectId);
       clearRecovery(persistedProject.projectId);
+      rememberActiveProject(summary.projectId);
       await get().fetchVariants();
     } catch (err) {
       saveRecovery(project, "error");
@@ -222,6 +238,7 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
       });
       useDefenseProjectStore.getState().replaceProject(backendProject);
       clearRecovery(backendProject.projectId);
+      rememberActiveProject(backendProject.projectId);
       useDefenseStudioStore.setState({ selectedPlacementId: null });
       set({
         loadStatus: "idle",
@@ -231,12 +248,18 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
     }
   },
 
+  restoreActiveVariant: async () => {
+    const projectId = rememberedActiveProject();
+    if (projectId) await get().loadVariant(projectId);
+  },
+
   deleteVariant: async (id) => {
     set({ error: null });
     try {
       await apiDeleteVariant(id);
       if (get().activeVariantId === id) {
         set({ activeVariantId: null, activeVariantName: null });
+        rememberActiveProject(null);
       }
       await get().fetchVariants();
     } catch (err) {
