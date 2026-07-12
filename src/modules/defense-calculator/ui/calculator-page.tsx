@@ -216,14 +216,23 @@ export function CalculatorPage() {
               Карта защиты
             </Link>
             <ThemeToggle />
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 font-mono text-[11px] uppercase tracking-wider text-slate-600 transition hover:border-blue-400 hover:text-blue-700"
-              title="Сформировать PDF-отчёт (Сохранить как PDF)"
-            >
-              <PrinterOutlined /> PDF-отчёт
-            </button>
+            {isBackendProject ? (
+              <Link
+                href={`/report?id=${encodeURIComponent(project.projectId)}`}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 font-mono text-[11px] uppercase tracking-wider text-slate-600 transition hover:border-blue-400 hover:text-blue-700"
+              >
+                <PrinterOutlined /> Открыть отчёт
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 font-mono text-[11px] uppercase tracking-wider text-slate-600 transition hover:border-blue-400 hover:text-blue-700"
+                title="Сформировать PDF-отчёт (Сохранить как PDF)"
+              >
+                <PrinterOutlined /> PDF-отчёт
+              </button>
+            )}
           </div>
         </header>
 
