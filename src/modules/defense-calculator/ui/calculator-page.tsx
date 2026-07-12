@@ -78,12 +78,14 @@ export function CalculatorPage() {
     project,
     applyBudgetSelection,
     restoreProjectFromLocalStorage,
+    hydrated,
     budgetApplied,
   } = useDefenseProjectStore();
 
   useEffect(() => {
+    if (hydrated) return;
     restoreProjectFromLocalStorage();
-  }, [restoreProjectFromLocalStorage]);
+  }, [hydrated, restoreProjectFromLocalStorage]);
 
   useEffect(() => {
     if (project.source !== "backend" || typeof project.version !== "number") {

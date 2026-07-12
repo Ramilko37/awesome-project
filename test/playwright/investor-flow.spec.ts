@@ -78,6 +78,36 @@ test("saved server project opens the printable report route", async ({ page }) =
   await expect(reportLink).toHaveAttribute("href", "/report?id=server-project");
 });
 
+test("opening a saved variant keeps backend data when navigating to the calculator", async ({ page }) => {
+  await page.route("**/api/defense/projects**", (route) => {
+    const pathname = new URL(route.request().url()).pathname.replace(/\/+$/, "");
+    if (pathname === "/api/defense/projects") {
+      return route.fulfill({ contentType: "application/json", body: JSON.stringify({
+        items: [{ projectId: "server-project", name: "Вариант A", projectName: "Серверный вариант", enterpriseId: "enterprise-alpha", version: 4, updatedAt: "2026-07-12T00:00:00Z" }],
+        totalItems: 1,
+      }) });
+    }
+    return route.fulfill({ contentType: "application/json", body: JSON.stringify(backendProject()) });
+  });
+  await page.route("**/api/v1/projects/cost?id=server-project", (route) =>
+    route.fulfill({ contentType: "application/json", body: JSON.stringify(backendReport().estimate) }),
+  );
+  await page.route("**/api/v1/projects/report?id=server-project*", (route) =>
+    route.fulfill({ contentType: "application/json", body: JSON.stringify(backendReport()) }),
+  );
+  await page.route("**/api/v1/projects/budget?id=server-project", (route) =>
+    route.fulfill({ contentType: "application/json", body: JSON.stringify(backendBudget()) }),
+  );
+
+  await page.goto(`${baseUrl}/workspace`);
+  await page.getByRole("button", { name: /Вариант A/ }).click();
+  await expect(page).toHaveURL(/\/prototype/, { timeout: 15_000 });
+  await page.getByRole("link", { name: "Калькулятор" }).click();
+
+  await expect(page.getByText("Серверный расчёт", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Открыть отчёт" })).toBeVisible();
+});
+
 test("report route renders server report and print action", async ({ page }) => {
   await page.route("**/api/v1/projects/report?id=server-project*", (route) =>
     route.fulfill({ contentType: "application/json", body: JSON.stringify(backendReport()) }),
