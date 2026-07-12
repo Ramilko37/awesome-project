@@ -4,13 +4,12 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   AppstoreOutlined,
+  ArrowLeftOutlined,
   CalculatorOutlined,
   EnvironmentOutlined,
   LineChartOutlined,
   ExportOutlined,
   RadarChartOutlined,
-  RedoOutlined,
-  UndoOutlined,
 } from "@ant-design/icons";
 import { useDefenseStudioStore } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import { VariantSaveButton, VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
@@ -19,8 +18,8 @@ type DefenseStudioShellProps = {
   children: React.ReactNode;
 };
 
-const topNavClassName =
-  "inline-flex h-[30px] items-center gap-2 rounded-md px-3 text-xs font-semibold transition";
+const railItemClassName =
+  "flex h-14 w-full flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold transition";
 const mobileItemClassName = "grid h-9 place-items-center rounded-lg text-xs font-semibold transition";
 const scenarioModelingTitle = "Прототип Модуля сценарного моделирования";
 
@@ -47,116 +46,88 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
         ? "Ретро-анализ"
         : "Defense Configuration Studio";
 
-  const activeTopNavClassName = "bg-[#2563eb] text-white shadow-sm shadow-blue-950/20";
-  const idleTopNavClassName = "text-slate-300 hover:bg-white/10 hover:text-white";
+  const activeRailClassName = "bg-blue-600 text-white shadow-md shadow-blue-600/25";
+  const idleRailClassName = "text-slate-500 hover:bg-slate-100 hover:text-slate-900";
   const activeMobileClassName = "bg-white text-blue-700 shadow-sm";
   const idleMobileClassName = "text-slate-500 hover:bg-white/70 hover:text-slate-900";
 
   return (
-    <div className="h-screen overflow-hidden bg-[#eef3f8] font-(family-name:--font-manrope) text-slate-900">
-      <div className="flex h-full min-h-0 flex-col">
-        <header className="hidden h-[54px] shrink-0 items-center border-b border-slate-900 bg-[#0f172a] px-4 text-white shadow-sm lg:flex">
-          <div className="mr-5 flex min-w-[142px] items-center gap-2">
-            <div className="grid h-[26px] w-[26px] place-items-center rounded-[7px] bg-[#2563eb] text-[13px] text-white">
-              <AppstoreOutlined />
-            </div>
-            <div className="leading-none">
-              <p className="font-(family-name:--font-syne) text-[15px] font-bold uppercase text-white">
-                FORTIS
-              </p>
-              <p className="font-(family-name:--font-ibm-plex-mono) text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Studio</p>
-            </div>
+    <div className="h-screen overflow-hidden bg-[#eef3f8] text-slate-900">
+      <div className="flex h-full min-h-0 flex-col lg:flex-row">
+        <aside className="hidden w-[76px] shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm lg:flex">
+          <div className="flex h-[74px] items-center justify-center border-b border-slate-100">
+            <Link
+              href="/dashboard"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              title="Назад"
+            >
+              <ArrowLeftOutlined />
+            </Link>
           </div>
-
-          <nav className="flex min-w-0 items-center gap-0.5 rounded-[9px] bg-[#1e293b] p-[3px]">
+          <nav className="flex flex-1 flex-col gap-2 px-2 py-4">
             <Link
               href="/prototype"
-              className={`${topNavClassName} ${isMapActive ? activeTopNavClassName : idleTopNavClassName}`}
+              className={`${railItemClassName} ${isMapActive ? activeRailClassName : idleRailClassName}`}
               onClick={() => setView("gis")}
-              title="Карта защиты"
+              title="Карта"
             >
-              <EnvironmentOutlined />
-              <span>Карта защиты</span>
+              <span className="text-lg">
+                <EnvironmentOutlined />
+              </span>
+              <span>Карта</span>
             </Link>
             <Link
               href="/calculator"
-              className={`${topNavClassName} ${isCalculator ? activeTopNavClassName : idleTopNavClassName}`}
+              className={`${railItemClassName} ${isCalculator ? activeRailClassName : idleRailClassName}`}
               title="Просчитать конфигурацию в калькуляторе"
             >
-              <CalculatorOutlined />
-              <span>Калькулятор</span>
+              <span className="text-lg">
+                <CalculatorOutlined />
+              </span>
+              <span>Расчёт</span>
             </Link>
             <Link
               href="/prototype?view=scenario-modeling"
-              className={`${topNavClassName} ${isDrilldownActive ? activeTopNavClassName : idleTopNavClassName}`}
+              className={`${railItemClassName} ${isDrilldownActive ? activeRailClassName : idleRailClassName}`}
               onClick={() => setView("drilldown")}
               title={scenarioModelingTitle}
             >
-              <RadarChartOutlined />
-              <span>Сценарии</span>
-              <span className="rounded bg-[#334155] px-1.5 py-0.5 font-(family-name:--font-ibm-plex-mono) text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                BETA
+              <span className="text-lg">
+                <RadarChartOutlined />
               </span>
+              <span>Сценарии</span>
             </Link>
             <Link
               href="/retrospective-analysis"
-              className={`${topNavClassName} ${
-                isRetrospective ? "bg-[#2563eb] text-white" : "text-slate-500 hover:bg-white/5 hover:text-slate-300"
-              }`}
+              className={`${railItemClassName} ${isRetrospective ? activeRailClassName : idleRailClassName}`}
               title="Анализ цепочки атаки (WIP)"
             >
-              <LineChartOutlined />
+              <span className="text-lg">
+                <LineChartOutlined />
+              </span>
               <span>Анализ</span>
             </Link>
           </nav>
-
-          <div className="ml-auto flex min-w-0 items-center gap-3">
-            <div className="hidden h-8 min-w-0 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2.5 xl:flex">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#2563eb]" />
-              <p className="truncate text-xs font-semibold text-slate-200">Завод Альфа <span className="text-slate-500">·</span> Вариант A</p>
-            </div>
-            <div className="flex h-8 items-center gap-0.5 rounded-lg border border-white/10 bg-white/5 px-1">
-              <button
-                type="button"
-                disabled
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-600"
-                title="Отменить (скоро)"
-              >
-                <UndoOutlined />
-              </button>
-              <button
-                type="button"
-                disabled
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-600"
-                title="Повторить (скоро)"
-              >
-                <RedoOutlined />
-              </button>
-            </div>
+          <div className="space-y-2 border-t border-slate-100 px-2 py-3">
             <VariantSaveButton
-              className="inline-flex h-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 text-xs font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
+              iconOnly
+              className="flex h-12 w-full items-center justify-center rounded-xl text-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60"
             />
-            <button
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-slate-600 transition disabled:cursor-not-allowed disabled:opacity-70"
-              type="button"
-              disabled
-              aria-label="Экспорт"
-              title="Экспорт отчёта доступен в калькуляторе"
-            >
+            <button className="flex h-12 w-full items-center justify-center rounded-xl text-lg text-slate-400 hover:bg-slate-100" type="button" title="Экспорт">
               <ExportOutlined />
             </button>
           </div>
-        </header>
+        </aside>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
           <div className="border-b border-slate-200 bg-white px-3 py-2 shadow-sm lg:hidden">
             <div className="flex items-center gap-3">
               <Link
                 href="/dashboard"
-                className="inline-flex h-10 items-center justify-center rounded-xl px-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                 title="Назад"
               >
-                Назад
+                <ArrowLeftOutlined />
               </Link>
               <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-white">
                 <AppstoreOutlined />

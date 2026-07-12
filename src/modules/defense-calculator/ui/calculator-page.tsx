@@ -155,69 +155,71 @@ export function CalculatorPage() {
   const layerSummaries = useMemo(() => calculateLayerSummaries(project), [project]);
   const isConfigurationEmpty = positionsCount === 0;
   const totalMln = backendCost?.totalMln ?? estimate.totalMln;
-  const filledLayerCount = layerSummaries.filter((summary) => summary.objectCount > 0).length;
-  const conflictCount = layerSummaries.reduce((acc, summary) => acc + summary.conflictCount, 0);
 
   return (
-    <div className="studioCalculatorShell min-h-full bg-[#f1f5f9] font-(family-name:--font-manrope) text-slate-900">
-      <div className="relative mx-auto max-w-[1080px] px-4 py-6 sm:px-7 sm:py-[30px] print:hidden">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0">
-            <p className="font-(family-name:--font-ibm-plex-mono) text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-700">
-              Studio summary
-            </p>
-            <h1 className="mt-1 font-(family-name:--font-syne) text-2xl font-bold text-slate-950 sm:text-3xl">
-              Калькулятор защиты от БПЛА
+    <div className="font-(family-name:--font-manrope) min-h-screen bg-[#eef3f8] text-slate-800">
+      <div className="relative mx-auto max-w-7xl px-5 py-7 lg:px-8 print:hidden">
+        {/* Header */}
+        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-5 ">
+          <div>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/prototype"
+                className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500 transition hover:text-blue-700"
+              >
+                ← Прототип
+              </Link>
+              <span className="h-3 w-px bg-slate-300" />
+              <Link
+                href="/dashboard"
+                className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500 transition hover:text-blue-700"
+              >
+                Кабинет
+              </Link>
+              <span className="h-3 w-px bg-slate-300" />
+              <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-400 ">
+                Калькулятор защиты
+              </span>
+            </div>
+            <h1 className="mt-2 font-(family-name:--font-syne) text-3xl tracking-tight text-slate-900 lg:text-4xl ">
+              Конфигурация средств защиты от&nbsp;БПЛА
             </h1>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              Смета, структура и риски по текущей карте защиты.
+            <p className="mt-1 max-w-2xl text-sm text-slate-500 ">
+              Автоматический расчёт сметы, приоритета и покрытия эшелонов. Заменяет ручной просчёт в&nbsp;Excel.
+              <span className="ml-1 text-slate-400 ">
+                Целевая угроза: дрон 200&nbsp;кг (БЧ&nbsp;75&nbsp;кг), до&nbsp;200&nbsp;км/ч.
+              </span>
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/prototype"
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-blue-400 hover:text-blue-700"
-            >
-              Карта защиты
-            </Link>
-            <ThemeToggle />
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 font-mono text-[11px] uppercase tracking-wider text-slate-600 transition hover:border-blue-400 hover:text-blue-700"
-              title="Сформировать PDF-отчёт (Сохранить как PDF)"
-            >
-              <PrinterOutlined /> PDF-отчёт
-            </button>
+
+          <div className="flex items-end gap-3">
+            <div className="flex flex-col gap-2">
+              <ThemeToggle />
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex h-9 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 font-mono text-[11px] uppercase tracking-wider text-slate-600 transition hover:border-blue-400 hover:text-blue-700"
+                title="Сформировать PDF-отчёт (Сохранить как PDF)"
+              >
+                <PrinterOutlined /> PDF-отчёт
+              </button>
+            </div>
+            {/* Headline total */}
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 px-6 py-4 text-right shadow-sm">
+              <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-blue-600">
+                Итого по конфигурации
+              </p>
+              <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-slate-900 ">
+                {formatMln(totalMln)}
+              </p>
+              <p className="mt-0.5 font-mono text-[11px] text-slate-400 ">
+                {placedCount} ед. · {positionsCount} позиций
+              </p>
+            </div>
           </div>
         </header>
 
-        <section className="mt-5 rounded-2xl bg-[#0f172a] p-4 text-white shadow-[0_16px_36px_rgba(15,23,42,0.16)] sm:p-5">
-          <div className="grid gap-3 md:grid-cols-[1.35fr_1fr_1fr_1fr]">
-            <div className="rounded-xl border border-white/10 bg-white/[0.08] px-4 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-sky-200">Итого</p>
-              <p className="mt-1 font-mono text-3xl font-bold tabular-nums text-white">{formatMln(totalMln)}</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-400">Единицы</p>
-              <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-white">{placedCount}</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-400">Позиции / эшелоны</p>
-              <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-white">{positionsCount} / {filledLayerCount}</p>
-            </div>
-            <div className={`rounded-xl border px-4 py-3 ${conflictCount > 0 ? "border-amber-300/40 bg-amber-400/15" : "border-emerald-300/40 bg-emerald-400/15"}`}>
-              <p className={`font-mono text-[10px] uppercase tracking-[0.14em] ${conflictCount > 0 ? "text-amber-200" : "text-emerald-200"}`}>
-                Статус
-              </p>
-              <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-white">
-                {conflictCount > 0 ? conflictCount : "OK"}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <div className={`mt-3 rounded-lg border px-4 py-3 text-sm ${
+        <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
           isConfigurationEmpty ? "border-amber-200 bg-amber-50 text-amber-800" : "border-blue-100 bg-blue-50 text-blue-900"
         }`}>
           {isConfigurationEmpty
@@ -231,7 +233,8 @@ export function CalculatorPage() {
                   : "Расчёт построен на основе текущей конфигурации карты"}
         </div>
 
-        <nav className="mt-4 flex gap-1 rounded-lg border border-slate-200 bg-white/80 p-1">
+        {/* Tabs */}
+        <nav className="mt-6 flex gap-1 rounded-xl border border-slate-200 bg-white/70 p-1 ">
           {(
             [
               { id: "configure", label: "Конфигуратор" },
@@ -243,7 +246,7 @@ export function CalculatorPage() {
               key={item.id}
               type="button"
               onClick={() => setTab(item.id)}
-              className={`flex-1 rounded-md px-4 py-2.5 font-mono text-xs uppercase tracking-wider transition ${
+              className={`flex-1 rounded-lg px-4 py-2.5 font-mono text-xs uppercase tracking-wider transition ${
                 tab === item.id
                   ? "bg-blue-600 text-white shadow"
                   : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 "
@@ -254,7 +257,7 @@ export function CalculatorPage() {
           ))}
         </nav>
 
-        <main className="mt-4">
+        <main className="mt-6">
           {tab === "configure" ? (
             <ConfigureTab
               scoredAssets={scoredAssets}

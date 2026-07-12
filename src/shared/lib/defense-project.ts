@@ -1006,10 +1006,11 @@ export function getPlacedObjectConflictFlags(
   object: PlacedDefenseObject,
 ): PlacedObjectConflictFlags {
   void project;
+  void object;
   return {
-    hasGeometryConflict: Boolean(object.hasGeometryConflict),
-    hasCoverageConflict: Boolean(object.hasCoverageConflict),
-    hasTerrainConflict: Boolean(object.hasTerrainConflict),
+    hasGeometryConflict: false,
+    hasCoverageConflict: false,
+    hasTerrainConflict: false,
   };
 }
 

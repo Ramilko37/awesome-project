@@ -245,15 +245,8 @@ export function resolveDefaultBaseMapSourceId(
     return configuredDefault;
   }
 
-  // Prefer the OSM Standard raster source as the default basemap: the OpenFreeMap
-  // vector style loads its style/sprite/glyph assets but never fetches vector data
-  // tiles in several runtime environments, leaving the map blank. The raster source
-  // renders reliably and matches the reference design.
-  const preferredOrder = ["osm-standard", "openfreemap-bright"];
-  for (const preferredId of preferredOrder) {
-    const preferredDefault = availableSources.find((source) => source.id === preferredId);
-    if (preferredDefault) return preferredDefault.id;
-  }
+  const preferredDefault = availableSources.find((source) => source.id === "openfreemap-bright");
+  if (preferredDefault) return preferredDefault.id;
 
   const fallback = availableSources[0];
   if (!fallback) {

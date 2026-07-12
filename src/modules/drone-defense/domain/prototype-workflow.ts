@@ -1,7 +1,6 @@
 import {
   createRingLayer,
   getLayerRadii,
-  placeObjectInProject,
   type LayerInsertOption,
   updateLayerGeometryFromRadii,
   updateLayerGeometryFromPolygon,
@@ -9,13 +8,7 @@ import {
 import { getPolygonCoordinates } from "@/shared/lib/defense-layer-geometry";
 import type { CoordinatePlacementInput } from "@/modules/drone-defense/ui/coordinate-placement-panel";
 import type { DefenseLayer } from "@/shared/types/drone-defense";
-import type {
-  Coordinates,
-  DefenseProject,
-  EditableDefenseLayer,
-  PlacedDefenseObject,
-  PlacementValidationResult,
-} from "@/shared/types/defense-project";
+import type { Coordinates, DefenseProject, EditableDefenseLayer, PlacementValidationResult } from "@/shared/types/defense-project";
 
 export type LayerWizardDraft = {
   name: string;
@@ -39,180 +32,6 @@ export type CoordinatePlacementValidationState = Pick<PlacementValidationResult,
 type CoordinatePlacementParseResult =
   | { ok: true; coordinates: Coordinates; notes?: string }
   | { ok: false; message: string };
-
-type PrototypeDemoSeed = {
-  id: string;
-  assetId: string;
-  layerCode: string;
-  name: string;
-  eastM: number;
-  northM: number;
-  patch?: Partial<PlacedDefenseObject>;
-};
-
-const prototypeDemoSeeds: PrototypeDemoSeed[] = [
-  {
-    id: "demo-mog-post-1",
-    assetId: "l5-mobile-fire",
-    layerCode: "L5",
-    name: "МОГ — пост №1",
-    eastM: -2300,
-    northM: -4300,
-    patch: {
-      status: "active",
-      quantity: 1,
-      rotation: 225,
-      customCoverageAngle: 90,
-      customCoverageRadius: 8000,
-      notes: "Сектор прикрывает юго-западный подход к периметру.",
-    },
-  },
-  {
-    id: "demo-mog-post-2",
-    assetId: "l5-mobile-fire",
-    layerCode: "L5",
-    name: "МОГ — пост №2",
-    eastM: 2500,
-    northM: -3900,
-    patch: {
-      status: "planned",
-      quantity: 1,
-      rotation: 245,
-      customCoverageAngle: 90,
-      customCoverageRadius: 8000,
-      hasGeometryConflict: true,
-      hasCoverageConflict: true,
-      notes: "Проверить пересечение сектора с соседним постом.",
-    },
-  },
-  {
-    id: "demo-ew-west",
-    assetId: "ew-narrowband",
-    layerCode: "L4",
-    name: "РЭБ — западный сектор",
-    eastM: -5200,
-    northM: 900,
-    patch: {
-      status: "active",
-      quantity: 1,
-      rotation: 265,
-      customCoverageAngle: 100,
-      customCoverageRadius: 10000,
-    },
-  },
-  {
-    id: "demo-gps-north",
-    assetId: "l4-gps-spoof",
-    layerCode: "L4",
-    name: "GPS — северный ложный контур",
-    eastM: 3600,
-    northM: 3100,
-    patch: {
-      status: "active",
-      quantity: 1,
-      rotation: 30,
-      customCoverageAngle: 120,
-      customCoverageRadius: 6000,
-    },
-  },
-  {
-    id: "demo-radar-east",
-    assetId: "mobile-radar",
-    layerCode: "L2",
-    name: "РЛС — мобильная позиция",
-    eastM: 6100,
-    northM: 1200,
-    patch: {
-      status: "active",
-      quantity: 1,
-      customCoverageRadius: 75000,
-    },
-  },
-  {
-    id: "demo-thermal-south",
-    assetId: "l2-thermal",
-    layerCode: "L3",
-    name: "ТВ — тепловизионный пост",
-    eastM: 1200,
-    northM: -5900,
-    patch: {
-      status: "active",
-      quantity: 1,
-      rotation: 180,
-      customCoverageAngle: 60,
-      customCoverageRadius: 9000,
-    },
-  },
-];
-
-const prototypeDemoConflictIds = new Set(
-  prototypeDemoSeeds
-    .filter((seed) => seed.patch?.hasCoverageConflict || seed.patch?.hasGeometryConflict || seed.patch?.hasTerrainConflict)
-    .map((seed) => seed.id),
-);
-
-function normalizePrototypeDemoConflictFlags(project: DefenseProject): DefenseProject {
-  let changed = false;
-  const placedObjects = project.placedObjects.map((object) => {
-    if (!prototypeDemoConflictIds.has(object.id)) return object;
-    if (object.hasCoverageConflict && object.hasGeometryConflict) return object;
-    changed = true;
-    return {
-      ...object,
-      hasCoverageConflict: true,
-      hasGeometryConflict: true,
-    };
-  });
-
-  return changed ? { ...project, placedObjects } : project;
-}
-
-function offsetCoordinate(center: Coordinates, eastM: number, northM: number): Coordinates {
-  const metersPerDegreeLat = 111_320;
-  const metersPerDegreeLng = Math.max(1, metersPerDegreeLat * Math.cos((center.lat * Math.PI) / 180));
-  return {
-    lat: center.lat + northM / metersPerDegreeLat,
-    lng: center.lng + eastM / metersPerDegreeLng,
-  };
-}
-
-export function resolvePrototypeSelectedObjectId(project: DefenseProject): string | null {
-  if (project.selectedObjectId && project.placedObjects.some((object) => object.id === project.selectedObjectId)) {
-    return project.selectedObjectId;
-  }
-  return project.placedObjects[0]?.id ?? null;
-}
-
-export function buildPrototypeDemoProject(project: DefenseProject): DefenseProject {
-  if (project.placedObjects.length > 0) return normalizePrototypeDemoConflictFlags(project);
-
-  let nextProject = project;
-  for (const seed of prototypeDemoSeeds) {
-    const layer = nextProject.layers.find((item) => item.code === seed.layerCode);
-    const asset = nextProject.assetLibrary.find((item) => item.id === seed.assetId);
-    if (!layer || !asset) continue;
-
-    const coordinates = offsetCoordinate(nextProject.baseObject.center, seed.eastM, seed.northM);
-    nextProject = placeObjectInProject(nextProject, seed.assetId, layer.id, coordinates, {
-      id: seed.id,
-      name: seed.name,
-      ...(seed.patch ?? {}),
-    });
-  }
-
-  const firstObject = nextProject.placedObjects[0];
-  if (!firstObject) return project;
-
-  const demoProject: DefenseProject = {
-    ...nextProject,
-    selectedObjectId: firstObject.id,
-    selectedAssetId: firstObject.assetId,
-    activeLayerId: firstObject.layerId,
-    layers: nextProject.layers.map((layer) => ({ ...layer, isActive: layer.id === firstObject.layerId })),
-  };
-
-  return normalizePrototypeDemoConflictFlags(demoProject);
-}
 
 export function formatDistance(meters: number): string {
   if (meters >= 1000) {

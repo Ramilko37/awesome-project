@@ -6,11 +6,16 @@ import {
   AppstoreOutlined,
   CloseOutlined,
   DeleteOutlined,
+  DownOutlined,
   EditOutlined,
+  ExpandAltOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
+  LeftOutlined,
   MoreOutlined,
   PlusOutlined,
+  RightOutlined,
+  UpOutlined,
 } from "@ant-design/icons";
 import { Dropdown, Modal } from "antd";
 import { useDefenseStudioStore, studioPreviewData } from "@/modules/drone-defense/domain/use-defense-studio-store";
@@ -20,8 +25,10 @@ import { AssetLibraryManager } from "@/modules/drone-defense/ui/asset-library-ma
 import { CoordinatePlacementPanel, type CoordinatePlacementInput } from "@/modules/drone-defense/ui/coordinate-placement-panel";
 import { DefenseToolsPanel } from "@/modules/drone-defense/ui/defense-tools-panel";
 import { GisBoard } from "@/modules/drone-defense/ui/gis-board";
+import { EchelonObjectsList } from "@/modules/drone-defense/ui/echelon-objects-list";
 import { MogCompositionEditor } from "@/modules/drone-defense/ui/mog-composition-editor";
 import { FacilityDrilldown } from "@/modules/drone-defense/ui/facility-drilldown";
+import { VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
 import styles from "./drone-defense-prototype.module.css";
 import {
   type AssetCatalogItem,
@@ -30,12 +37,10 @@ import {
   findLayerInsertOptions,
   getAssetCatalogItems,
   getLayerRadii,
-  priceForPlacedObject,
   validateLayerDraft,
 } from "@/shared/lib/defense-project";
 import { getPolygonCoordinates } from "@/shared/lib/defense-layer-geometry";
 import {
-  buildPrototypeDemoProject,
   buildWizardLayer,
   formatDistance,
   formatLayerRange,
@@ -43,7 +48,6 @@ import {
   layerInsertOptionKey,
   parseCoordinatePlacementInput,
   projectLayerToMapLayer,
-  resolvePrototypeSelectedObjectId,
   type CoordinatePlacementValidationState,
   type LayerWizardDraft,
   type LayerWizardState,
@@ -83,6 +87,19 @@ function formatObjectCountLabel(count: number) {
   return `${count} объектов`;
 }
 
+function formatLayerObjectMeta(objectCount: number, totalMln: number) {
+  return `${formatObjectCountLabel(objectCount)} · ${formatLayerCost(totalMln)}`;
+}
+
+function splitLayerTitle(code: string, name: string) {
+  const trimmedName = name.trim();
+  const [firstWord = trimmedName, ...restWords] = trimmedName.split(/\s+/);
+  return {
+    primary: `${code} · ${firstWord}`,
+    secondary: restWords.join(" "),
+  };
+}
+
 function describeLayerDeletion(totalLayers: number, objectCount: number) {
   if (totalLayers <= 1) {
     return {
@@ -114,34 +131,27 @@ function layerWizardStoreDraft(draft: LayerWizardDraft) {
   };
 }
 
-const placedObjectStatusLabels = {
-  planned: "План",
-  active: "Активен",
-  inactive: "Отключён",
-  maintenance: "Сервис",
-} as const;
-
 export function DroneDefensePrototype() {
   const searchParams = useSearchParams();
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [catalogQuery, setCatalogQuery] = useState("");
-  const [studioLeftTab, setStudioLeftTab] = useState<"echelons" | "library">("echelons");
+  const [isCatalogTrayOpen, setIsCatalogTrayOpen] = useState(true);
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
-  const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(true);
-  const [showCoverage, setShowCoverage] = useState(true);
-  const [showPlacementLabels, setShowPlacementLabels] = useState(true);
-  const [showConstraintWarnings, setShowConstraintWarnings] = useState(true);
-  const [expandedStudioLayerIds, setExpandedStudioLayerIds] = useState<Record<string, boolean>>({});
+  const [isLayerPanelExpanded, setIsLayerPanelExpanded] = useState(true);
+  const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(false);
   const [layerWizardState, setLayerWizardState] = useState<LayerWizardState | null>(null);
   const [pendingLayerDeletionId, setPendingLayerDeletionId] = useState<string | null>(null);
   const [hoveredLayerId, setHoveredLayerId] = useState<string | null>(null);
+  const [layerStripState, setLayerStripState] = useState({ canScrollLeft: false, canScrollRight: false });
   const [coordinatePlacementAssetId, setCoordinatePlacementAssetId] = useState<string | null>(null);
   const [coordinatePlacementValidation, setCoordinatePlacementValidation] = useState<CoordinatePlacementValidationState | null>(null);
   const [pointerDraggedAssetId, setPointerDraggedAssetId] = useState<string | null>(null);
   const [lastPlacementMessage, setLastPlacementMessage] = useState<string | null>(null);
   const [locateTarget, setLocateTarget] = useState<{ lon: number; lat: number; at: number } | null>(null);
-  const [mogEditorObjectId, setMogEditorObjectId] = useState<string | null>(null);
-  const autoSelectionSuppressedRef = useRef(false);
+  const [isEchelonObjectsPanelOpen, setIsEchelonObjectsPanelOpen] = useState(false);
+  const [echelonObjectsLayerId, setEchelonObjectsLayerId] = useState<DefenseLayerId | null>(null);
+  const [isEchelonObjectsCollapsed, setIsEchelonObjectsCollapsed] = useState(false);
+  const layerStripRef = useRef<HTMLDivElement | null>(null);
   const {
     currentBaseMapSourceId,
     restoreFromLocalStorage: restoreMapViewFromLocalStorage,
@@ -163,7 +173,6 @@ export function DroneDefensePrototype() {
   } = useDefenseStudioStore();
   const {
     project,
-    hydrated,
     createLayerFromDraft,
     deleteLayer,
     updateLayerFromDraft,
@@ -177,7 +186,6 @@ export function DroneDefensePrototype() {
     updatePlacedObject,
     setPlacedObjectMapVisibility,
     deletePlacedObject,
-    replaceProject,
     validateObjectPlacement,
     restoreProjectFromLocalStorage,
     assetLibraryLoading,
@@ -228,6 +236,7 @@ export function DroneDefensePrototype() {
         .map(projectLayerToMapLayer),
     [project.layers],
   );
+  const allProjectMapLayers = useMemo(() => [...project.layers].map(projectLayerToMapLayer), [project.layers]);
   const selectedLayerId = project.activeLayerId ?? project.layers[0]?.id ?? "";
   const selectedLayer = useMemo(
     () => project.layers.find((layer) => layer.id === selectedLayerId) ?? project.layers[0],
@@ -237,24 +246,6 @@ export function DroneDefensePrototype() {
     () => [...project.layers].sort((a, b) => a.order - b.order),
     [project.layers],
   );
-  const filteredOrderedProjectLayers = useMemo(() => {
-    if (studioLeftTab !== "echelons") return orderedProjectLayers;
-    const query = catalogQuery.trim().toLowerCase();
-    if (!query) return orderedProjectLayers;
-    return orderedProjectLayers.filter((layer) => {
-      const layerHaystack = [layer.code, layer.name, layer.description].join(" ").toLowerCase();
-      if (layerHaystack.includes(query)) return true;
-      return project.placedObjects
-        .filter((object) => object.layerId === layer.id)
-        .some((object) => {
-          const asset = project.assetLibrary.find((item) => item.id === object.assetId);
-          return [object.name, asset?.name, asset?.shortName, asset?.category, asset?.protectionType]
-            .join(" ")
-            .toLowerCase()
-            .includes(query);
-        });
-    });
-  }, [catalogQuery, orderedProjectLayers, project.assetLibrary, project.placedObjects, studioLeftTab]);
   const layerSummaries = useMemo(() => calculateLayerSummaries(project), [project]);
   const requestedView = searchParams.get("view");
   const activeView = requestedView === "scenario-modeling" || requestedView === "3d" ? "drilldown" : view;
@@ -280,8 +271,6 @@ export function DroneDefensePrototype() {
       return haystack.includes(query);
     });
   }, [assetCatalogItems, catalogQuery]);
-  const studioSearchPlaceholder =
-    studioLeftTab === "echelons" ? "Найти эшелон или объект…" : "Найти средство…";
   const selectedRadii = selectedLayer ? getLayerRadii(selectedLayer) : { innerRadiusM: 0, widthM: 0, outerRadiusM: 0 };
   const insertOptions = useMemo(() => findLayerInsertOptions(project), [project]);
   const wizardLayer = useMemo(() => {
@@ -374,9 +363,14 @@ export function DroneDefensePrototype() {
   const activeLayerHeaderLabel = `Активный: ${selectedLayer?.code ?? "—"} · ${formatObjectCountLabel(
     activeLayerSummary?.objectCount ?? 0,
   )}`;
+  const objectVisibilityToggleLabel = showAllEchelonObjects ? "Только активный" : "Все объекты";
   const objectVisibilityToggleTitle = showAllEchelonObjects
     ? "Скрыть объекты других эшелонов на карте"
     : "Показать объекты всех эшелонов на карте";
+  const activeEchelonObjectsLayer = useMemo(
+    () => project.layers.find((layer) => layer.id === echelonObjectsLayerId) ?? selectedLayer,
+    [echelonObjectsLayerId, project.layers, selectedLayer],
+  );
   const pendingLayerDeletion = useMemo(
     () => project.layers.find((layer) => layer.id === pendingLayerDeletionId) ?? null,
     [pendingLayerDeletionId, project.layers],
@@ -407,51 +401,35 @@ export function DroneDefensePrototype() {
       assetId: selectedPlacedObject.assetId,
     };
   }, [selectedPlacedObject, selectedPlacedAsset, selectedPlacedObjectProfile]);
-  const isMogEditorOpen = Boolean(mogEditorObjectId && selectedMogObject?.id === mogEditorObjectId);
   const coordinatePlacementAsset = useMemo(
     () => project.assetLibrary.find((asset) => asset.id === coordinatePlacementAssetId) ?? null,
     [project.assetLibrary, coordinatePlacementAssetId],
   );
   const canCreateLayer = project.layers.length < MAX_DEFENSE_PROJECT_LAYERS;
-  const projectTotalMln = useMemo(
-    () => layerSummaries.reduce((acc, summary) => acc + summary.totalMln, 0),
-    [layerSummaries],
-  );
-  const selectedObjectUnitPriceMln = selectedPlacedObject ? priceForPlacedObject(project, selectedPlacedObject) : 0;
-  const selectedObjectTotalMln = selectedPlacedObject ? selectedObjectUnitPriceMln * selectedPlacedObject.quantity : 0;
-  const selectedObjectRadiusM =
-    selectedPlacedObject?.customCoverageRadius ?? selectedPlacedAsset?.coverageRadius ?? 0;
-  const selectedObjectAngleDeg =
-    selectedPlacedObject?.customCoverageAngle ??
-    selectedPlacedAsset?.coverageAngle ??
-    selectedPlacedObjectProfile?.sectorWidthDeg ??
-    360;
-  const selectedObjectAzimuthDeg =
-    selectedPlacedObject?.rotation ?? selectedPlacedObjectProfile?.azimuth ?? 0;
-  const warningCount = layerSummaries.reduce((acc, summary) => acc + summary.conflictCount, 0);
-  const demoConflictCount = project.placedObjects.filter(
-    (object) => object.hasCoverageConflict || object.hasGeometryConflict || object.hasTerrainConflict,
-  ).length;
-  const totalConflictCount = Math.max(warningCount, demoConflictCount);
-  const budgetLimitMln = 9300;
-  const budgetRemainingMln = Math.max(0, budgetLimitMln - projectTotalMln);
-  const localCatalogActive = Boolean(assetLibraryError && project.assetLibrary.length > 0);
-  const libraryManagerError = localCatalogActive ? null : assetLibraryError;
+  const showCompactLayerPanel = !isLayerPanelExpanded;
 
   useEffect(() => {
-    if (!hydrated) return;
-    const demoProject = buildPrototypeDemoProject(project);
-    if (demoProject !== project) {
-      autoSelectionSuppressedRef.current = false;
-      replaceProject(demoProject);
+    const strip = layerStripRef.current;
+    if (!strip || showCompactLayerPanel) {
+      setLayerStripState({ canScrollLeft: false, canScrollRight: false });
       return;
     }
-    if (autoSelectionSuppressedRef.current && !selectedObjectId) return;
-    const nextSelectedObjectId = resolvePrototypeSelectedObjectId(project);
-    if (nextSelectedObjectId && nextSelectedObjectId !== selectedObjectId) {
-      selectObject(nextSelectedObjectId);
-    }
-  }, [hydrated, project, replaceProject, selectObject, selectedObjectId]);
+
+    const syncLayerStripState = () => {
+      setLayerStripState({
+        canScrollLeft: strip.scrollLeft > 8,
+        canScrollRight: strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 8,
+      });
+    };
+
+    syncLayerStripState();
+    strip.addEventListener("scroll", syncLayerStripState, { passive: true });
+    window.addEventListener("resize", syncLayerStripState);
+    return () => {
+      strip.removeEventListener("scroll", syncLayerStripState);
+      window.removeEventListener("resize", syncLayerStripState);
+    };
+  }, [orderedProjectLayers, showCompactLayerPanel]);
 
   const draftForInsertOption = (option: LayerInsertOption | undefined): Pick<LayerWizardState, "draft" | "insertPosition"> => {
     const innerRadiusM = option?.minInnerRadiusM ?? 0;
@@ -484,16 +462,16 @@ export function DroneDefensePrototype() {
     setLastPlacementMessage(null);
   };
 
-  const editSelectedLayer = (layerToEdit = selectedLayer) => {
-    if (!layerToEdit) return;
-    const radii = getLayerRadii(layerToEdit);
-    const polygonGeometry = layerToEdit.geometry.type === "polygon" ? layerToEdit.geometry : null;
+  const editSelectedLayer = () => {
+    if (!selectedLayer) return;
+    const radii = getLayerRadii(selectedLayer);
+    const polygonGeometry = selectedLayer.geometry.type === "polygon" ? selectedLayer.geometry : null;
     setLayerWizardState({
       mode: "edit",
-      layerId: layerToEdit.id,
+      layerId: selectedLayer.id,
       draft: {
-        name: layerToEdit.name,
-        code: layerToEdit.code,
+        name: selectedLayer.name,
+        code: selectedLayer.code,
         innerRadiusM: radii.innerRadiusM,
         widthM: radii.widthM,
         geometryMode: polygonGeometry ? "polygon" : "circle",
@@ -521,6 +499,13 @@ export function DroneDefensePrototype() {
         },
       };
     });
+  };
+
+  const handleLocatePlacement = (placement: { id: string; mapRef?: { lon: number; lat: number } }) => {
+    selectObject(placement.id);
+    if (placement.mapRef) {
+      setLocateTarget({ lon: placement.mapRef.lon, lat: placement.mapRef.lat, at: Date.now() });
+    }
   };
 
   const saveLayerWizard = () => {
@@ -594,12 +579,18 @@ export function DroneDefensePrototype() {
     });
   };
 
+  const scrollLayerStrip = (direction: "left" | "right") => {
+    const strip = layerStripRef.current;
+    if (!strip) return;
+    strip.scrollBy({ left: direction === "left" ? -260 : 260, behavior: "smooth" });
+  };
+
   const selectPlacedObject = (objectId: string) => {
     const object = project.placedObjects.find((item) => item.id === objectId);
     if (!object) return;
-    autoSelectionSuppressedRef.current = false;
     selectObject(objectId);
     setSelectedSlotId(null);
+    setIsEchelonObjectsPanelOpen(true);
     const asset = project.assetLibrary.find((item) => item.id === object.assetId);
     setLastPlacementMessage(`${asset?.name ?? object.name ?? "Объект"} выбран на карте`);
   };
@@ -626,7 +617,7 @@ export function DroneDefensePrototype() {
     selectAsset(asset.assetId);
     setCoordinatePlacementAssetId(asset.assetId);
     setCoordinatePlacementValidation(null);
-    setStudioLeftTab("library");
+    setIsCatalogTrayOpen(true);
     setLastPlacementMessage(`${selectedLayer.code} · ${asset.title}: введите координаты точки`);
   };
 
@@ -651,7 +642,7 @@ export function DroneDefensePrototype() {
   const placeDroppedAssetOnMap = (args: {
     groupId: string;
     layerId: DefenseLayerId;
-    slotId: string | null;
+    slotId: string;
     mapRef: { lon: number; lat: number };
   }) => {
     const asset =
@@ -689,7 +680,7 @@ export function DroneDefensePrototype() {
     const nextVisibility = object.isVisibleOnMap === false;
     const messageAsset = project.assetLibrary.find((item) => item.id === object.assetId);
     setPlacedObjectMapVisibility(objectId, nextVisibility);
-    setExpandedStudioLayerIds((current) => ({ ...current, [object.layerId]: true }));
+    setIsEchelonObjectsPanelOpen(true);
     setLastPlacementMessage(
       `${messageAsset?.name ?? object.name ?? "Объект"} ${nextVisibility ? "показан" : "скрыт"} на карте`,
     );
@@ -806,7 +797,7 @@ export function DroneDefensePrototype() {
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
     setLastPlacementMessage(null);
-    setExpandedStudioLayerIds((current) => ({ ...current, [layerId]: true }));
+    setIsEchelonObjectsPanelOpen(true);
     const nextSlot =
       echelonModel.slots.find((slot) => slot.layerId === layerId && slot.status === "empty") ??
       echelonModel.slots.find((slot) => slot.layerId === layerId) ??
@@ -828,292 +819,155 @@ export function DroneDefensePrototype() {
   });
 
   return (
-    <div className={activeView === "gis" ? styles.studioWorkspace : styles.studioScenarioWorkspace}>
+    <div className="flex h-full min-h-0 flex-col lg:flex-row">
       {activeView === "gis" ? (
-        <aside className={`${styles.studioPanel} ${styles.studioLeftPanel}`}>
-          <div className={styles.studioTopTabs} role="tablist" aria-label="Панель Studio">
-            <button
-              type="button"
-              className={styles.studioTabButton}
-              data-active={studioLeftTab === "echelons" ? "true" : "false"}
-              onClick={() => setStudioLeftTab("echelons")}
-              role="tab"
-              aria-selected={studioLeftTab === "echelons"}
-            >
-              Эшелоны
-            </button>
-            <button
-              type="button"
-              className={styles.studioTabButton}
-              data-active={studioLeftTab === "library" ? "true" : "false"}
-              onClick={() => setStudioLeftTab("library")}
-              role="tab"
-              aria-selected={studioLeftTab === "library"}
-            >
-              Библиотека
-            </button>
-          </div>
-          <div className={styles.studioSearchShell}>
-            <input
-              className={styles.studioField}
-              value={catalogQuery}
-              onChange={(event) => setCatalogQuery(event.target.value)}
-              placeholder={studioSearchPlaceholder}
-            />
-          </div>
-
-          {studioLeftTab === "echelons" ? (
-            <div className={styles.studioPanelBody}>
-              <div className={styles.studioTreeToolbar}>
-                <div className="min-w-0">
-                  <p className={styles.prototypeEyebrow}>Эшелоны проекта · {layerPanelSummaryLabel}</p>
-                  <p className={styles.prototypeMeta}>{activeLayerHeaderLabel}</p>
-                </div>
-                <div className={styles.studioTreeToolbarActions}>
-                  <button
-                    type="button"
-                    className={styles.prototypeIconButton}
-                    onClick={toggleObjectVisibilityMode}
-                    aria-pressed={showAllEchelonObjects}
-                    title={objectVisibilityToggleTitle}
-                  >
-                    {showAllEchelonObjects ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.prototypeIconButton}
-                    onClick={createProjectLayer}
-                    disabled={!canCreateLayer}
-                    title={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
-                    aria-label={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
-                  >
-                    <PlusOutlined />
-                  </button>
-                </div>
+        <section
+          data-sidebar-state={isCatalogTrayOpen ? "open" : "closed"}
+          className={styles.prototypeSidebar}
+          aria-hidden={!isCatalogTrayOpen}
+        >
+          <div className={styles.prototypeSidebarHeader}>
+            <div className={styles.prototypeBrandRow}>
+              <div className={styles.prototypeBrandIcon}>
+                <AppstoreOutlined />
               </div>
-
-              <div className={styles.studioEchelonTree}>
-                {filteredOrderedProjectLayers.length === 0 ? (
-                  <div className={styles.studioEmptyState}>Ничего не найдено</div>
-                ) : null}
-                {filteredOrderedProjectLayers.map((layer) => {
-                  const summary = layerSummaries.find((item) => item.layerId === layer.id);
-                  const layerObjects = project.placedObjects.filter((object) => object.layerId === layer.id);
-                  const isSelected = layer.id === selectedLayer?.id;
-                  const isHovered = layer.id === hoveredLayerId;
-                  const isExpanded =
-                    expandedStudioLayerIds[layer.id] ?? (isSelected || layerObjects.some((object) => object.id === selectedObjectId));
-                  const layerDeleteState = describeLayerDeletion(project.layers.length, objectCountByLayer.get(layer.id) ?? 0);
-                  const layerMenuItems = [
-                    {
-                      key: "objects",
-                      icon: <AppstoreOutlined />,
-                      label: "Показать объекты эшелона",
-                      onClick: () => {
-                        selectLayerWithDefaultSlot(layer.id);
-                        setExpandedStudioLayerIds((current) => ({ ...current, [layer.id]: true }));
-                      },
-                    },
-                    {
-                      key: "edit",
-                      icon: <EditOutlined />,
-                      label: "Настроить эшелон",
-                      onClick: () => {
-                        selectLayerWithDefaultSlot(layer.id);
-                        editSelectedLayer(layer);
-                      },
-                    },
-                    {
-                      key: "delete",
-                      icon: <DeleteOutlined />,
-                      danger: true,
-                      disabled: !layerDeleteState.canDelete,
-                      label: (
-                        <div className="py-0.5">
-                          <p>Удалить эшелон</p>
-                          {!layerDeleteState.canDelete ? (
-                            <p className="mt-1 max-w-48 whitespace-normal text-[11px] font-medium text-slate-400">
-                              {layerDeleteState.reason}
-                            </p>
-                          ) : null}
-                        </div>
-                      ),
-                      onClick: () => {
-                        if (!layerDeleteState.canDelete) return;
-                        setPendingLayerDeletionId(layer.id);
-                      },
-                    },
-                  ];
-
-                  return (
-                    <article
-                      key={layer.id}
-                      className={styles.studioEchelonCard}
-                      data-selected={isSelected ? "true" : "false"}
-                      data-hovered={isHovered ? "true" : "false"}
-                      onMouseEnter={() => setHoveredLayerId(layer.id)}
-                      onMouseLeave={() => setHoveredLayerId((current) => (current === layer.id ? null : current))}
-                    >
-                      <div className={styles.studioEchelonHeader}>
-                        <button
-                          type="button"
-                          className={styles.studioEchelonMain}
-                          onClick={() => {
-                            selectLayerWithDefaultSlot(layer.id);
-                            setExpandedStudioLayerIds((current) => ({ ...current, [layer.id]: !isExpanded }));
-                          }}
-                        >
-                          <span
-                            className={styles.prototypeLayerDot}
-                            style={{ backgroundColor: layer.color ?? "#2563eb" }}
-                            aria-hidden="true"
-                          />
-                          <span className={styles.studioLayerCode} style={{ color: layer.color ?? "#2563eb" }}>
-                            {layer.code}
-                          </span>
-                          <span className="min-w-0">
-                            <span className={`${styles.prototypeLayerName} block truncate`} title={`${layer.code} · ${layer.name}`}>
-                              {layer.name}
-                            </span>
-                            <span className={`${styles.prototypeMeta} block truncate`}>
-                              {formatLayerRange(summary?.innerRadiusM ?? 0, summary?.outerRadiusM ?? 0)}
-                            </span>
-                          </span>
-                        </button>
-                        <div className={styles.studioEchelonActions}>
-                          <span className={styles.studioCountChip}>{summary?.objectCount ?? 0}</span>
-                          <button
-                            type="button"
-                            className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              toggleLayerVisibility(layer.id, layer.isVisible === false);
-                            }}
-                            title={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
-                            aria-label={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
-                          >
-                            {layer.isVisible === false ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                          </button>
-                          <Dropdown
-                            trigger={["click"]}
-                            placement="bottomRight"
-                            arrow
-                            menu={{ items: layerMenuItems, className: "min-w-[13rem]" }}
-                          >
-                            <button
-                              type="button"
-                              className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
-                              onClick={(event) => event.stopPropagation()}
-                              aria-label="Открыть меню эшелона"
-                            >
-                              <MoreOutlined />
-                            </button>
-                          </Dropdown>
-                        </div>
-                      </div>
-                      {isExpanded ? (
-                        <div className={styles.studioEchelonObjects}>
-                          {layerObjects.length > 0 ? (
-                            layerObjects.map((object) => {
-                              const asset = project.assetLibrary.find((item) => item.id === object.assetId);
-                              const isObjectSelected = object.id === selectedObjectId;
-                              return (
-                                <button
-                                  type="button"
-                                  key={object.id}
-                                  className={styles.studioEchelonObject}
-                                  data-selected={isObjectSelected ? "true" : "false"}
-                                  onClick={() => selectPlacedObject(object.id)}
-                                >
-                                  <span className={styles.studioObjectCode}>{asset?.shortName ?? layer.code}</span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block truncate">{object.name ?? asset?.name ?? "Объект"}</span>
-                                    <span className={styles.prototypeMeta}>
-                                      {object.quantity} ед. · {formatLayerCost(priceForPlacedObject(project, object) * object.quantity)}
-                                    </span>
-                                  </span>
-                                  {object.hasCoverageConflict || object.hasGeometryConflict || object.hasTerrainConflict ? (
-                                    <span className={styles.studioObjectWarning} title="Есть предупреждение">
-                                      !
-                                    </span>
-                                  ) : null}
-                                </button>
-                              );
-                            })
-                          ) : (
-                            <div className={styles.studioEmptyState}>Нет средств на рубеже</div>
-                          )}
-                        </div>
-                      ) : null}
-                    </article>
-                  );
-                })}
+              <div className="min-w-0">
+                <h1 className={`${styles.prototypeTitleLarge} truncate`}>Моя карта</h1>
+                <p className={`${styles.prototypeMeta} truncate`}>Defense Configuration Studio</p>
               </div>
             </div>
-          ) : (
-            <div className={styles.studioPanelBody}>
-              <div className={styles.studioSectionHeader}>
+            <div className="mt-3 hidden lg:block">
+              <VariantStatusButton fullWidth />
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <div className={styles.prototypeSection}>
+              <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className={styles.prototypeEyebrow}>Библиотека СЗ</p>
                   <h2 className={`${styles.prototypeTitle} truncate`}>
                     {selectedLayer?.code ?? "—"} · {selectedLayer?.name ?? "Эшелон не выбран"}
                   </h2>
                   <p className={styles.prototypeMeta}>
-                    {localCatalogActive
-                      ? `Локальный каталог · ${project.assetLibrary.length} средств`
-                      : formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)}
+                    {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  className={`${styles.prototypeButton} shrink-0 cursor-pointer px-2`}
+                  onClick={() => setIsCatalogTrayOpen(false)}
+                  title="Свернуть библиотеку в угол карты"
+                >
+                  Свернуть
+                </button>
               </div>
-              <AssetLibraryManager
-                assets={project.assetLibrary}
-                placedObjects={project.placedObjects}
-                selectedAssetId={activeToolId ?? selectedPlacedObject?.assetId}
-                loading={assetLibraryLoading}
-                error={libraryManagerError}
-                onRefresh={() => refreshAssetLibrary({ isPublic: true, limit: 100 })}
-                onSelectAsset={(assetId) => {
-                  setActiveToolId(assetId);
-                  selectAsset(assetId);
-                }}
-                onAssetSaved={(asset) => {
-                  upsertAssetInLibrary(asset);
-                  setActiveToolId(asset.id);
-                }}
-                onAssetDeleted={(assetId) => {
-                  const result = removeAssetFromLibrary(assetId);
-                  if (result.ok) {
-                    setActiveToolId((current) => (current === assetId ? null : current));
-                  }
-                  return result;
-                }}
-                onMessage={setLastPlacementMessage}
+              <input
+                className={`${styles.prototypeField} mt-3`}
+                value={catalogQuery}
+                onChange={(event) => setCatalogQuery(event.target.value)}
+                placeholder="Найти средство..."
               />
-              <div className={styles.studioLibraryScroll}>
-                <DefenseToolsPanel
-                  assets={filteredCatalogItems}
-                  projectAssets={project.assetLibrary}
-                  selectedToolId={activeToolId}
-                  selectedObjectAssetId={selectedPlacedObject?.assetId}
-                  onSelectTool={handleSelectTool}
-                  onOpenCoordinates={openCoordinatePlacement}
-                  onDragAsset={startAssetDrag}
-                  onPointerDragAsset={startAssetPointerDrag}
-                  onMouseDragAsset={startAssetMouseDrag}
-                  onRemoveTool={(asset) => removeCatalogAsset(asset.assetId)}
-                />
-              </div>
             </div>
-          )}
-        </aside>
+            <AssetLibraryManager
+              assets={project.assetLibrary}
+              placedObjects={project.placedObjects}
+              selectedAssetId={activeToolId ?? selectedPlacedObject?.assetId}
+              loading={assetLibraryLoading}
+              error={assetLibraryError}
+              onRefresh={() => refreshAssetLibrary({ isPublic: true, limit: 100 })}
+              onSelectAsset={(assetId) => {
+                setActiveToolId(assetId);
+                selectAsset(assetId);
+              }}
+              onAssetSaved={(asset) => {
+                upsertAssetInLibrary(asset);
+                setActiveToolId(asset.id);
+              }}
+              onAssetDeleted={(assetId) => {
+                const result = removeAssetFromLibrary(assetId);
+                if (result.ok) {
+                  setActiveToolId((current) => (current === assetId ? null : current));
+                }
+                return result;
+              }}
+              onMessage={setLastPlacementMessage}
+            />
+            <div className={styles.prototypeScrollArea}>
+              <DefenseToolsPanel
+                assets={filteredCatalogItems}
+                projectAssets={project.assetLibrary}
+                selectedToolId={activeToolId}
+                selectedObjectAssetId={selectedPlacedObject?.assetId}
+                onSelectTool={handleSelectTool}
+                onOpenCoordinates={openCoordinatePlacement}
+                onDragAsset={startAssetDrag}
+                onPointerDragAsset={startAssetPointerDrag}
+                onMouseDragAsset={startAssetMouseDrag}
+                onRemoveTool={(asset) => removeCatalogAsset(asset.assetId)}
+              />
+            </div>
+          </div>
+        </section>
       ) : null}
 
-      <main className={activeView === "gis" ? styles.studioMapStage : styles.prototypeMain}>
+      <main className={styles.prototypeMain}>
         {error ? (
-          <div className={`${styles.prototypeNoticeDanger} ${styles.studioNoticeFloat}`}>{error}</div>
+          <div className={`${styles.prototypeNoticeDanger} absolute left-4 top-4 z-30 shadow`}>
+            {error}
+          </div>
         ) : null}
         {loading ? (
-          <div className={`${styles.prototypeNotice} ${styles.studioNoticeFloat}`}>Загрузка данных…</div>
+          <div className={`${styles.prototypeNotice} absolute left-4 top-4 z-30 shadow`}>
+            Загрузка данных…
+          </div>
+        ) : null}
+
+        {activeView === "gis" && isEchelonObjectsPanelOpen && activeEchelonObjectsLayer ? (
+          <aside className={`${styles.prototypeFloatingPanel} ${styles.prototypeObjectsPanel}`}>
+            <div className={styles.prototypeFloatingHeader}>
+              <div>
+                <p className={styles.prototypeEyebrow}>Объекты эшелона</p>
+                <h3 className={styles.prototypeTitle}>{activeEchelonObjectsLayer.code} · {activeEchelonObjectsLayer.name}</h3>
+                <p className={styles.prototypeMeta}>Открывается отдельно, чтобы не перегружать основную панель.</p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  className={`${styles.prototypeIconButton} px-2`}
+                  onClick={() => setIsEchelonObjectsCollapsed((current) => !current)}
+                  title={isEchelonObjectsCollapsed ? "Развернуть карточку" : "Свернуть карточку"}
+                >
+                  {isEchelonObjectsCollapsed ? <UpOutlined /> : <DownOutlined />}
+                </button>
+                <button
+                  type="button"
+                  className={styles.prototypeIconButton}
+                  onClick={() => setIsEchelonObjectsPanelOpen(false)}
+                  title="Закрыть карточку"
+                  aria-label="Закрыть карточку"
+                >
+                  <CloseOutlined />
+                </button>
+              </div>
+            </div>
+            {!isEchelonObjectsCollapsed ? (
+              <div className={styles.prototypeFloatingBody}>
+                <EchelonObjectsList
+                  layerId={activeEchelonObjectsLayer.id as DefenseLayerId}
+                  placements={projectCatalogPlacements}
+                  catalog={catalog}
+                  layers={allProjectMapLayers}
+                  hiddenPlacementIds={hiddenPlacementIds}
+                  selectedPlacementId={selectedPlacementId}
+                  onSelect={(id) => selectPlacedObject(id)}
+                  onLocate={handleLocatePlacement}
+                  onToggleVisibility={(id) => toggleProjectPlacementVisibility(id)}
+                  onRemove={(id) => deleteProjectPlacement(id)}
+                />
+              </div>
+            ) : null}
+          </aside>
         ) : null}
 
         {activeView === "gis" ? (
@@ -1146,7 +1000,7 @@ export function DroneDefensePrototype() {
               onSelectSlot={(slot) => {
                 selectLayer(slot.layerId);
                 setSelectedSlotId(slot.id);
-                setExpandedStudioLayerIds((current) => ({ ...current, [slot.layerId]: true }));
+                setIsEchelonObjectsPanelOpen(true);
               }}
               onSelectTool={(groupId) => {
                 const asset =
@@ -1172,39 +1026,7 @@ export function DroneDefensePrototype() {
               locateTarget={locateTarget}
               onSelectPlacement={(id) => selectPlacedObject(id)}
               onDropAsset={placeDroppedAssetOnMap}
-              showCoverage={showCoverage}
-              showPlacementLabels={showPlacementLabels}
-              showConstraintWarnings={showConstraintWarnings}
-              onToggleCoverage={() => setShowCoverage((current) => !current)}
-              onTogglePlacementLabels={() => setShowPlacementLabels((current) => !current)}
-              onToggleConstraintWarnings={() => setShowConstraintWarnings((current) => !current)}
             />
-
-            {showConstraintWarnings ? (
-              <div className={styles.studioWarningStack}>
-                <div className={styles.studioNotice}>
-                  Бюджет: {formatLayerCost(projectTotalMln)} из {budgetLimitMln.toLocaleString("ru-RU")} млн ₽ · остаток{" "}
-                  {formatLayerCost(budgetRemainingMln)}
-                </div>
-                <div className={styles.studioWarning}>Слепой сектор: направление 215–255° (жилая застройка)</div>
-                {totalConflictCount > 0 ? (
-                  <div className={styles.studioDanger}>Конфликт геометрии: МОГ — пост №2 перекрывает соседний пост</div>
-                ) : null}
-                {lastPlacementMessage ? <div className={styles.studioNotice}>{lastPlacementMessage}</div> : null}
-              </div>
-            ) : null}
-
-            <div className={styles.studioMapFooter}>
-              <span>55.1042°N · 37.0976°E</span>
-              <i aria-hidden="true" />
-              <span>Масштаб 1:240 000</span>
-              <i aria-hidden="true" />
-              <span>{project.placedObjects.length} объектов · {formatLayerCost(projectTotalMln)}</span>
-              <i aria-hidden="true" />
-              <span className={styles.studioDraftState}>● черновик</span>
-              <i aria-hidden="true" />
-              <span>сохранено 14:32</span>
-            </div>
 
             {coordinatePlacementAsset && selectedLayer ? (
               <CoordinatePlacementPanel
@@ -1222,7 +1044,7 @@ export function DroneDefensePrototype() {
               />
             ) : null}
 
-            {isMogEditorOpen && selectedMogObject && selectedPlacedAsset ? (
+            {selectedMogObject && selectedPlacedAsset ? (
               <MogCompositionEditor
                 objectId={selectedMogObject.id}
                 asset={selectedPlacedAsset}
@@ -1233,16 +1055,280 @@ export function DroneDefensePrototype() {
                 onPreviewChange={(patch) => updatePlacedObject(selectedMogObject.id, patch)}
                 onSave={(patch) => {
                   updatePlacedObject(selectedMogObject.id, patch);
-                  setMogEditorObjectId(null);
+                  selectObject(null);
                 }}
                 onCancel={(patch) => {
                   updatePlacedObject(selectedMogObject.id, patch);
-                  setMogEditorObjectId(null);
+                  selectObject(null);
                 }}
               />
             ) : null}
+
+            {selectedLayer ? (
+              <div
+                className={styles.prototypeLayerPanelWrap}
+                data-compact={showCompactLayerPanel ? "true" : "false"}
+              >
+                <div
+                  className={styles.prototypeLayerPanel}
+                  data-compact={showCompactLayerPanel ? "true" : "false"}
+                >
+                  {showCompactLayerPanel ? (
+                    <div className={styles.prototypeLayerCompactCard}>
+                      <div className="min-w-0 flex-1">
+                        <p className={styles.prototypeEyebrow}>
+                          Эшелоны проекта · {layerPanelSummaryLabel}
+                        </p>
+                        <p
+                          className={`${styles.prototypeTitle} mt-1 truncate`}
+                          title={`Активный: ${selectedLayer.code} · ${selectedLayer.name}`}
+                        >
+                          Активный: {selectedLayer.code} · {selectedLayer.name}
+                        </p>
+                        <p className={styles.prototypeMeta}>
+                          {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)} ·{" "}
+                          {formatLayerObjectMeta(activeLayerSummary?.objectCount ?? 0, activeLayerSummary?.totalMln ?? 0)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className={`${styles.prototypeButtonPrimary} h-9 w-9 shrink-0 cursor-pointer`}
+                        onClick={() => {
+                          setIsCatalogTrayOpen(false);
+                          setIsLayerPanelExpanded(true);
+                        }}
+                        title="Развернуть панель эшелонов"
+                        aria-label="Развернуть панель эшелонов"
+                      >
+                        <ExpandAltOutlined />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                  <div className={styles.prototypeLayerHeader}>
+                    <div>
+                      <p className={styles.prototypeEyebrow}>Эшелоны проекта</p>
+                      <p className={styles.prototypeTitle}>
+                        Эшелоны проекта · {layerPanelSummaryLabel}
+                      </p>
+                      <p className={styles.prototypeMeta}>{activeLayerHeaderLabel}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className={`${showAllEchelonObjects ? styles.prototypeButtonPrimary : styles.prototypeButton} cursor-pointer px-3`}
+                        onClick={toggleObjectVisibilityMode}
+                        aria-pressed={showAllEchelonObjects}
+                        title={objectVisibilityToggleTitle}
+                      >
+                        {showAllEchelonObjects ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                        {objectVisibilityToggleLabel}
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.prototypeButtonPrimary} w-9 cursor-pointer`}
+                        onClick={createProjectLayer}
+                        disabled={!canCreateLayer}
+                        title={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
+                        aria-label={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
+                      >
+                        <PlusOutlined />
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.prototypeButton} cursor-pointer px-3`}
+                        onClick={() => setIsLayerPanelExpanded(false)}
+                      >
+                        Свернуть
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={styles.prototypeLayerScrollRow}>
+                    <button
+                      type="button"
+                      className={`${styles.prototypeIconButton} shrink-0 cursor-pointer`}
+                      onClick={() => scrollLayerStrip("left")}
+                      disabled={!layerStripState.canScrollLeft}
+                      aria-label="Прокрутить эшелоны влево"
+                    >
+                      <LeftOutlined />
+                    </button>
+                    <div className="relative min-w-0 flex-1">
+                      {layerStripState.canScrollLeft ? <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white via-white/80 to-transparent" /> : null}
+                      {layerStripState.canScrollRight ? <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white via-white/80 to-transparent" /> : null}
+                  <div ref={layerStripRef} className={styles.prototypeLayerStrip}>
+                    {orderedProjectLayers.map((layer) => {
+                      const summary = layerSummaries.find((item) => item.layerId === layer.id);
+                      const isSelected = layer.id === selectedLayer.id;
+                      const isHovered = layer.id === hoveredLayerId;
+                      const layerDeleteState = describeLayerDeletion(project.layers.length, objectCountByLayer.get(layer.id) ?? 0);
+                      const titleParts = splitLayerTitle(layer.code, layer.name);
+                      const layerMenuItems = [
+                        {
+                          key: "objects",
+                          icon: <AppstoreOutlined />,
+                          label: "Открыть объекты эшелона",
+                          onClick: () => {
+                            selectLayerWithDefaultSlot(layer.id);
+                            setEchelonObjectsLayerId(layer.id as DefenseLayerId);
+                          },
+                        },
+                        {
+                          key: "edit",
+                          icon: <EditOutlined />,
+                          label: "Настроить эшелон",
+                          onClick: () => {
+                            selectLayerWithDefaultSlot(layer.id);
+                            editSelectedLayer();
+                          },
+                        },
+                        {
+                          key: "delete",
+                          icon: <DeleteOutlined />,
+                          danger: true,
+                          disabled: !layerDeleteState.canDelete,
+                          label: (
+                            <div className="py-0.5">
+                              <p>Удалить эшелон</p>
+                              {!layerDeleteState.canDelete ? (
+                                <p className="mt-1 max-w-48 whitespace-normal text-[11px] font-medium text-slate-400">
+                                  {layerDeleteState.reason}
+                                </p>
+                              ) : null}
+                            </div>
+                          ),
+                          onClick: () => {
+                            if (!layerDeleteState.canDelete) return;
+                            setPendingLayerDeletionId(layer.id);
+                          },
+                        },
+                      ];
+                      return (
+                        <div
+                          key={layer.id}
+                          className={styles.prototypeLayerCard}
+                          data-selected={isSelected ? "true" : "false"}
+                          data-hovered={isHovered ? "true" : "false"}
+                          onMouseEnter={() => setHoveredLayerId(layer.id)}
+                          onMouseLeave={() => setHoveredLayerId((current) => (current === layer.id ? null : current))}
+                        >
+                          <div className={styles.prototypeLayerActions}>
+                            <button
+                              type="button"
+                              className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                toggleLayerVisibility(layer.id, layer.isVisible === false);
+                              }}
+                              title={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
+                              aria-label={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
+                            >
+                              {layer.isVisible === false ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                            </button>
+                            <Dropdown
+                              trigger={["click"]}
+                              placement="bottomRight"
+                              arrow
+                              menu={{
+                                items: layerMenuItems,
+                                className: "min-w-[13rem]",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
+                                onClick={(event) => event.stopPropagation()}
+                                aria-label="Открыть меню эшелона"
+                              >
+                                <MoreOutlined />
+                              </button>
+                            </Dropdown>
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.prototypeLayerButton}
+                            onClick={() => selectLayerWithDefaultSlot(layer.id)}
+                          >
+                            <div className="flex items-start gap-2.5 pr-[4.4rem]">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex min-w-0 items-start gap-2">
+                                  <span
+                                    className={styles.prototypeLayerDot}
+                                    style={{ backgroundColor: layer.color ?? "#2563eb" }}
+                                    aria-hidden="true"
+                                  />
+                                  <div className="min-w-0 min-h-[2.45rem]" title={`${layer.code} · ${layer.name}`}>
+                                    <p className={`${styles.prototypeLayerName} truncate`}>
+                                      {titleParts.primary}
+                                    </p>
+                                    {titleParts.secondary ? (
+                                      <p
+                                        className={styles.prototypeLayerName}
+                                        style={{
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 1,
+                                          WebkitBoxOrient: "vertical",
+                                          overflow: "hidden",
+                                        }}
+                                      >
+                                        {titleParts.secondary}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <p className={styles.prototypeLayerRange}>
+                              {formatLayerRange(summary?.innerRadiusM ?? 0, summary?.outerRadiusM ?? 0)}
+                            </p>
+                            <p className={styles.prototypeMeta}>
+                              {formatLayerObjectMeta(summary?.objectCount ?? 0, summary?.totalMln ?? 0)}
+                            </p>
+                          </button>
+                          {layer.isLocked ? (
+                            <span className={`${styles.prototypeLayerLocked} ${styles.prototypeBadgeMuted}`}>
+                              locked
+                            </span>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                    </div>
+                    <button
+                      type="button"
+                      className={`${styles.prototypeIconButton} shrink-0 cursor-pointer`}
+                      onClick={() => scrollLayerStrip("right")}
+                      disabled={!layerStripState.canScrollRight}
+                      aria-label="Прокрутить эшелоны вправо"
+                    >
+                      <RightOutlined />
+                    </button>
+                  </div>
+
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              data-sidebar-toggle-state={isCatalogTrayOpen ? "hidden" : "visible"}
+              className={`${styles.prototypeToggleLauncher} ${styles.prototypeButtonPrimary} cursor-pointer transition duration-300 ease-in-out`}
+              onClick={() => setIsCatalogTrayOpen(true)}
+              title="Открыть библиотеку средств защиты"
+              aria-label="Открыть библиотеку средств защиты"
+              aria-hidden={isCatalogTrayOpen}
+              tabIndex={isCatalogTrayOpen ? -1 : 0}
+            >
+              <AppstoreOutlined />
+            </button>
           </>
-        ) : (
+        ) : null}
+
+        {activeView === "drilldown" ? (
           <FacilityDrilldown
             facilityName={selectedFacility.name}
             scenario={scenarioId}
@@ -1252,297 +1338,45 @@ export function DroneDefensePrototype() {
             onLocalPlacementMove={moveLocalPlacement}
             onLocalPlacementRemove={removeLocalPlacement}
           />
-        )}
+        ) : null}
+
+        {layerWizardState ? (
+          <LayerGeometryWizard
+            state={layerWizardState}
+            insertOptions={insertOptions}
+            validationMessage={wizardValidation?.message}
+            fieldErrors={wizardValidation?.fieldErrors}
+            isValid={Boolean(wizardValidation?.isValid)}
+            onSelectInsertPosition={selectWizardInsertPosition}
+            onDraftChange={(patch) =>
+              setLayerWizardState((current) =>
+                current
+                  ? {
+                      ...current,
+                      draft: { ...current.draft, ...patch },
+                    }
+                  : current,
+              )
+            }
+            onCancel={() => setLayerWizardState(null)}
+            onSubmit={saveLayerWizard}
+          />
+        ) : null}
+        <Modal
+          open={Boolean(pendingLayerDeletion)}
+          title="Удалить эшелон?"
+          onCancel={() => setPendingLayerDeletionId(null)}
+          onOk={confirmLayerDeletion}
+          okText="Удалить"
+          cancelText="Отмена"
+          okButtonProps={{ danger: true }}
+          destroyOnHidden
+        >
+          <p className="text-sm text-slate-600">
+            {pendingLayerDeletion ? `${pendingLayerDeletion.code} · ${pendingLayerDeletion.name}` : "Выбранный эшелон"} будет удалён без возможности восстановления.
+          </p>
+        </Modal>
       </main>
-
-      {activeView === "gis" ? (
-        <aside className={`${styles.studioPanel} ${styles.studioInspector}`}>
-          <div className={styles.studioPanelHeader}>
-            <div className={styles.studioInspectorTopline}>
-              <p className={styles.prototypeEyebrow} title="Инспектор объекта">ИНСПЕКТОР ОБЪЕКТА</p>
-              <button
-                type="button"
-                className={styles.prototypeIconButton}
-                onClick={() => {
-                  autoSelectionSuppressedRef.current = true;
-                  selectObject(null);
-                }}
-                aria-label="Закрыть инспектор"
-                title="Закрыть инспектор"
-              >
-                <CloseOutlined />
-              </button>
-            </div>
-            {selectedPlacedObject ? (
-              <div className={styles.studioInspectorHeader}>
-                <span className={styles.studioInspectorGlyph}>{selectedPlacedAsset?.shortName ?? selectedPlacedLayer?.code ?? "OBJ"}</span>
-                <div className={styles.studioInspectorTitleBlock}>
-                  <h2 className={styles.prototypeTitle}>
-                    {selectedPlacedObject.name ?? selectedPlacedAsset?.name ?? "Объект"}
-                  </h2>
-                  <p className={styles.prototypeMeta}>
-                    {selectedPlacedLayer ? `${selectedPlacedLayer.code} · ${selectedPlacedLayer.name}` : "Эшелон не выбран"}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className={styles.studioInspectorHeader}>
-                <span className={styles.studioInspectorGlyph}>OBJ</span>
-                <div className={styles.studioInspectorTitleBlock}>
-                  <h2 className={styles.prototypeTitle}>Объект не выбран</h2>
-                  <p className={styles.prototypeMeta}>Выберите маркер на карте или строку в дереве.</p>
-                </div>
-              </div>
-            )}
-            {selectedPlacedObject ? (
-              <div className={styles.studioChipRow}>
-                <span className={styles.studioChip}>{placedObjectStatusLabels[selectedPlacedObject.status]}</span>
-                <span className={styles.studioChip}>балл 74</span>
-                <span className={styles.studioChip}>{formatLayerCost(selectedObjectTotalMln)}</span>
-              </div>
-            ) : null}
-          </div>
-
-          {selectedPlacedObject ? (
-            <div className={styles.studioInspectorBody}>
-              <div className={styles.studioMetricGrid}>
-                <div className={styles.studioMetricCard}>
-                  <span>Стоимость</span>
-                  <strong>{formatLayerCost(selectedObjectTotalMln)}</strong>
-                </div>
-                <div className={styles.studioMetricCard}>
-                  <span>Единица</span>
-                  <strong>{formatLayerCost(selectedObjectUnitPriceMln)}</strong>
-                </div>
-                <div className={styles.studioMetricCard}>
-                  <span>Покрытие</span>
-                  <strong>{formatDistance(selectedObjectRadiusM)}</strong>
-                </div>
-                <div className={styles.studioMetricCard}>
-                  <span>Сектор</span>
-                  <strong>{selectedObjectAngleDeg}°</strong>
-                </div>
-              </div>
-
-              <div className={styles.studioFormGrid}>
-                <label className={styles.studioFieldGroup}>
-                  <span>Широта</span>
-                  <input
-                    className={styles.studioField}
-                    type="number"
-                    step="0.000001"
-                    value={selectedPlacedObject.coordinates.lat}
-                    onChange={(event) => {
-                      const value = Number(event.target.value);
-                      if (!Number.isFinite(value)) return;
-                      updatePlacedObject(selectedPlacedObject.id, {
-                        coordinates: { ...selectedPlacedObject.coordinates, lat: value },
-                      });
-                    }}
-                  />
-                </label>
-                <label className={styles.studioFieldGroup}>
-                  <span>Долгота</span>
-                  <input
-                    className={styles.studioField}
-                    type="number"
-                    step="0.000001"
-                    value={selectedPlacedObject.coordinates.lng}
-                    onChange={(event) => {
-                      const value = Number(event.target.value);
-                      if (!Number.isFinite(value)) return;
-                      updatePlacedObject(selectedPlacedObject.id, {
-                        coordinates: { ...selectedPlacedObject.coordinates, lng: value },
-                      });
-                    }}
-                  />
-                </label>
-                <label className={styles.studioFieldGroup}>
-                  <span>Азимут</span>
-                  <input
-                    className={styles.studioField}
-                    type="number"
-                    min={0}
-                    max={359}
-                    value={selectedObjectAzimuthDeg}
-                    onChange={(event) => {
-                      const value = Math.max(0, Math.min(359, Math.trunc(Number(event.target.value) || 0)));
-                      updatePlacedObject(selectedPlacedObject.id, {
-                        rotation: value,
-                        compoundProfile: selectedPlacedObject.compoundProfile
-                          ? { ...selectedPlacedObject.compoundProfile, azimuth: value }
-                          : selectedPlacedObject.compoundProfile,
-                      });
-                    }}
-                  />
-                </label>
-                <label className={styles.studioFieldGroup}>
-                  <span>Сектор</span>
-                  <input
-                    className={styles.studioField}
-                    type="number"
-                    min={1}
-                    max={360}
-                    value={selectedObjectAngleDeg}
-                    onChange={(event) => {
-                      const value = Math.max(1, Math.min(360, Math.trunc(Number(event.target.value) || 1)));
-                      updatePlacedObject(selectedPlacedObject.id, {
-                        customCoverageAngle: value,
-                        compoundProfile: selectedPlacedObject.compoundProfile
-                          ? { ...selectedPlacedObject.compoundProfile, sectorWidthDeg: value }
-                          : selectedPlacedObject.compoundProfile,
-                      });
-                    }}
-                  />
-                </label>
-                <label className={styles.studioFieldGroup}>
-                  <span>Дальность</span>
-                  <input
-                    className={styles.studioField}
-                    type="number"
-                    min={0}
-                    step="0.1"
-                    value={metersToKilometers(selectedObjectRadiusM)}
-                    onChange={(event) => {
-                      updatePlacedObject(selectedPlacedObject.id, {
-                        customCoverageRadius: kilometersToMeters(event.target.value),
-                      });
-                    }}
-                  />
-                </label>
-                <label className={styles.studioFieldGroup}>
-                  <span>Кол-во</span>
-                  <input
-                    className={styles.studioField}
-                    type="number"
-                    min={1}
-                    value={selectedPlacedObject.quantity}
-                    onChange={(event) => {
-                      const value = Math.max(1, Math.trunc(Number(event.target.value) || 1));
-                      updatePlacedObject(selectedPlacedObject.id, { quantity: value });
-                    }}
-                  />
-                </label>
-              </div>
-
-              <div className={styles.studioFieldGroup}>
-                <span>Статус</span>
-                <div className={styles.studioSegmented}>
-                  {(["active", "planned", "inactive"] as const).map((status) => (
-                    <button
-                      key={status}
-                      type="button"
-                      data-active={selectedPlacedObject.status === status ? "true" : "false"}
-                      onClick={() => updatePlacedObject(selectedPlacedObject.id, { status })}
-                    >
-                      {placedObjectStatusLabels[status]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {selectedPlacedObject.hasCoverageConflict ||
-              selectedPlacedObject.hasGeometryConflict ||
-              selectedPlacedObject.hasTerrainConflict ? (
-                <div className={styles.studioConflictCard}>
-                  Конфликт геометрии: сектор пересекает соседний пост. Проверьте азимут и ширину сектора.
-                </div>
-              ) : null}
-
-              <label className={styles.studioFieldGroup}>
-                <span>Заметки</span>
-                <textarea
-                  className={`${styles.studioField} ${styles.studioTextarea}`}
-                  value={selectedPlacedObject.notes ?? ""}
-                  onChange={(event) => updatePlacedObject(selectedPlacedObject.id, { notes: event.target.value })}
-                  placeholder="Эксплуатационные комментарии"
-                />
-              </label>
-
-              <div className={styles.studioInspectorActions}>
-                <button
-                  type="button"
-                  className={styles.prototypeButton}
-                  onClick={() =>
-                    setLocateTarget({
-                      lon: selectedPlacedObject.coordinates.lng,
-                      lat: selectedPlacedObject.coordinates.lat,
-                      at: Date.now(),
-                    })
-                  }
-                >
-                  Показать на карте
-                </button>
-                <button
-                  type="button"
-                  className={styles.prototypeButton}
-                  onClick={() => toggleProjectPlacementVisibility(selectedPlacedObject.id)}
-                >
-                  {selectedPlacedObject.isVisibleOnMap === false ? "Показать" : "Скрыть"}
-                </button>
-                {selectedMogObject ? (
-                  <button
-                    type="button"
-                    className={styles.prototypeButtonPrimary}
-                    onClick={() => setMogEditorObjectId(selectedMogObject.id)}
-                  >
-                    Настроить МОГ
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className={styles.prototypeButtonDanger}
-                  onClick={() => deleteProjectPlacement(selectedPlacedObject.id)}
-                >
-                  Удалить
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className={styles.studioInspectorEmpty}>
-              <p className={styles.prototypeTitle}>Выберите размещённый объект</p>
-              <p className={styles.prototypeMeta}>Инспектор покажет координаты, сектор покрытия, стоимость и эксплуатационный статус.</p>
-            </div>
-          )}
-        </aside>
-      ) : null}
-
-      {layerWizardState ? (
-        <LayerGeometryWizard
-          state={layerWizardState}
-          insertOptions={insertOptions}
-          validationMessage={wizardValidation?.message}
-          fieldErrors={wizardValidation?.fieldErrors}
-          isValid={Boolean(wizardValidation?.isValid)}
-          onSelectInsertPosition={selectWizardInsertPosition}
-          onDraftChange={(patch) =>
-            setLayerWizardState((current) =>
-              current
-                ? {
-                    ...current,
-                    draft: { ...current.draft, ...patch },
-                  }
-                : current,
-            )
-          }
-          onCancel={() => setLayerWizardState(null)}
-          onSubmit={saveLayerWizard}
-        />
-      ) : null}
-      <Modal
-        open={Boolean(pendingLayerDeletion)}
-        title="Удалить эшелон?"
-        onCancel={() => setPendingLayerDeletionId(null)}
-        onOk={confirmLayerDeletion}
-        okText="Удалить"
-        cancelText="Отмена"
-        okButtonProps={{ danger: true }}
-        destroyOnHidden
-      >
-        <p className="text-sm text-slate-600">
-          {pendingLayerDeletion ? `${pendingLayerDeletion.code} · ${pendingLayerDeletion.name}` : "Выбранный эшелон"} будет удалён без возможности восстановления.
-        </p>
-      </Modal>
     </div>
   );
 }

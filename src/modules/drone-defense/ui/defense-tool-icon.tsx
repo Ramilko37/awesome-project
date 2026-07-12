@@ -194,7 +194,7 @@ export function DefenseToolIcon({
   return (
     <div
       ref={rootRef}
-      className={`group relative grid min-h-[104px] min-w-0 grid-cols-[0.75rem_3rem_minmax(0,1fr)] items-center gap-1.5 rounded-lg border bg-white p-1.5 transition ${
+      className={`group grid min-h-[104px] min-w-0 grid-cols-[0.75rem_3rem_minmax(0,1fr)] items-center gap-1.5 rounded-lg border bg-white p-1.5 transition ${
         isSelected
           ? "border-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,0.35),0_12px_24px_rgba(37,99,235,0.16)]"
           : installedCount > 0
@@ -206,6 +206,10 @@ export function DefenseToolIcon({
       data-placement-type={placementType}
       data-can-drag={canDrag ? "true" : "false"}
       data-testid={`defense-tool-card-${assetId}`}
+      role="button"
+      tabIndex={0}
+      aria-pressed={isSelected}
+      aria-label={`${name}. ${counterText}. Перетащите на карту`}
       title={title}
       draggable={canDrag}
       onDragStart={(event) => {
@@ -219,32 +223,32 @@ export function DefenseToolIcon({
       onMouseDown={(event) => {
         if (canDrag) onMouseDragAsset(event);
       }}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
     >
-      <button
-        type="button"
-        className="contents text-left"
-        aria-pressed={isSelected}
-        aria-label={`${name}. ${counterText}. Перетащите на карту`}
-        onClick={onSelect}
-      >
-        <span className="grid h-full place-items-center text-slate-400" aria-hidden="true">
-          {canDrag ? <DragOutlined /> : null}
-        </span>
+      <span className="grid h-full place-items-center text-slate-400" aria-hidden="true">
+        {canDrag ? <DragOutlined /> : null}
+      </span>
 
-        <span className="relative block h-12 w-12 overflow-hidden rounded-md border border-slate-100 bg-slate-100">
-          <Image
-            src={withBasePath(previewImageUrl)}
-            alt=""
-            width={56}
-            height={56}
-            unoptimized
-            className={`h-full w-full object-cover ${isPlaceholder ? "object-contain p-2" : ""}`}
-            draggable={false}
-          />
-        </span>
+      <span className="relative block h-12 w-12 overflow-hidden rounded-md border border-slate-100 bg-slate-100">
+        <Image
+          src={withBasePath(previewImageUrl)}
+          alt=""
+          width={56}
+          height={56}
+          unoptimized
+          className={`h-full w-full object-cover ${isPlaceholder ? "object-contain p-2" : ""}`}
+          draggable={false}
+        />
+      </span>
 
-        <div className="min-w-0 pr-8">
-          <div className="flex min-w-0 items-start justify-between gap-2">
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-start justify-between gap-2">
           <span className="min-w-0 truncate text-xs font-semibold leading-snug text-slate-950">{name}</span>
           <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
             installedCount > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
@@ -294,22 +298,23 @@ export function DefenseToolIcon({
           }`}>
             {disabledReason ?? actionText}
           </span>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              className="grid h-6 w-6 cursor-pointer place-items-center rounded-md bg-slate-100 text-slate-500 transition hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-35"
+              disabled={!canAdd}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenCoordinates();
+              }}
+              title="Ввести координаты"
+              aria-label="Ввести координаты"
+            >
+              {isZoneObject ? <AimOutlined /> : <EnvironmentOutlined />}
+            </button>
+          </div>
         </div>
       </div>
-      </button>
-      <button
-        type="button"
-        className="absolute right-1.5 bottom-1.5 grid h-6 w-6 cursor-pointer place-items-center rounded-md bg-slate-100 text-slate-500 transition hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-35"
-        disabled={!canAdd}
-        onClick={(event) => {
-          event.stopPropagation();
-          onOpenCoordinates();
-        }}
-        title="Ввести координаты"
-        aria-label="Ввести координаты"
-      >
-        {isZoneObject ? <AimOutlined /> : <EnvironmentOutlined />}
-      </button>
     </div>
   );
 }

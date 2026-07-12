@@ -207,7 +207,6 @@ export function AssetLibraryManager({
   const [localError, setLocalError] = useState<string | null>(null);
   const usedAssetIds = useMemo(() => new Set(placedObjects.map((object) => object.assetId)), [placedObjects]);
   const selectedAssetUsed = Boolean(selectedAsset && usedAssetIds.has(selectedAsset.id));
-  const localCatalogActive = Boolean(error && assets.length > 0 && error.toLowerCase().includes("локаль"));
 
   const startCreate = () => {
     setMode("create");
@@ -313,10 +312,7 @@ export function AssetLibraryManager({
       </div>
 
       {loading ? <p className={`${styles.prototypeMeta} mt-2 text-blue-600`}>Загрузка библиотеки…</p> : null}
-      {localCatalogActive ? (
-        <p className={`${styles.prototypeMeta} mt-2`}>Локальный каталог · {assets.length} средств</p>
-      ) : null}
-      {error && !localCatalogActive ? <p className={`${styles.prototypeNoticeWarning} mt-2`}>{error}</p> : null}
+      {error ? <p className={`${styles.prototypeNoticeWarning} mt-2`}>{error}</p> : null}
       {localError ? <p className={`${styles.prototypeNoticeDanger} mt-2`}>{localError}</p> : null}
 
       {mode !== "closed" ? (
