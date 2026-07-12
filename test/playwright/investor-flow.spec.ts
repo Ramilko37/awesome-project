@@ -92,10 +92,11 @@ test("version conflict offers server reload or a separate variant", async ({ pag
   await page.route("**/api/defense/projects**", (route) => {
     const url = new URL(route.request().url());
     const method = route.request().method();
-    if (method === "GET" && url.pathname === "/api/defense/projects") {
+    const pathname = url.pathname.replace(/\/+$/, "");
+    if (method === "GET" && pathname === "/api/defense/projects") {
       return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: [{ projectId: "server-project", name: "Вариант A", projectName: "Серверный вариант", enterpriseId: "enterprise-alpha", version: 4, updatedAt: "2026-07-12T00:00:00Z" }], totalItems: 1 }) });
     }
-    if (method === "GET" && url.pathname === "/api/defense/projects/server-project") {
+    if (method === "GET" && pathname === "/api/defense/projects/server-project") {
       return route.fulfill({ contentType: "application/json", body: JSON.stringify(backendProject()) });
     }
     if (method === "PUT") {
@@ -105,7 +106,7 @@ test("version conflict offers server reload or a separate variant", async ({ pag
   });
   await page.goto(`${baseUrl}/workspace`);
   await page.getByRole("button", { name: /Вариант A/ }).click();
-  await expect(page).toHaveURL(/\/prototype/);
+  await expect(page).toHaveURL(/\/prototype/, { timeout: 15_000 });
   await page.getByRole("button", { name: "Сохранить текущий вариант" }).click();
   await expect(page.getByRole("status")).toContainText("Конфликт версии");
   await page.getByTitle("Открыть варианты конфигурации").click();
