@@ -120,6 +120,10 @@ function canUseLocalStorage() {
 
 function persist(project: DefenseProject) {
   if (!canUseLocalStorage()) return;
+  if (project.source === "backend") {
+    globalThis.localStorage.removeItem(FORTIS_DEFENSE_PROJECT_STORAGE_KEY);
+    return;
+  }
   globalThis.localStorage.setItem(FORTIS_DEFENSE_PROJECT_STORAGE_KEY, exportDefenseProjectJson(project));
 }
 

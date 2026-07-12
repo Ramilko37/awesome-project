@@ -55,6 +55,7 @@ Object.defineProperty(globalThis, "fetch", {
 
 function resetStore(): void {
   fetchCalls.length = 0;
+  globalThis.localStorage.clear();
   useDefenseVariantsStore.setState(useDefenseVariantsStore.getInitialState(), true);
   useDefenseProjectStore.setState(useDefenseProjectStore.getInitialState(), true);
 }
@@ -122,6 +123,7 @@ async function main() {
   await useDefenseVariantsStore.getState().loadVariant("B");
   assert(useDefenseProjectStore.getState().project.projectId === "B", "loadVariant must replace project to B");
   assert(useDefenseVariantsStore.getState().activeVariantId === "B", "loadVariant must set activeVariantId to B");
+  assert(globalThis.localStorage.getItem("fortis-defense-project") === null, "saved backend projects must not be stored as local drafts");
   console.log("loadVariant: OK");
 
   // 4. deleteVariant of the active variant clears the active id.
