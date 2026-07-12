@@ -22,12 +22,22 @@ import {
 } from "@/modules/drone-defense/domain/prototype-workflow";
 import { useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
 import { useMapViewStore } from "@/shared/lib/use-map-view-store";
+import { useDefenseVariantsStore } from "@/modules/drone-defense/domain/use-defense-variants-store";
+import { VariantSaveButton, VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
 import type { DefenseLayerId } from "@/shared/types/drone-defense";
 import type { PlacedDefenseObject, ProtectedObjectOption } from "@/shared/types/defense-project";
 import styles from "./fortis-studio-prototype.module.css";
 
 const defenseAssetDragMimeType = "application/x-fortis-defense-asset";
 const budgetLimitMln = 9300;
+
+const syncLabels = {
+  clean: "Сохранено",
+  dirty: "Есть изменения",
+  saving: "Сохранение",
+  conflict: "Конфликт версии",
+  error: "Ошибка",
+} as const;
 
 const statusLabels: Record<PlacedDefenseObject["status"], string> = {
   active: "Активен",
@@ -105,7 +115,6 @@ export function FortisStudioPrototype() {
   const [coordinatePlacementValidation, setCoordinatePlacementValidation] =
     useState<CoordinatePlacementValidationState | null>(null);
   const [lastMessage, setLastMessage] = useState<string | null>(null);
-  const [savedAt, setSavedAt] = useState<string | null>(null);
 
   const {
     project,
@@ -118,9 +127,10 @@ export function FortisStudioPrototype() {
     deletePlacedObject,
     validateObjectPlacement,
     restoreProjectFromLocalStorage,
-    saveProjectToLocalStorage,
     protectedObjects,
   } = useDefenseProjectStore();
+
+  const { syncStatus, activeVariantId } = useDefenseVariantsStore();
 
   const {
     init,
@@ -403,16 +413,6 @@ export function FortisStudioPrototype() {
     updatePlacedObject(selectedObject.id, patch);
   };
 
-  const saveProject = () => {
-    saveProjectToLocalStorage();
-    setSavedAt(
-      new Intl.DateTimeFormat("ru-RU", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date()),
-    );
-  };
-
   const dragAsset = (asset: AssetCatalogItem, event: DragEvent<HTMLDivElement>) => {
     event.dataTransfer.effectAllowed = "copy";
     event.dataTransfer.setData(defenseAssetDragMimeType, asset.assetId);
@@ -450,6 +450,7 @@ export function FortisStudioPrototype() {
           <strong>{project.baseObject.name}</strong>
           <em>· {project.projectName}</em>
         </div>
+        <VariantStatusButton />
         <div className={styles.historyGroup}>
           <button type="button" disabled title="Отменить (скоро)" aria-label="Отменить">
             ↺
@@ -458,9 +459,7 @@ export function FortisStudioPrototype() {
             ↻
           </button>
         </div>
-        <button type="button" className={styles.saveButton} onClick={saveProject}>
-          Сохранить <span aria-hidden="true" />
-        </button>
+        <VariantSaveButton className={styles.saveButton} />
         <button type="button" className={styles.exportButton} disabled title="Экспорт отчёта доступен в калькуляторе" aria-label="Экспорт">
           ⤓
         </button>
@@ -684,7 +683,9 @@ export function FortisStudioPrototype() {
             <i aria-hidden="true" />
             <span>{formatLayerCost(projectTotalMln)}</span>
             <i aria-hidden="true" />
-            <span className={styles.draftState}>● {savedAt ? `сохранено ${savedAt}` : "черновик"}</span>
+            <span className={styles.draftState}>
+              ● {activeVariantId ? syncLabels[syncStatus] : "Есть изменения"}
+            </span>
           </div>
 
           {coordinatePlacementAsset && activeLayer ? (

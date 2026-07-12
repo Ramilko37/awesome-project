@@ -18,10 +18,13 @@ export function VariantsModal({ open, onClose }: Props) {
     activeVariantId,
     listStatus,
     saveStatus,
+    syncStatus,
     conflictState,
     error,
     fetchVariants,
     saveAsNewVariant,
+    loadServerVersion,
+    saveConflictAsNewVariant,
     loadVariant,
     deleteVariant,
   } = useDefenseVariantsStore();
@@ -38,7 +41,8 @@ export function VariantsModal({ open, onClose }: Props) {
 
   const handleSave = () => {
     if (!canSave) return;
-    void saveAsNewVariant(trimmedName).then(() => setNewName(""));
+    const save = syncStatus === "conflict" ? saveConflictAsNewVariant : saveAsNewVariant;
+    void save(trimmedName).then(() => setNewName(""));
   };
 
   return (
@@ -54,12 +58,20 @@ export function VariantsModal({ open, onClose }: Props) {
         <Alert
           type="error"
           message={error}
+          showIcon
+          style={{ marginBottom: token.marginMD }}
+        />
+      ) : null}
+
+      {syncStatus === "conflict" && conflictState ? (
+        <Alert
+          type="warning"
+          message="Конфликт версии"
+          description="Серверная версия изменилась. Загрузите её или сохраните текущую работу отдельным вариантом."
           action={
-            conflictState ? (
-              <Button size="small" danger onClick={() => void loadVariant(conflictState.projectId)}>
-                Перезагрузить актуальную версию
-              </Button>
-            ) : undefined
+            <Button size="small" onClick={() => void loadServerVersion()}>
+              Загрузить серверную версию
+            </Button>
           }
           showIcon
           style={{ marginBottom: token.marginMD }}
@@ -86,7 +98,7 @@ export function VariantsModal({ open, onClose }: Props) {
           strong
           style={{ display: "block", marginBottom: token.marginXS }}
         >
-          Сохранить текущую карту
+          {syncStatus === "conflict" ? "Сохранить текущую работу отдельным вариантом" : "Сохранить текущую карту"}
         </Typography.Text>
         <div style={{ display: "flex", gap: token.marginXS }}>
           <Input
@@ -103,7 +115,7 @@ export function VariantsModal({ open, onClose }: Props) {
             disabled={!canSave}
             loading={saving}
           >
-            Сохранить как новый
+            {syncStatus === "conflict" ? "Сохранить как новый вариант" : "Сохранить как новый"}
           </Button>
         </div>
       </div>

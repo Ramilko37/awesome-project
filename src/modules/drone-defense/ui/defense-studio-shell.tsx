@@ -111,6 +111,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
           </nav>
 
           <div className="ml-auto flex min-w-0 items-center gap-3">
+            <VariantStatusButton />
             <div className="hidden h-8 min-w-0 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2.5 xl:flex">
               <span className="h-1.5 w-1.5 rounded-full bg-[#2563eb]" />
               <p className="truncate text-xs font-semibold text-slate-200">Завод Альфа <span className="text-slate-500">·</span> Вариант A</p>

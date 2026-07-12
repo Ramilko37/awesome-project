@@ -3,18 +3,34 @@
 import { useState } from "react";
 import { SaveOutlined } from "@ant-design/icons";
 import { Button, theme } from "antd";
+import type { ProjectSyncStatus } from "@/modules/drone-defense/domain/project-sync";
 import { useDefenseVariantsStore } from "@/modules/drone-defense/domain/use-defense-variants-store";
 import { VariantsModal } from "@/modules/drone-defense/ui/variants-modal";
 
+const syncCopy: Record<ProjectSyncStatus, string> = {
+  clean: "Сохранено",
+  dirty: "Есть изменения",
+  saving: "Сохранение",
+  conflict: "Конфликт версии",
+  error: "Ошибка",
+};
+
 function useVariantMeta() {
   const { token } = theme.useToken();
-  const { activeVariantId, activeVariantName, saveStatus, overwriteActiveVariant } =
+  const { activeVariantId, activeVariantName, saveStatus, syncStatus, overwriteActiveVariant, retrySave } =
     useDefenseVariantsStore();
 
   const isDraft = !activeVariantId;
   const saving = saveStatus === "saving";
+  const effectiveSyncStatus: ProjectSyncStatus = isDraft && syncStatus === "clean" ? "dirty" : syncStatus;
   const label = isDraft ? "Черновик (не сохранён)" : activeVariantName;
-  const dotColor = isDraft ? token.colorWarning : token.colorSuccess;
+  const dotColor = {
+    clean: token.colorSuccess,
+    dirty: token.colorWarning,
+    saving: token.colorPrimary,
+    conflict: token.colorError,
+    error: token.colorError,
+  }[effectiveSyncStatus];
 
   return {
     token,
@@ -22,10 +38,13 @@ function useVariantMeta() {
     activeVariantName,
     saveStatus,
     overwriteActiveVariant,
+    retrySave,
     isDraft,
     saving,
     label,
     dotColor,
+    syncStatus: effectiveSyncStatus,
+    syncLabel: syncCopy[effectiveSyncStatus],
   };
 }
 
@@ -34,7 +53,7 @@ export function VariantStatusButton({
 }: {
   fullWidth?: boolean;
 }) {
-  const { token, isDraft, label, dotColor } = useVariantMeta();
+  const { token, isDraft, label, dotColor, syncLabel } = useVariantMeta();
   const [open, setOpen] = useState(false);
 
   return (
@@ -99,6 +118,13 @@ export function VariantStatusButton({
           {label}
         </span>
         <span
+          role="status"
+          aria-live="polite"
+          style={{ flexShrink: 0, color: token.colorTextSecondary, fontSize: token.fontSizeSM }}
+        >
+          {syncLabel}
+        </span>
+        <span
           aria-hidden
           style={{ flexShrink: 0, color: token.colorTextTertiary, fontSize: token.fontSizeSM }}
         >
@@ -117,12 +143,16 @@ export function VariantSaveButton({
   iconOnly?: boolean;
   className?: string;
 }) {
-  const { activeVariantName, overwriteActiveVariant, isDraft, saving } = useVariantMeta();
+  const { activeVariantName, overwriteActiveVariant, retrySave, isDraft, saving, syncStatus } = useVariantMeta();
   const [open, setOpen] = useState(false);
 
   const handleSave = () => {
     if (isDraft) {
       setOpen(true);
+      return;
+    }
+    if (syncStatus === "error") {
+      void retrySave();
       return;
     }
     void overwriteActiveVariant();
@@ -136,18 +166,20 @@ export function VariantSaveButton({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          title={
-            isDraft
-              ? "Сохранить карту как новый вариант"
-              : `Сохранить вариант «${activeVariantName ?? "текущий"}»`
-          }
-          aria-label={isDraft ? "Сохранить карту как новый вариант" : "Сохранить текущий вариант"}
+          title={isDraft ? "Сохранить карту как новый вариант" : syncStatus === "error" ? "Повторить сохранение" : `Сохранить вариант «${activeVariantName ?? "текущий"}»`}
+          aria-label={isDraft ? "Сохранить карту как новый вариант" : syncStatus === "error" ? "Повторить сохранение" : "Сохранить текущий вариант"}
         >
           <SaveOutlined />
         </button>
       ) : (
-        <Button type="primary" onClick={handleSave} loading={saving}>
-          Сохранить
+        <Button
+          className={className}
+          type="primary"
+          onClick={handleSave}
+          loading={saving}
+          aria-label={isDraft ? "Сохранить карту как новый вариант" : syncStatus === "error" ? "Повторить сохранение" : "Сохранить текущий вариант"}
+        >
+          {syncStatus === "error" ? "Повторить" : "Сохранить"}
         </Button>
       )}
       <VariantsModal open={open} onClose={() => setOpen(false)} />
