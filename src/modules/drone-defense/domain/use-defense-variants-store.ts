@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { useDefenseStudioStore } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import {
   clearRecoveryDraft,
+  readRecoveryDraft,
   serializeProjectForSync,
   syncStatusFor,
   type ProjectSyncStatus,
@@ -250,7 +251,22 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
 
   restoreActiveVariant: async () => {
     const projectId = rememberedActiveProject();
-    if (projectId) await get().loadVariant(projectId);
+    if (!projectId) return;
+    await get().loadVariant(projectId);
+    if (get().loadStatus !== "error") return;
+
+    const storage = browserStorage();
+    const draft = storage ? readRecoveryDraft(storage, projectId) : null;
+    if (!draft) return;
+
+    set({
+      activeVariantId: projectId,
+      activeVariantName: draft.project.projectName,
+      syncStatus: draft.status,
+      canonicalSnapshot: null,
+      conflictState: draft.status === "conflict" ? { projectId, message: "Версия проекта требует разрешения конфликта." } : null,
+    });
+    useDefenseProjectStore.getState().replaceProject(draft.project);
   },
 
   deleteVariant: async (id) => {

@@ -1,7 +1,7 @@
 // Run: npx tsx src/modules/drone-defense/domain/use-defense-variants-store.test.ts
 
 import { useDefenseVariantsStore } from "@/modules/drone-defense/domain/use-defense-variants-store";
-import { readRecoveryDraft, serializeProjectForSync } from "@/modules/drone-defense/domain/project-sync";
+import { readRecoveryDraft, serializeProjectForSync, writeRecoveryDraft } from "@/modules/drone-defense/domain/project-sync";
 import { useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
 import type { DefenseProject, VariantSummary } from "@/shared/types/defense-project";
 
@@ -264,6 +264,17 @@ async function main() {
   assert(useDefenseVariantsStore.getState().activeVariantId === "I", "reload must restore the active project id");
   assert(useDefenseProjectStore.getState().project.projectName === "версия с сервера", "reload must use the server project body");
   console.log("active backend project restore: OK");
+
+  // 11. A failed reload preserves the recovery draft and its actionable error state.
+  resetStore();
+  const recoveryProject = { ...minimalProject("J"), projectName: "локальное восстановление", source: "backend" as const };
+  globalThis.localStorage.setItem("fortis-active-project-id", "J");
+  writeRecoveryDraft(globalThis.localStorage, recoveryProject, "error");
+  fetchHandler = () => ({ ok: false, status: 503, data: { message: "offline" } });
+  await useDefenseVariantsStore.getState().restoreActiveVariant();
+  assert(useDefenseProjectStore.getState().project.projectName === "локальное восстановление", "failed reload must keep the recovery draft");
+  assert(useDefenseVariantsStore.getState().syncStatus === "error", "failed reload must expose recovery error state");
+  console.log("recovery draft reload: OK");
 
   console.log("use-defense-variants-store.test.ts: variants store contracts passed");
 }
