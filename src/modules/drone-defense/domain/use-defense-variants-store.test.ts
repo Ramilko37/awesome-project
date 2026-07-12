@@ -1,6 +1,7 @@
 // Run: npx tsx src/modules/drone-defense/domain/use-defense-variants-store.test.ts
 
 import { useDefenseVariantsStore } from "@/modules/drone-defense/domain/use-defense-variants-store";
+import { readRecoveryDraft, serializeProjectForSync } from "@/modules/drone-defense/domain/project-sync";
 import { useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
 import type { DefenseProject, VariantSummary } from "@/shared/types/defense-project";
 
@@ -176,6 +177,82 @@ async function main() {
     "409 must tell the user to reload the current version",
   );
   console.log("overwriteActiveVariant conflict: OK");
+
+  // 8. A backend project keeps a recovery draft through a conflict and can become a new clean variant.
+  resetStore();
+  const backendProject = { ...minimalProject("E"), source: "backend" as const };
+  useDefenseProjectStore.getState().replaceProject(backendProject);
+  useDefenseVariantsStore.setState({
+    activeVariantId: "E",
+    activeVariantName: "name-E",
+    canonicalSnapshot: serializeProjectForSync(backendProject),
+    syncStatus: "clean",
+  });
+  useDefenseProjectStore.getState().replaceProject({
+    ...backendProject,
+    projectName: "локальная правка",
+    updatedAt: "2026-07-12T01:00:00.000Z",
+  });
+  assert(useDefenseVariantsStore.getState().syncStatus === "dirty", "local project changes must become dirty");
+  assert(readRecoveryDraft(globalThis.localStorage, "E")?.project.projectName === "локальная правка", "dirty project must be recoverable");
+
+  fetchHandler = (method) => {
+    if (method === "PUT") return { ok: false, status: 409, data: { error: { code: "version_conflict", message: "stale" } } };
+    return { ok: true, status: 200, data: { items: [], totalItems: 0 } };
+  };
+  await useDefenseVariantsStore.getState().overwriteActiveVariant();
+  assert(useDefenseVariantsStore.getState().syncStatus === "conflict", "409 must become conflict state");
+
+  fetchHandler = (method) => {
+    if (method === "POST") return { ok: true, status: 200, data: summary({ projectId: "F", name: "name-F", version: 1 }) };
+    return { ok: true, status: 200, data: { items: [summary({ projectId: "F", name: "name-F", version: 1 })], totalItems: 1 } };
+  };
+  await useDefenseVariantsStore.getState().saveConflictAsNewVariant("name-F");
+  assert(useDefenseVariantsStore.getState().activeVariantId === "F", "conflict copy must become active variant");
+  assert(useDefenseProjectStore.getState().project.version === 1, "conflict copy must receive its new server version");
+  assert(useDefenseVariantsStore.getState().syncStatus === "clean", "successfully copied conflict must be clean");
+  assert(readRecoveryDraft(globalThis.localStorage, "E") === null, "resolved conflict must clear its recovery draft");
+  console.log("project sync lifecycle: OK");
+
+  // 9. Retrying an error reuses the current server variant, while loading server wins over a conflicted draft.
+  resetStore();
+  const retryProject = { ...minimalProject("G"), source: "backend" as const };
+  useDefenseProjectStore.getState().replaceProject(retryProject);
+  useDefenseVariantsStore.setState({
+    activeVariantId: "G",
+    activeVariantName: "name-G",
+    canonicalSnapshot: serializeProjectForSync(retryProject),
+    syncStatus: "clean",
+  });
+  useDefenseProjectStore.getState().replaceProject({ ...retryProject, projectName: "нужно повторить" });
+  let updateAttempts = 0;
+  fetchHandler = (method) => {
+    if (method === "PUT") {
+      updateAttempts += 1;
+      return updateAttempts === 1
+        ? { ok: false, status: 503, data: { message: "offline" } }
+        : { ok: true, status: 200, data: summary({ projectId: "G", name: "name-G", version: 8 }) };
+    }
+    return { ok: true, status: 200, data: { items: [summary({ projectId: "G", name: "name-G", version: 8 })], totalItems: 1 } };
+  };
+  await useDefenseVariantsStore.getState().overwriteActiveVariant();
+  assert(useDefenseVariantsStore.getState().syncStatus === "error", "transport error must be retryable");
+  await useDefenseVariantsStore.getState().retrySave();
+  assert(updateAttempts === 2, "retrySave must issue the update again");
+  assert(useDefenseVariantsStore.getState().syncStatus === "clean", "successful retry must be clean");
+
+  resetStore();
+  const conflictDraft = { ...minimalProject("H"), projectName: "локальная версия", source: "backend" as const };
+  useDefenseProjectStore.getState().replaceProject(conflictDraft);
+  useDefenseVariantsStore.setState({ activeVariantId: "H", activeVariantName: "name-H", syncStatus: "conflict" });
+  fetchHandler = (method) => {
+    if (method === "GET") return { ok: true, status: 200, data: { ...minimalProject("H"), projectName: "серверная версия" } };
+    return { ok: true, status: 200, data: {} };
+  };
+  await useDefenseVariantsStore.getState().loadServerVersion();
+  assert(useDefenseProjectStore.getState().project.projectName === "серверная версия", "loadServerVersion must replace the local draft");
+  assert(useDefenseVariantsStore.getState().syncStatus === "clean", "loaded server version must be clean");
+  console.log("project sync retry and reload: OK");
 
   console.log("use-defense-variants-store.test.ts: variants store contracts passed");
 }

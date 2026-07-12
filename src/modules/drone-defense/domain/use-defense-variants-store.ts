@@ -2,6 +2,13 @@ import { create } from "zustand";
 
 import { useDefenseStudioStore } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import {
+  clearRecoveryDraft,
+  serializeProjectForSync,
+  syncStatusFor,
+  type ProjectSyncStatus,
+  writeRecoveryDraft,
+} from "@/modules/drone-defense/domain/project-sync";
+import {
   deleteVariant as apiDeleteVariant,
   listVariants as apiListVariants,
   loadVariant as apiLoadVariant,
@@ -20,12 +27,17 @@ type VariantsState = {
   conflictState: { projectId: string; message: string } | null;
   listStatus: Status;
   saveStatus: "idle" | "saving" | "error";
+  syncStatus: ProjectSyncStatus;
+  canonicalSnapshot: string | null;
   loadStatus: Status;
   error: string | null;
 
   fetchVariants: () => Promise<void>;
   saveAsNewVariant: (name: string) => Promise<void>;
   overwriteActiveVariant: () => Promise<void>;
+  retrySave: () => Promise<void>;
+  loadServerVersion: () => Promise<void>;
+  saveConflictAsNewVariant: (name: string) => Promise<void>;
   loadVariant: (id: string) => Promise<void>;
   deleteVariant: (id: string) => Promise<void>;
 };
@@ -50,6 +62,24 @@ function withBackendContext(project: DefenseProject, summary: VariantSummary): D
   };
 }
 
+function browserStorage(): Storage | null {
+  try {
+    return typeof globalThis.localStorage === "undefined" ? null : globalThis.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function saveRecovery(project: DefenseProject, status: Extract<ProjectSyncStatus, "dirty" | "conflict" | "error">) {
+  const storage = browserStorage();
+  if (storage) writeRecoveryDraft(storage, project, status);
+}
+
+function clearRecovery(projectId: string) {
+  const storage = browserStorage();
+  if (storage) clearRecoveryDraft(storage, projectId);
+}
+
 export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
   variants: [],
   activeVariantId: null,
@@ -57,6 +87,8 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
   conflictState: null,
   listStatus: "idle",
   saveStatus: "idle",
+  syncStatus: "clean",
+  canonicalSnapshot: null,
   loadStatus: "idle",
   error: null,
 
@@ -71,22 +103,33 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
   },
 
   saveAsNewVariant: async (name) => {
-    set({ saveStatus: "saving", error: null, conflictState: null });
+    set({ saveStatus: "saving", syncStatus: "saving", error: null, conflictState: null });
     try {
       const project = useDefenseProjectStore.getState().project;
       const summary = await apiSaveVariantAsNew({ name, project });
-      useDefenseProjectStore.getState().replaceProject(withBackendContext(project, summary));
-      set({ saveStatus: "idle", activeVariantId: summary.projectId, activeVariantName: summary.name });
+      const persistedProject = withBackendContext(project, summary);
+      set({
+        saveStatus: "idle",
+        syncStatus: "clean",
+        canonicalSnapshot: serializeProjectForSync(persistedProject),
+        activeVariantId: summary.projectId,
+        activeVariantName: summary.name,
+      });
+      useDefenseProjectStore.getState().replaceProject(persistedProject);
+      clearRecovery(project.projectId);
+      clearRecovery(persistedProject.projectId);
       await get().fetchVariants();
     } catch (err) {
-      set({ saveStatus: "error", error: message(err) });
+      const project = useDefenseProjectStore.getState().project;
+      saveRecovery(project, "error");
+      set({ saveStatus: "error", syncStatus: "error", error: message(err) });
     }
   },
 
   overwriteActiveVariant: async () => {
     const { activeVariantId, activeVariantName } = get();
     if (!activeVariantId) return;
-    set({ saveStatus: "saving", error: null, conflictState: null });
+    set({ saveStatus: "saving", syncStatus: "saving", error: null, conflictState: null });
     try {
       const project = useDefenseProjectStore.getState().project;
       const summary = await apiOverwriteVariant({
@@ -94,18 +137,68 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
         name: activeVariantName ?? project.projectName,
         project,
       });
-      useDefenseProjectStore.getState().replaceProject(withBackendContext(project, summary));
-      set({ saveStatus: "idle", activeVariantName: summary.name });
+      const persistedProject = withBackendContext(project, summary);
+      set({
+        saveStatus: "idle",
+        syncStatus: "clean",
+        canonicalSnapshot: serializeProjectForSync(persistedProject),
+        activeVariantName: summary.name,
+      });
+      useDefenseProjectStore.getState().replaceProject(persistedProject);
+      clearRecovery(persistedProject.projectId);
       await get().fetchVariants();
     } catch (err) {
       const errorMessage = isVersionConflict(err)
         ? "Версия проекта устарела: перезагрузите актуальную версию перед сохранением."
         : message(err);
+      const project = useDefenseProjectStore.getState().project;
+      const isConflict = isVersionConflict(err);
+      saveRecovery(project, isConflict ? "conflict" : "error");
       set({
         saveStatus: "error",
+        syncStatus: isConflict ? "conflict" : "error",
         error: errorMessage,
-        conflictState: isVersionConflict(err) ? { projectId: activeVariantId, message: errorMessage } : null,
+        conflictState: isConflict ? { projectId: activeVariantId, message: errorMessage } : null,
       });
+    }
+  },
+
+  retrySave: async () => {
+    const { activeVariantId } = get();
+    if (activeVariantId) {
+      await get().overwriteActiveVariant();
+      return;
+    }
+    await get().saveAsNewVariant(useDefenseProjectStore.getState().project.projectName);
+  },
+
+  loadServerVersion: async () => {
+    const { activeVariantId } = get();
+    if (activeVariantId) await get().loadVariant(activeVariantId);
+  },
+
+  saveConflictAsNewVariant: async (name) => {
+    const project = useDefenseProjectStore.getState().project;
+    const staleProjectId = project.projectId;
+    set({ saveStatus: "saving", syncStatus: "saving", error: null });
+    try {
+      const summary = await apiSaveVariantAsNew({ name, project });
+      const persistedProject = withBackendContext(project, summary);
+      set({
+        saveStatus: "idle",
+        syncStatus: "clean",
+        canonicalSnapshot: serializeProjectForSync(persistedProject),
+        activeVariantId: summary.projectId,
+        activeVariantName: summary.name,
+        conflictState: null,
+      });
+      useDefenseProjectStore.getState().replaceProject(persistedProject);
+      clearRecovery(staleProjectId);
+      clearRecovery(persistedProject.projectId);
+      await get().fetchVariants();
+    } catch (err) {
+      saveRecovery(project, "error");
+      set({ saveStatus: "error", syncStatus: "error", error: message(err) });
     }
   },
 
@@ -114,18 +207,24 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
     try {
       const project = await apiLoadVariant(id);
       const known = get().variants.find((v) => v.projectId === id);
-      useDefenseProjectStore.getState().replaceProject({
+      const backendProject = {
         ...project,
         enterpriseId: known?.enterpriseId ?? project.enterpriseId ?? project.baseObject.id,
         version: known?.version ?? project.version,
         source: "backend",
+      } as DefenseProject;
+      set({
+        canonicalSnapshot: serializeProjectForSync(backendProject),
+        syncStatus: "clean",
+        activeVariantId: backendProject.projectId,
+        activeVariantName: known?.name ?? backendProject.projectName,
+        conflictState: null,
       });
+      useDefenseProjectStore.getState().replaceProject(backendProject);
+      clearRecovery(backendProject.projectId);
       useDefenseStudioStore.setState({ selectedPlacementId: null });
       set({
         loadStatus: "idle",
-        activeVariantId: project.projectId,
-        activeVariantName: known?.name ?? project.projectName,
-        conflictState: null,
       });
     } catch (err) {
       set({ loadStatus: "error", error: message(err) });
@@ -145,3 +244,23 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
     }
   },
 }));
+
+useDefenseProjectStore.subscribe((state, previousState) => {
+  if (state.project === previousState.project) return;
+
+  const variantsState = useDefenseVariantsStore.getState();
+  if (
+    variantsState.syncStatus === "saving" ||
+    variantsState.activeVariantId !== state.project.projectId ||
+    state.project.source !== "backend" ||
+    !variantsState.canonicalSnapshot
+  ) {
+    return;
+  }
+
+  const status = syncStatusFor(variantsState.canonicalSnapshot, serializeProjectForSync(state.project));
+  if (status === "dirty") {
+    saveRecovery(state.project, "dirty");
+    useDefenseVariantsStore.setState({ syncStatus: "dirty", error: null });
+  }
+});
