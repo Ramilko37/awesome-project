@@ -69,6 +69,7 @@ export function CalculatorPage() {
   const [backendCost, setBackendCost] = useState<BackendCostCalculation | null>(null);
   const [backendReport, setBackendReport] = useState<BackendProjectReport | null>(null);
   const [backendStatus, setBackendStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [backendRefresh, setBackendRefresh] = useState(0);
   const {
     project,
     applyBudgetSelection,
@@ -112,7 +113,7 @@ export function CalculatorPage() {
     return () => {
       cancelled = true;
     };
-  }, [project.projectId, project.source, project.version]);
+  }, [backendRefresh, project.projectId, project.source, project.version]);
 
   const calculatorAssets = useMemo(() => projectAssetsToCalculatorAssets(project.assetLibrary), [project.assetLibrary]);
 
@@ -154,9 +155,43 @@ export function CalculatorPage() {
   const positionsCount = calculateProjectTotalObjects(project);
   const layerSummaries = useMemo(() => calculateLayerSummaries(project), [project]);
   const isConfigurationEmpty = positionsCount === 0;
-  const totalMln = backendCost?.totalMln ?? estimate.totalMln;
+  const isBackendProject = project.source === "backend" && typeof project.version === "number";
+  const totalMln = isBackendProject ? backendCost?.totalMln ?? 0 : estimate.totalMln;
   const filledLayerCount = layerSummaries.filter((summary) => summary.objectCount > 0).length;
   const conflictCount = layerSummaries.reduce((acc, summary) => acc + summary.conflictCount, 0);
+
+  if (isBackendProject && backendStatus === "error") {
+    return (
+      <main className="min-h-full bg-[#f1f5f9] px-4 py-6 text-slate-900 sm:px-7 sm:py-[30px]">
+        <div className="mx-auto max-w-[720px] rounded-2xl border border-rose-200 bg-white p-6 shadow-sm" role="alert">
+          <h1 className="font-(family-name:--font-syne) text-2xl font-bold text-slate-950">Серверный расчёт недоступен</h1>
+          <p className="mt-2 text-sm text-slate-600">Не удалось получить серверный расчёт. Локальные цифры не показаны.</p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setBackendRefresh((value) => value + 1)}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+            >
+              Повторить
+            </button>
+            <Link href="/prototype" className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">
+              Вернуться к карте
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (isBackendProject && (!backendCost || !backendReport)) {
+    return (
+      <main className="min-h-full bg-[#f1f5f9] px-4 py-6 text-slate-900 sm:px-7 sm:py-[30px]">
+        <div className="mx-auto max-w-[720px] rounded-2xl border border-blue-100 bg-white p-6 shadow-sm" role="status" aria-live="polite">
+          Загружается серверный расчёт по сохранённому проекту...
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div className="studioCalculatorShell min-h-full bg-[#f1f5f9] font-(family-name:--font-manrope) text-slate-900">
@@ -226,9 +261,7 @@ export function CalculatorPage() {
               ? `Расчёт получен из backend-контура. Объектов в payload отчёта: ${backendReport?.placedObjects.length ?? 0}.`
               : backendStatus === "loading"
                 ? "Загружается backend-расчёт по сохранённому проекту..."
-                : backendStatus === "error"
-                  ? "Backend-расчёт недоступен, используется локальный fallback текущей карты."
-                  : "Расчёт построен на основе текущей конфигурации карты"}
+                : "Расчёт построен на основе текущей конфигурации карты"}
         </div>
 
         <nav className="mt-4 flex gap-1 rounded-lg border border-slate-200 bg-white/80 p-1">

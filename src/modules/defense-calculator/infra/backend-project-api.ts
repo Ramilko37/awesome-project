@@ -35,20 +35,123 @@ export type BackendBudgetCheck = {
   budgetMode: "limited" | "unlimited";
 };
 
+export type BackendBaseObject = {
+  id: string;
+  name: string;
+  center: { lat: number; lng: number };
+};
+
+export type BackendReportLayer = {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  geometryType: "circle" | "ring" | "polygon" | "freeform";
+  centerLat?: number;
+  centerLng?: number;
+  radiusM?: number;
+  minRadiusM?: number;
+  maxRadiusM?: number;
+  color?: string;
+  opacity?: number;
+};
+
+export type BackendCompoundComposition = {
+  postType: string;
+  personnel: string;
+  accountability: string;
+  armament: string;
+  weaponUnits: string;
+  sectorOrRange: string;
+  azimuth: number;
+};
+
+export type BackendWeaponSummary = {
+  caliber: string;
+  ammunitionType: string;
+  operationMode: string;
+  moduleCount: string;
+  isManual: string;
+};
+
+export type BackendAzimuthSectorSummary = {
+  azimuth: number;
+  coverageType: string;
+  sectorWidthDeg: number;
+  rangeM: number;
+};
+
+export type BackendReportObjectLine = {
+  objectId: string;
+  assetId: string;
+  assetName: string;
+  layerId: string;
+  layerCode: string;
+  layerName: string;
+  quantity: number;
+  protectionType: string;
+  unitPriceMln: number;
+  lineTotalMln: number;
+  isCompoundPost: boolean;
+  compositionSummary?: BackendCompoundComposition;
+  weaponSummary?: BackendWeaponSummary;
+  azimuthSectorSummary?: BackendAzimuthSectorSummary;
+};
+
+export type BackendEchelonProfile = {
+  layerId: string;
+  layerCode: string;
+  layerName: string;
+  objectCount: number;
+  unitCount: number;
+  categoryCount: number;
+  conflictCount: number;
+  coveredObjCount: number;
+};
+
+export type BackendStructuralProfile = {
+  objectCount: number;
+  unitCount: number;
+  echelonCount: number;
+  categoryCount: number;
+  conflictCount: number;
+  coveredObjCount: number;
+  totalMln: number;
+  byEchelon: BackendEchelonProfile[];
+};
+
+export type BackendConfigSnapshot = {
+  projectId: string;
+  projectName: string;
+  structuralProfile: BackendStructuralProfile;
+  costCalculation: BackendCostCalculation;
+};
+
+export type BackendEchelonDiff = {
+  layerId: string;
+  layerCode: string;
+  layerName: string;
+  objectCountDelta: number;
+  unitCountDelta: number;
+  categoryCountDelta: number;
+  conflictCountDelta: number;
+  coveredObjDelta: number;
+};
+
 export type BackendProjectReport = {
   projectId: string;
   projectName: string;
-  baseObject: unknown;
-  layers: unknown[];
-  placedObjects: unknown[];
+  baseObject: BackendBaseObject;
+  layers: BackendReportLayer[];
+  placedObjects: BackendReportObjectLine[];
   estimate: BackendCostCalculation;
-  structuralProfile: unknown;
+  structuralProfile: BackendStructuralProfile;
   hideCost: boolean;
 };
 
 export type BackendProjectCompare = {
-  projectA: unknown;
-  projectB: unknown;
+  projectA: BackendConfigSnapshot;
+  projectB: BackendConfigSnapshot;
   diff: {
     objectCountDelta: number;
     unitCountDelta: number;
@@ -57,7 +160,7 @@ export type BackendProjectCompare = {
     conflictCountDelta: number;
     coveredObjCountDelta: number;
     costDeltaMln: number;
-    byEchelon: unknown[];
+    byEchelon: BackendEchelonDiff[];
   };
 };
 
