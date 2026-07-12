@@ -95,6 +95,7 @@ async function main() {
 
   // 2. saveAsNewVariant sets active identity (and refreshes the list).
   resetStore();
+  useDefenseProjectStore.getState().replaceProject(minimalProject("draft-from-server"));
   fetchHandler = (method) => {
     if (method === "POST") {
       return { ok: true, status: 200, data: summary({ projectId: "A", name: "name-A" }) };
@@ -106,6 +107,12 @@ async function main() {
   assert(useDefenseVariantsStore.getState().activeVariantId === "A", "saveAsNewVariant must set activeVariantId");
   assert(useDefenseVariantsStore.getState().activeVariantName === "name-A", "saveAsNewVariant must set activeVariantName");
   assert(useDefenseVariantsStore.getState().saveStatus === "idle", "saveAsNewVariant success must leave saveStatus idle");
+  const createCall = fetchCalls.find((call) => call.method === "POST");
+  assert(Boolean(createCall), "saveAsNewVariant must call POST");
+  assert(
+    !("version" in (createCall?.body as Record<string, unknown>)),
+    "new variants must not inherit an optimistic-lock version",
+  );
   console.log("saveAsNewVariant: OK");
 
   // 3. loadVariant replaces the project and sets active id.
