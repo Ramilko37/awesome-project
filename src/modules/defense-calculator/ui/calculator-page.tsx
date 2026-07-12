@@ -18,10 +18,13 @@ import { formatMln, priorityLabel } from "@/modules/defense-calculator/domain/fo
 import {
   getBackendProjectCost,
   getBackendProjectReport,
+  getBackendBudgetConfig,
+  type BackendBudgetConfig,
   type BackendCostCalculation,
   type BackendProjectReport,
 } from "@/modules/defense-calculator/infra/backend-project-api";
 import { CalculatorReport } from "@/modules/defense-calculator/ui/calculator-report";
+import { BackendCalculatorSummary } from "@/modules/defense-calculator/ui/backend-calculator-summary";
 import { buildProjectReportObjectLines, type ProjectObjectReportLine } from "@/modules/defense-calculator/domain/project-report-lines";
 import {
   calculateProjectTotalObjects,
@@ -68,6 +71,7 @@ export function CalculatorPage() {
   const [budgetMln, setBudgetMln] = useState(9300);
   const [backendCost, setBackendCost] = useState<BackendCostCalculation | null>(null);
   const [backendReport, setBackendReport] = useState<BackendProjectReport | null>(null);
+  const [backendBudget, setBackendBudget] = useState<BackendBudgetConfig | null>(null);
   const [backendStatus, setBackendStatus] = useState<"idle" | "loading" | "error">("idle");
   const [backendRefresh, setBackendRefresh] = useState(0);
   const {
@@ -86,6 +90,7 @@ export function CalculatorPage() {
       Promise.resolve().then(() => {
         setBackendCost(null);
         setBackendReport(null);
+        setBackendBudget(null);
         setBackendStatus("idle");
       });
       return;
@@ -95,19 +100,22 @@ export function CalculatorPage() {
       .then(async () => {
         if (cancelled) return;
         setBackendStatus("loading");
-        const [cost, report] = await Promise.all([
+        const [cost, report, budget] = await Promise.all([
           getBackendProjectCost(project.projectId),
           getBackendProjectReport(project.projectId),
+          getBackendBudgetConfig(project.projectId),
         ]);
         if (cancelled) return;
         setBackendCost(cost);
         setBackendReport(report);
+        setBackendBudget(budget);
         setBackendStatus("idle");
       })
       .catch(() => {
         if (cancelled) return;
         setBackendCost(null);
         setBackendReport(null);
+        setBackendBudget(null);
         setBackendStatus("error");
       });
     return () => {
@@ -183,7 +191,7 @@ export function CalculatorPage() {
     );
   }
 
-  if (isBackendProject && (!backendCost || !backendReport)) {
+  if (isBackendProject && (!backendCost || !backendReport || !backendBudget)) {
     return (
       <main className="min-h-full bg-[#f1f5f9] px-4 py-6 text-slate-900 sm:px-7 sm:py-[30px]">
         <div className="mx-auto max-w-[720px] rounded-2xl border border-blue-100 bg-white p-6 shadow-sm" role="status" aria-live="polite">
@@ -191,6 +199,10 @@ export function CalculatorPage() {
         </div>
       </main>
     );
+  }
+
+  if (isBackendProject && backendCost && backendReport && backendBudget) {
+    return <BackendCalculatorSummary cost={backendCost} report={backendReport} budget={backendBudget} />;
   }
 
   return (

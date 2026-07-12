@@ -32,6 +32,10 @@ function backendReport() {
   };
 }
 
+function backendBudget() {
+  return { projectId: "server-project", budgetMode: "limited", budgetAmountMln: 100, createdAt: "2026-07-12T00:00:00Z", updatedAt: "2026-07-12T00:00:00Z" };
+}
+
 test("local draft exposes an explicit dirty server-sync state", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto(`${baseUrl}/prototype`);
@@ -62,6 +66,9 @@ test("saved server project opens the printable report route", async ({ page }) =
   );
   await page.route("**/api/v1/projects/report?id=server-project*", (route) =>
     route.fulfill({ contentType: "application/json", body: JSON.stringify(backendReport()) }),
+  );
+  await page.route("**/api/v1/projects/budget?id=server-project", (route) =>
+    route.fulfill({ contentType: "application/json", body: JSON.stringify(backendBudget()) }),
   );
   await page.goto(`${baseUrl}/calculator`);
   await page.evaluate((project) => window.localStorage.setItem("fortis-defense-project", JSON.stringify(project)), backendProject());
