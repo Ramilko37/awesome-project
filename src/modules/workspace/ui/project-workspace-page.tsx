@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, RefreshCw, ShieldCheck } from "lucide-react";
 import { compareBackendProjects, type BackendProjectCompare } from "@/modules/defense-calculator/infra/backend-project-api";
+import { canCompareProjects, ProjectComparison } from "@/modules/workspace/ui/project-comparison";
 import { fetchEnterprises } from "@/modules/drone-defense/infra/enterprise-api";
 import { useDefenseVariantsStore } from "@/modules/drone-defense/domain/use-defense-variants-store";
 import { createDefaultDefenseProject, setProjectBaseObject } from "@/shared/lib/defense-project";
@@ -92,7 +93,11 @@ export function ProjectWorkspacePage() {
   }
 
   async function handleCompare() {
-    if (!compareA || !compareB) return;
+    if (!canCompareProjects(compareA, compareB)) {
+      setCompareResult(null);
+      setWorkspaceError("Выберите два разных варианта.");
+      return;
+    }
     setWorkspaceError(null);
     setCompareLoading(true);
     try {
@@ -249,24 +254,7 @@ export function ProjectWorkspacePage() {
                   Сравнить
                 </button>
               </div>
-              {compareResult ? (
-                <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-md bg-slate-50 p-3">
-                    <dt className="text-xs text-slate-500">Разница стоимости</dt>
-                    <dd className="mt-1 font-mono text-lg font-bold text-slate-900">
-                      {compareResult.diff.costDeltaMln.toLocaleString("ru-RU")} млн ₽
-                    </dd>
-                  </div>
-                  <div className="rounded-md bg-slate-50 p-3">
-                    <dt className="text-xs text-slate-500">Разница единиц</dt>
-                    <dd className="mt-1 font-mono text-lg font-bold text-slate-900">{compareResult.diff.unitCountDelta}</dd>
-                  </div>
-                  <div className="rounded-md bg-slate-50 p-3">
-                    <dt className="text-xs text-slate-500">Разница конфликтов</dt>
-                    <dd className="mt-1 font-mono text-lg font-bold text-slate-900">{compareResult.diff.conflictCountDelta}</dd>
-                  </div>
-                </dl>
-              ) : null}
+              {compareResult ? <ProjectComparison comparison={compareResult} /> : null}
             </div>
           </div>
         </section>
