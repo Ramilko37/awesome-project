@@ -87,3 +87,50 @@ test("report route renders server report and print action", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "Отчёт по проекту Серверный вариант" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Печать / сохранить PDF" })).toBeVisible();
 });
+
+test("version conflict offers server reload or a separate variant", async ({ page }) => {
+  await page.route("**/api/defense/projects**", (route) => {
+    const url = new URL(route.request().url());
+    const method = route.request().method();
+    if (method === "GET" && url.pathname === "/api/defense/projects") {
+      return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: [{ projectId: "server-project", name: "Вариант A", projectName: "Серверный вариант", enterpriseId: "enterprise-alpha", version: 4, updatedAt: "2026-07-12T00:00:00Z" }], totalItems: 1 }) });
+    }
+    if (method === "GET" && url.pathname === "/api/defense/projects/server-project") {
+      return route.fulfill({ contentType: "application/json", body: JSON.stringify(backendProject()) });
+    }
+    if (method === "PUT") {
+      return route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ error: { code: "version_conflict", message: "stale version" } }) });
+    }
+    return route.fallback();
+  });
+  await page.goto(`${baseUrl}/workspace`);
+  await page.getByRole("button", { name: /Вариант A/ }).click();
+  await expect(page).toHaveURL(/\/prototype/);
+  await page.getByRole("button", { name: "Сохранить текущий вариант" }).click();
+  await expect(page.getByRole("status")).toContainText("Конфликт версии");
+  await page.getByTitle("Открыть варианты конфигурации").click();
+  await expect(page.getByRole("button", { name: "Загрузить серверную версию" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Сохранить как новый вариант" })).toBeVisible();
+});
+
+test("workspace comparison renders structural and echelon deltas", async ({ page }) => {
+  await page.route("**/api/defense/projects", (route) =>
+    route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: [
+      { projectId: "a", name: "Вариант A", projectName: "Вариант A", enterpriseId: "enterprise-alpha", version: 1, updatedAt: "2026-07-12T00:00:00Z" },
+      { projectId: "b", name: "Вариант B", projectName: "Вариант B", enterpriseId: "enterprise-alpha", version: 1, updatedAt: "2026-07-12T00:00:00Z" },
+    ], totalItems: 2 }) }),
+  );
+  await page.route("**/api/v1/projects/compare?id1=a&id2=b", (route) =>
+    route.fulfill({ contentType: "application/json", body: JSON.stringify({
+      projectA: { projectId: "a", projectName: "Вариант A", structuralProfile: { objectCount: 1, unitCount: 1, echelonCount: 1, categoryCount: 1, conflictCount: 1, coveredObjCount: 1, totalMln: 10, byEchelon: [] }, costCalculation: { totalMln: 10, byEchelon: [], byType: [], byObject: [] } },
+      projectB: { projectId: "b", projectName: "Вариант B", structuralProfile: { objectCount: 2, unitCount: 2, echelonCount: 1, categoryCount: 1, conflictCount: 0, coveredObjCount: 2, totalMln: 20, byEchelon: [] }, costCalculation: { totalMln: 20, byEchelon: [], byType: [], byObject: [] } },
+      diff: { objectCountDelta: 1, unitCountDelta: 1, echelonCountDelta: 0, categoryCountDelta: 0, conflictCountDelta: -1, coveredObjCountDelta: 1, costDeltaMln: 10, byEchelon: [{ layerId: "l5", layerCode: "L5", layerName: "Огневое поражение", objectCountDelta: 1, unitCountDelta: 1, categoryCountDelta: 0, conflictCountDelta: -1, coveredObjDelta: 1 }] },
+    }) }),
+  );
+  await page.goto(`${baseUrl}/workspace`);
+  await page.locator("select").nth(0).selectOption("a");
+  await page.locator("select").nth(1).selectOption("b");
+  await page.getByRole("button", { name: "Сравнить" }).click();
+  await expect(page.getByRole("heading", { name: "Результат A/B сравнения" })).toBeVisible();
+  await expect(page.getByText("L5 · Огневое поражение")).toBeVisible();
+});
