@@ -401,8 +401,11 @@ export function buildEchelonMapModel({
 }) {
   const assetsById = new Map((catalog?.assets ?? []).map((asset) => [asset.id, asset]));
   const coverageByLayer = new Map(layerCoverage?.layerCoverage.map((item) => [item.layerId, item.coveredPct]) ?? []);
+  const visibleLayerIds = new Set(layers.map((layer) => layer.id));
   const placementLayers = configuration.placements.flatMap((placement) =>
-    placementLayerIds(placement, assetsById).map((layerId) => ({ placement, layerId })),
+    placementLayerIds(placement, assetsById)
+      .filter((layerId) => visibleLayerIds.has(layerId))
+      .map((layerId) => ({ placement, layerId })),
   );
 
   const zones: EchelonZone[] = facility

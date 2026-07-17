@@ -908,6 +908,7 @@ export function DroneDefensePrototype() {
         <section
           data-sidebar-state={isCatalogTrayOpen ? "open" : "closed"}
           className={styles.prototypeSidebar}
+          aria-label="Библиотека средств защиты"
           aria-hidden={!isCatalogTrayOpen}
           inert={!isCatalogTrayOpen}
         >
@@ -1277,6 +1278,8 @@ export function DroneDefensePrototype() {
               <div
                 className={styles.prototypeLayerPanelWrap}
                 data-compact={showCompactLayerPanel ? "true" : "false"}
+                role="region"
+                aria-label="Эшелоны защиты"
               >
                 <div
                   className={styles.prototypeLayerPanel}

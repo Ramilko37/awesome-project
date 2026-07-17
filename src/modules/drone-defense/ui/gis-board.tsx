@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from "react";
 import DeckGL, { type DeckGLRef } from "@deck.gl/react";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
@@ -1044,6 +1044,18 @@ export function GisBoard({
 
   const handleSectionDragLeave = useCallback(() => setDropPreviewSlotId(null), []);
 
+  const handleMeasurementMapClick = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      const rect = boardRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const coord = unprojectClientPoint(event.clientX, event.clientY, rect);
+      if (!coord) return;
+      setMeasurementComplete(false);
+      setMeasurementPoints((current) => [...current, { lng: coord[0], lat: coord[1] }]);
+    },
+    [unprojectClientPoint],
+  );
+
   const handleSectionDrop = useCallback(
     (event: DragEvent<HTMLElement>) => {
       event.preventDefault();
@@ -1105,6 +1117,7 @@ export function GisBoard({
     <section
       ref={boardRef}
       className={`relative h-[calc(100vh-11.5rem)] min-h-[540px] overflow-hidden rounded-lg border border-slate-200 ${className}`}
+      aria-label="Карта конфигурации защиты"
       onDragOver={handleSectionDragOver}
       onDragLeave={handleSectionDragLeave}
       onDrop={handleSectionDrop}
@@ -1152,6 +1165,15 @@ export function GisBoard({
       >
         <MaplibreMap attributionControl={false} mapStyle={baseMapStyle} onError={handleBaseMapError} />
       </DeckGL>
+
+      {isMeasurementMode ? (
+        <div
+          className="absolute inset-0 z-[5] cursor-crosshair"
+          data-measurement-surface
+          onClick={handleMeasurementMapClick}
+          aria-hidden="true"
+        />
+      ) : null}
 
       <div className="pointer-events-none absolute inset-0 z-10">
         {markerOverlayPlacements.map(({ placement, x, y }) => {
@@ -1388,9 +1410,13 @@ export function GisBoard({
           >
             +
           </button>
-          <button className="grid h-11 w-11 place-items-center border-b border-slate-100 text-xs font-semibold" type="button" disabled>
+          <output
+            className="grid h-11 w-11 place-items-center border-b border-slate-100 text-xs font-semibold"
+            aria-label={`Текущий зум карты ${zoomReadout.toFixed(1)}`}
+            role="status"
+          >
             {zoomReadout.toFixed(1)}
-          </button>
+          </output>
           <button
             className="grid h-11 w-11 cursor-pointer place-items-center border-b border-slate-100 text-xs font-bold transition hover:bg-blue-50 hover:text-blue-700"
             type="button"
@@ -1423,14 +1449,14 @@ export function GisBoard({
       <GisLegend
         layers={mapLayers}
         selectedLayerId={selectedLayerId}
-        hasProtectionMarkers={echelonModel.placements.length > 0}
+        placements={echelonModel.placements}
         hasCoverage={coverageLayers.length > 0}
         hasConstraints={contestedSlotIds.size > 0}
       />
 
       {measurementPoints.length > 0 ? (
         <div
-          className="absolute bottom-16 right-4 z-10 w-[min(22rem,calc(100%-2rem))] rounded-xl border border-white/70 bg-white/95 p-3 text-xs text-slate-700 shadow-lg shadow-slate-900/15 backdrop-blur"
+          className="absolute right-4 top-20 z-10 w-[min(22rem,calc(100%-2rem))] rounded-xl border border-white/70 bg-white/95 p-3 text-xs text-slate-700 shadow-lg shadow-slate-900/15 backdrop-blur"
           role="status"
         >
           <p className="font-semibold text-slate-950">

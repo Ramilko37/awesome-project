@@ -1,24 +1,59 @@
 "use client";
 
 import { useState } from "react";
+import type { EchelonMapPlacement } from "@/modules/drone-defense/domain/echelon-map-model";
+import { getAssetCategoryColor, getAssetMarkerCategory } from "@/modules/drone-defense/ui/map-object-marker";
 import type { DefenseLayer } from "@/shared/types/drone-defense";
 
 type GisLegendProps = {
   layers: DefenseLayer[];
   selectedLayerId: string;
-  hasProtectionMarkers: boolean;
+  placements: EchelonMapPlacement[];
   hasCoverage: boolean;
   hasConstraints: boolean;
 };
 
+const markerCategoryLabels: Record<string, string> = {
+  "early-warning": "Раннее предупреждение",
+  detection: "Обнаружение",
+  classification: "Классификация",
+  jamming: "Подавление",
+  spoofing: "Спуфинг",
+  kinetic: "Поражение",
+  interceptor: "Перехват",
+  "passive-protection": "Пассивная защита",
+  "engineering-protection": "Инженерная защита",
+  infrastructure: "Инфраструктура",
+  software: "ПО/аналитика",
+  "command-center": "Командный центр",
+  "external-service": "Внешний сервис",
+};
+
+export function buildLegendMarkerCategories(placements: EchelonMapPlacement[]) {
+  const categories = new Map<string, { id: string; label: string; color: string }>();
+
+  for (const placement of placements) {
+    const id = getAssetMarkerCategory(placement);
+    if (categories.has(id)) continue;
+    categories.set(id, {
+      id,
+      label: markerCategoryLabels[id] ?? placement.label,
+      color: getAssetCategoryColor(placement),
+    });
+  }
+
+  return [...categories.values()];
+}
+
 export function GisLegend({
   layers,
   selectedLayerId,
-  hasProtectionMarkers,
+  placements,
   hasCoverage,
   hasConstraints,
 }: GisLegendProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const markerCategories = buildLegendMarkerCategories(placements);
 
   return (
     <div className="absolute left-4 top-28 z-10 max-w-[min(22rem,calc(100%-2rem))]">
@@ -53,12 +88,16 @@ export function GisLegend({
                 </div>
               );
             })}
-            {hasProtectionMarkers ? (
-              <div className="flex min-h-8 items-center gap-2">
-                <span className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-white bg-blue-600 ring-1 ring-slate-400" aria-hidden="true" />
-                <span>Средство защиты</span>
+            {markerCategories.map((category) => (
+              <div key={category.id} className="flex min-h-8 items-center gap-2" data-legend-marker-category={category.id}>
+                <span
+                  className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-white ring-1 ring-slate-400"
+                  style={{ backgroundColor: category.color }}
+                  aria-hidden="true"
+                />
+                <span>{category.label}</span>
               </div>
-            ) : null}
+            ))}
             {hasCoverage ? (
               <div className="flex min-h-8 items-center gap-2">
                 <span className="h-4 w-7 shrink-0 rounded-sm border border-blue-400 bg-blue-200/60" aria-hidden="true" />

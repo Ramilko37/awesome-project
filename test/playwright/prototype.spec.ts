@@ -16,9 +16,15 @@ test.describe('GIS UX hardening', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
   test('hiding the active layer preserves its selection', async ({ page }) => {
+    test.setTimeout(60_000);
     await openPrototype(page);
     await page.getByRole('button', { name: 'Выбрать эшелон L5' }).click();
     await page.getByRole('button', { name: /Скрыть эшелон L5/ }).click();
+    await expect(page.getByText('Активный · Скрыт')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Выбрать эшелон L5' })).toHaveAttribute('aria-pressed', 'true');
+
+    await page.reload();
+    await page.getByRole('heading', { name: 'Моя карта' }).waitFor();
     await expect(page.getByText('Активный · Скрыт')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Выбрать эшелон L5' })).toHaveAttribute('aria-pressed', 'true');
   });
@@ -28,6 +34,25 @@ test.describe('GIS UX hardening', () => {
     await expect(page.getByRole('button', { name: 'Показать весь объект' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Измерить расстояние' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Показать легенду карты' })).toBeVisible();
+  });
+
+  test('legend lists only marker categories present on visible layers', async ({ page }) => {
+    test.setTimeout(60_000);
+    await openPrototype(page);
+    await page.getByRole('button', { name: 'Выбрать эшелон L5' }).click();
+    await page.getByRole('textbox', { name: 'Поиск по библиотеке средств защиты' }).fill('МОГ');
+    await page.getByRole('button', { name: 'Ввести координаты' }).click();
+    await page.getByLabel('Широта').fill('56,8889');
+    await page.getByLabel('Долгота').fill('60,5945');
+    await page.getByRole('button', { name: 'Разместить' }).click();
+    await page.getByRole('button', { name: 'Отмена' }).click();
+
+    await page.getByRole('button', { name: 'Показать легенду карты' }).click();
+    const kineticCategory = page.locator('[data-legend-marker-category="kinetic"]');
+    await expect(kineticCategory).toHaveText('Поражение');
+
+    await page.getByRole('button', { name: 'Скрыть эшелон L5' }).click();
+    await expect(kineticCategory).toBeHidden();
   });
 
   test('keyboard workflow exposes search, coordinates, visibility, measure and legend states', async ({ page }) => {
@@ -67,7 +92,16 @@ test.describe('GIS UX hardening', () => {
   });
 
   test('critical controls meet target size and the main state has no serious accessibility violations', async ({ page }) => {
+    const glyphWarnings: string[] = [];
+    page.on('console', (message) => {
+      if (/missing glyph|missing character/i.test(message.text())) glyphWarnings.push(message.text());
+    });
     await openPrototype(page);
+    await expect(page.getByRole('region', { name: 'Карта конфигурации защиты' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Библиотека средств защиты' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Эшелоны защиты' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Активный эшелон L1, показан' })).toBeAttached();
+    await expect(page.getByRole('button', { name: /Черновик \(не сохранён\)/ }).filter({ visible: true })).toBeVisible();
     for (const locator of [
       page.getByRole('textbox', { name: 'Поиск по библиотеке средств защиты' }),
       page.getByRole('button', { name: 'Скрыть эшелон L1' }),
@@ -86,6 +120,7 @@ test.describe('GIS UX hardening', () => {
       violation.impact === 'serious' || violation.impact === 'critical',
     );
     expect(seriousOrCritical).toEqual([]);
+    expect(glyphWarnings).toEqual([]);
   });
 
   test('placed object deletion requires confirmation and can be cancelled', async ({ page }) => {
@@ -109,6 +144,57 @@ test.describe('GIS UX hardening', () => {
     await page.getByRole('button', { name: 'Отмена' }).click();
     await expect(page.getByRole('dialog', { name: 'Удалить «МОГ»?' })).toBeHidden();
     await expect(page.getByRole('button', { name: 'Удалить МОГ' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Удалить МОГ' }).click();
+    await page.getByRole('button', { name: 'Удалить объект' }).click();
+    const undoNotice = page.getByRole('status').filter({ hasText: 'Объект «МОГ» удалён' });
+    await expect(undoNotice).toBeVisible();
+    await undoNotice.getByRole('button', { name: 'Отменить' }).click();
+    await expect(page.getByRole('button', { name: 'Удалить МОГ' })).toBeVisible();
+  });
+
+  test('reset extent and measurement complete, cancel and clear without changing the project', async ({ page }) => {
+    test.setTimeout(90_000);
+    await openPrototype(page);
+    const zoomStatus = page.getByRole('status', { name: /Текущий зум карты/ });
+    const initialZoom = await zoomStatus.textContent();
+
+    const projectBefore = await page.evaluate(() => localStorage.getItem('fortis-defense-project'));
+    await page.getByRole('button', { name: 'Приблизить карту' }).click();
+    await page.getByRole('button', { name: 'Приблизить карту' }).click();
+    await expect.poll(async () => zoomStatus.textContent()).not.toBe(initialZoom);
+    await page.getByRole('button', { name: 'Показать весь объект' }).click();
+    await expect.poll(async () => zoomStatus.textContent()).toBe(initialZoom);
+
+    const map = page.getByRole('region', { name: 'Карта конфигурации защиты' });
+    const deckCanvas = page.locator('#deckgl-overlay');
+    await expect.poll(async () => (await deckCanvas.boundingBox())?.width ?? 0).toBeGreaterThan(800);
+    const box = await map.boundingBox();
+    expect(box).not.toBeNull();
+
+    const measure = page.getByRole('button', { name: 'Измерить расстояние' });
+    await measure.click();
+    let measurementSurface = page.locator('[data-measurement-surface]');
+    await measurementSurface.click({ position: { x: box!.width * 0.4, y: box!.height * 0.35 } });
+    const measuring = page.getByRole('status').filter({ hasText: 'Измерение расстояния' });
+    await expect(measuring).toBeVisible();
+    await measurementSurface.click({ position: { x: box!.width * 0.6, y: box!.height * 0.35 } });
+    await expect(measuring.locator('p').nth(1)).not.toHaveText('0 м');
+    await page.keyboard.press('Enter');
+    const completed = page.getByRole('status').filter({ hasText: 'Расстояние измерено' });
+    await expect(completed).toBeVisible();
+    await completed.getByRole('button', { name: 'Очистить' }).click();
+    await expect(completed).toBeHidden();
+
+    await measure.click();
+    measurementSurface = page.locator('[data-measurement-surface]');
+    await measurementSurface.click({ position: { x: box!.width * 0.4, y: box!.height * 0.35 } });
+    await page.keyboard.press('Escape');
+    await expect(measure).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByRole('status').filter({ hasText: 'Измерение расстояния' })).toBeHidden();
+
+    const projectAfter = await page.evaluate(() => localStorage.getItem('fortis-defense-project'));
+    expect(projectAfter).toBe(projectBefore);
   });
 
   test('keyboard-only flow places MOG, cancels its inspector and toggles object visibility', async ({ page }) => {

@@ -45,13 +45,17 @@ const layerCategoryFallback: Record<string, string> = {
   layer_09_hardening: "engineering-protection",
 };
 
+export function getAssetMarkerCategory(placement: EchelonMapPlacement) {
+  return placement.markerCategory ?? layerCategoryFallback[placement.layerId] ?? "infrastructure";
+}
+
 export function getAssetCategoryColor(placement: EchelonMapPlacement) {
-  const category = placement.markerCategory ?? layerCategoryFallback[placement.layerId] ?? "infrastructure";
+  const category = getAssetMarkerCategory(placement);
   return ASSET_CATEGORY_COLORS[category] ?? ASSET_CATEGORY_COLORS.infrastructure;
 }
 
 export function getAssetMarkerIcon(placement: EchelonMapPlacement): ReactNode {
-  const category = placement.markerCategory ?? layerCategoryFallback[placement.layerId] ?? "infrastructure";
+  const category = getAssetMarkerCategory(placement);
   const label = placement.label.toLowerCase();
   if (label.includes("osint")) return <GlobalOutlined />;
   if (label.includes("комендат") || label.includes("штаб")) return <ApartmentOutlined />;
@@ -161,7 +165,7 @@ export function MapObjectMarker({
       title={`${placement.label}${layerLabel ? ` · ${layerLabel}` : ""}`}
       data-testid={`map-object-marker-${placement.sourcePlacementId}`}
       data-marker-state={state}
-      data-marker-category={placement.markerCategory ?? layerCategoryFallback[placement.layerId] ?? "infrastructure"}
+      data-marker-category={getAssetMarkerCategory(placement)}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
         event.stopPropagation();
