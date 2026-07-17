@@ -5,16 +5,28 @@ import { SaveOutlined } from "@ant-design/icons";
 import { Button, theme } from "antd";
 import { useDefenseVariantsStore } from "@/modules/drone-defense/domain/use-defense-variants-store";
 import { VariantsModal } from "@/modules/drone-defense/ui/variants-modal";
+import { describePersistenceState } from "@/modules/drone-defense/domain/save-status";
 
 function useVariantMeta() {
   const { token } = theme.useToken();
-  const { activeVariantId, activeVariantName, saveStatus, overwriteActiveVariant } =
+  const { activeVariantId, activeVariantName, saveStatus, lastSuccessfulSaveAt, overwriteActiveVariant } =
     useDefenseVariantsStore();
 
   const isDraft = !activeVariantId;
   const saving = saveStatus === "saving";
-  const label = isDraft ? "Черновик (не сохранён)" : activeVariantName;
-  const dotColor = isDraft ? token.colorWarning : token.colorSuccess;
+  const variantLabel = isDraft ? "Черновик (не сохранён)" : activeVariantName;
+  const persistence = describePersistenceState({ state: saveStatus, lastSuccessfulSaveAt });
+  const label = saveStatus === "idle" ? variantLabel : `${variantLabel} · ${persistence.label}`;
+  const dotColor =
+    persistence.tone === "danger"
+      ? token.colorError
+      : persistence.tone === "warning"
+        ? token.colorWarning
+        : persistence.tone === "progress"
+          ? token.colorInfo
+          : isDraft
+            ? token.colorWarning
+            : token.colorSuccess;
 
   return {
     token,
@@ -53,7 +65,7 @@ export function VariantStatusButton({
           justifyContent: fullWidth ? "space-between" : undefined,
           minWidth: 0,
           maxWidth: fullWidth ? undefined : 200,
-          height: token.controlHeight,
+          minHeight: 44,
           paddingInline: token.paddingSM,
           background: token.colorFillQuaternary,
           border: `1px solid ${token.colorBorderSecondary}`,
@@ -86,6 +98,7 @@ export function VariantStatusButton({
           }}
         />
         <span
+          aria-live="polite"
           style={{
             minWidth: 0,
             flex: 1,

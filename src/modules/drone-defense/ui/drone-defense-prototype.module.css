@@ -32,8 +32,8 @@
   --prototype-radius-card: 8px;
   --prototype-radius-field: 6px;
   --prototype-shadow-soft: 0 12px 28px rgba(15, 23, 42, 0.08);
-  --prototype-control-sm: 2rem;
-  --prototype-control-md: 2.25rem;
+  --prototype-control-sm: 2.75rem;
+  --prototype-control-md: 2.75rem;
 }
 
 .prototypeSidebar,
@@ -1724,6 +1724,7 @@
 
 .prototypeDrawerBody {
   flex: 1;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 0.85rem 1rem 7.5rem;
 }
@@ -1863,6 +1864,11 @@
 }
 
 @media (min-width: 1024px) {
+  .prototypeDrawer {
+    width: min(32rem, 42vw);
+    max-width: calc(100vw - 2rem);
+  }
+
   .prototypeSidebar[data-sidebar-state="open"] {
     width: 20rem;
     height: 100%;

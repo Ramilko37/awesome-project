@@ -80,10 +80,10 @@ export function loadVariant(id: string): Promise<DefenseProject> {
   return readVariantJson<DefenseProject>(`/api/defense/projects/${encodeURIComponent(id)}`);
 }
 
-function projectUpdatePayload(args: { name: string; project: DefenseProject }) {
+export function buildProjectUpdatePayload(args: { name: string; project: DefenseProject }) {
   return {
     name: args.name,
-    enterpriseId: args.project.enterpriseId ?? args.project.baseObject.id,
+    ...(args.project.enterpriseId ? { enterpriseId: args.project.enterpriseId } : {}),
     projectJson: exportDefenseProjectJson(args.project),
     ...(typeof args.project.version === "number" ? { version: args.project.version } : {}),
   };
@@ -93,7 +93,7 @@ export function saveVariantAsNew(args: { name: string; project: DefenseProject }
   return readVariantJson<VariantSummary>("/api/defense/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(projectUpdatePayload(args)),
+    body: JSON.stringify(buildProjectUpdatePayload(args)),
   });
 }
 
@@ -101,7 +101,7 @@ export function overwriteVariant(args: { id: string; name: string; project: Defe
   return readVariantJson<VariantSummary>(`/api/defense/projects/${encodeURIComponent(args.id)}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(projectUpdatePayload(args)),
+    body: JSON.stringify(buildProjectUpdatePayload(args)),
   });
 }
 

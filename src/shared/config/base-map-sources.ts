@@ -110,7 +110,7 @@ function buildInternalBaseMapSource(env: NodeJS.ProcessEnv): BaseMapSource {
   if (styleUrl) {
     return {
       id: "internal-basemap",
-      title: "Internal basemap",
+      title: "Локальная",
       description: "Локальная или self-hosted подложка для закрытого контура.",
       category: "internal",
       type: "vector-style-url",
@@ -128,8 +128,8 @@ function buildInternalBaseMapSource(env: NodeJS.ProcessEnv): BaseMapSource {
     const internalType = env.NEXT_PUBLIC_FORTIS_INTERNAL_BASEMAP_TYPE === "wmts" ? "wmts" : "raster-xyz";
     return {
       id: "internal-basemap",
-      title: "Internal basemap",
-      description: "Self-hosted raster/WMTS подложка для закрытого контура.",
+      title: "Локальная",
+      description: "Растровая подложка для работы в закрытом контуре.",
       category: "internal",
       type: internalType,
       tiles: internalTiles,
@@ -144,7 +144,7 @@ function buildInternalBaseMapSource(env: NodeJS.ProcessEnv): BaseMapSource {
 
   return {
     id: "internal-basemap",
-    title: "Internal basemap",
+    title: "Локальная",
     description: "Офлайн fallback-подложка Fortis для закрытого контура.",
     category: "internal",
     type: "local-style-json",
@@ -164,8 +164,8 @@ export function createBaseMapSources(env: NodeJS.ProcessEnv = process.env): Base
   return [
     {
       id: "openfreemap-bright",
-      title: "OpenFreeMap Bright",
-      description: "Open-source OSM-based vector style for demo/dev.",
+      title: "Светлая карта",
+      description: "Светлая карта на основе открытых данных OpenStreetMap.",
       category: "base",
       type: "vector-style-url",
       styleUrl: "https://tiles.openfreemap.org/styles/bright",
@@ -178,8 +178,8 @@ export function createBaseMapSources(env: NodeJS.ProcessEnv = process.env): Base
     },
     {
       id: "osm-standard",
-      title: "OSM Standard",
-      description: "Dev/demo raster fallback. Not a production dependency.",
+      title: "OpenStreetMap",
+      description: "Стандартная карта OpenStreetMap.",
       category: "base",
       type: "raster-xyz",
       tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
@@ -194,8 +194,8 @@ export function createBaseMapSources(env: NodeJS.ProcessEnv = process.env): Base
     },
     {
       id: "topographic",
-      title: "Topographic",
-      description: "Configurable topo raster source for demo and planning contexts.",
+      title: "Топографическая",
+      description: "Рельеф и топографические ориентиры для планирования.",
       category: "topographic",
       type: "raster-xyz",
       tiles: topographicTiles,
@@ -211,8 +211,8 @@ export function createBaseMapSources(env: NodeJS.ProcessEnv = process.env): Base
     },
     {
       id: "satellite-demo",
-      title: "Satellite demo",
-      description: "Optional satellite/orthophoto source enabled only after legal review.",
+      title: "Спутниковая",
+      description: "Спутниковые снимки и ортофото, если источник подключён.",
       category: "satellite",
       type: env.NEXT_PUBLIC_FORTIS_SATELLITE_BASEMAP_TYPE === "wmts" ? "wmts" : "raster-xyz",
       tiles: satelliteTiles,

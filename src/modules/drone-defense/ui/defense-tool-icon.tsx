@@ -42,6 +42,8 @@ export type DefenseToolIconProps = {
   previewImageUrl: string;
   installedCount: number;
   maxQuantity: number;
+  compatibilityLabel: string;
+  compatibilityStatus: "recommended" | "compatible" | "warning" | "incompatible";
   disabledReason?: string;
   canRemove?: boolean;
   isPlaceholder?: boolean;
@@ -67,6 +69,8 @@ export function DefenseToolIcon({
   previewImageUrl,
   installedCount,
   maxQuantity,
+  compatibilityLabel,
+  compatibilityStatus,
   disabledReason,
   isPlaceholder = false,
   isSelected = false,
@@ -152,9 +156,7 @@ export function DefenseToolIcon({
   const isControlTarget = (target: HTMLElement) =>
     Boolean(
         target.closest("input,select,textarea,a") ||
-        target.closest(
-          'button[title="Ввести координаты"]',
-        ),
+        target.closest("button"),
     );
 
   // ── unified pointer handler ──────────────────────────────────────────
@@ -206,10 +208,6 @@ export function DefenseToolIcon({
       data-placement-type={placementType}
       data-can-drag={canDrag ? "true" : "false"}
       data-testid={`defense-tool-card-${assetId}`}
-      role="button"
-      tabIndex={0}
-      aria-pressed={isSelected}
-      aria-label={`${name}. ${counterText}. Перетащите на карту`}
       title={title}
       draggable={canDrag}
       onDragStart={(event) => {
@@ -223,12 +221,8 @@ export function DefenseToolIcon({
       onMouseDown={(event) => {
         if (canDrag) onMouseDragAsset(event);
       }}
-      onClick={onSelect}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect();
-        }
+      onClick={() => {
+        if (canAdd) onSelect();
       }}
     >
       <span className="grid h-full place-items-center text-slate-400" aria-hidden="true">
@@ -249,7 +243,20 @@ export function DefenseToolIcon({
 
       <div className="min-w-0">
         <div className="flex min-w-0 items-start justify-between gap-2">
-          <span className="min-w-0 truncate text-xs font-semibold leading-snug text-slate-950">{name}</span>
+          <button
+            type="button"
+            className="min-h-11 min-w-0 flex-1 cursor-pointer truncate rounded text-left text-xs font-semibold leading-snug text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed"
+            disabled={!canAdd}
+            aria-pressed={isSelected}
+            aria-label={`Выбрать средство ${name}. ${counterText}`}
+            draggable={false}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect();
+            }}
+          >
+            {name}
+          </button>
           <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
             installedCount > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
           }`}>
@@ -265,6 +272,15 @@ export function DefenseToolIcon({
           <span aria-hidden="true">·</span>
             <span className="truncate">{coverageText}</span>
         </div>
+        <p className={`mt-1 text-[10px] font-semibold leading-tight ${
+          compatibilityStatus === "recommended"
+            ? "text-emerald-700"
+            : compatibilityStatus === "warning" || compatibilityStatus === "incompatible"
+              ? "text-amber-700"
+              : "text-slate-600"
+        }`}>
+          {compatibilityLabel}
+        </p>
         {isCompoundPost ? (
           <>
             <p className="mt-1 flex flex-wrap gap-x-1 text-[10px] leading-tight text-slate-600">
@@ -301,7 +317,7 @@ export function DefenseToolIcon({
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
-              className="grid h-6 w-6 cursor-pointer place-items-center rounded-md bg-slate-100 text-slate-500 transition hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-35"
+              className="grid h-11 w-11 cursor-pointer place-items-center rounded-md bg-slate-100 text-slate-500 transition hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-35"
               disabled={!canAdd}
               onClick={(event) => {
                 event.stopPropagation();

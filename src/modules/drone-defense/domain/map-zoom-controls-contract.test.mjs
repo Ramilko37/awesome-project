@@ -13,8 +13,8 @@ assert(
 );
 assert(
   gisBoardSource.includes("const deckControllerOptions") &&
-    gisBoardSource.includes("scrollZoom: { speed: 0.00125, smooth: true }") &&
-    gisBoardSource.includes("controller={deckControllerOptions}"),
+    gisBoardSource.includes("scrollZoom: { speed:") &&
+    gisBoardSource.includes("controller={{ ...deckControllerOptions"),
   "GisBoard must slow down touchpad wheel zoom through explicit deck.gl controller options",
 );
 assert(

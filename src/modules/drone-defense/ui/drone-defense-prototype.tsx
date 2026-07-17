@@ -20,6 +20,10 @@ import {
 import { Dropdown, Modal } from "antd";
 import { useDefenseStudioStore, studioPreviewData } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import { buildEchelonMapModel } from "@/modules/drone-defense/domain/echelon-map-model";
+import {
+  filterAndRankCatalog,
+  type CatalogMode,
+} from "@/modules/drone-defense/domain/catalog-search";
 import { placedObjectsToMapPlacements } from "@/modules/drone-defense/domain/project-map-adapter";
 import { AssetLibraryManager } from "@/modules/drone-defense/ui/asset-library-manager";
 import { CoordinatePlacementPanel, type CoordinatePlacementInput } from "@/modules/drone-defense/ui/coordinate-placement-panel";
@@ -135,12 +139,19 @@ export function DroneDefensePrototype() {
   const searchParams = useSearchParams();
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [catalogQuery, setCatalogQuery] = useState("");
+  const [catalogMode, setCatalogMode] = useState<CatalogMode>("compatible-first");
+  const [catalogCategory, setCatalogCategory] = useState<AssetCatalogItem["category"] | "">("");
+  const [catalogProtectionType, setCatalogProtectionType] = useState("");
+  const [catalogCompatibility, setCatalogCompatibility] = useState<AssetCatalogItem["compatibilityStatus"] | "">("");
   const [isCatalogTrayOpen, setIsCatalogTrayOpen] = useState(true);
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
   const [isLayerPanelExpanded, setIsLayerPanelExpanded] = useState(true);
   const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(false);
   const [layerWizardState, setLayerWizardState] = useState<LayerWizardState | null>(null);
   const [pendingLayerDeletionId, setPendingLayerDeletionId] = useState<string | null>(null);
+  const [pendingPlacementDeletionId, setPendingPlacementDeletionId] = useState<string | null>(null);
+  const [placementDeletionError, setPlacementDeletionError] = useState<string | null>(null);
+  const [deletedPlacementNotice, setDeletedPlacementNotice] = useState<string | null>(null);
   const [hoveredLayerId, setHoveredLayerId] = useState<string | null>(null);
   const [layerStripState, setLayerStripState] = useState({ canScrollLeft: false, canScrollRight: false });
   const [coordinatePlacementAssetId, setCoordinatePlacementAssetId] = useState<string | null>(null);
@@ -152,6 +163,7 @@ export function DroneDefensePrototype() {
   const [echelonObjectsLayerId, setEchelonObjectsLayerId] = useState<DefenseLayerId | null>(null);
   const [isEchelonObjectsCollapsed, setIsEchelonObjectsCollapsed] = useState(false);
   const layerStripRef = useRef<HTMLDivElement | null>(null);
+  const deletionUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const {
     currentBaseMapSourceId,
     restoreFromLocalStorage: restoreMapViewFromLocalStorage,
@@ -186,6 +198,8 @@ export function DroneDefensePrototype() {
     updatePlacedObject,
     setPlacedObjectMapVisibility,
     deletePlacedObject,
+    undoDeletePlacedObject,
+    clearDeletedPlacementUndo,
     validateObjectPlacement,
     restoreProjectFromLocalStorage,
     assetLibraryLoading,
@@ -232,6 +246,7 @@ export function DroneDefensePrototype() {
   const projectMapLayers = useMemo(
     () =>
       [...project.layers]
+        .filter((layer) => layer.isVisible !== false)
         .sort((a, b) => a.order - b.order)
         .map(projectLayerToMapLayer),
     [project.layers],
@@ -242,6 +257,7 @@ export function DroneDefensePrototype() {
     () => project.layers.find((layer) => layer.id === selectedLayerId) ?? project.layers[0],
     [project.layers, selectedLayerId],
   );
+  const isActiveLayerHidden = selectedLayer?.isVisible === false;
   const orderedProjectLayers = useMemo(
     () => [...project.layers].sort((a, b) => a.order - b.order),
     [project.layers],
@@ -253,24 +269,32 @@ export function DroneDefensePrototype() {
     () => getAssetCatalogItems(project, selectedLayer?.code, project.placedObjects),
     [project, selectedLayer?.code],
   );
-  const filteredCatalogItems = useMemo(() => {
-    const query = catalogQuery.trim().toLowerCase();
-    return assetCatalogItems.filter((item) => {
-      if (!query) return true;
-      const haystack = [
-        item.title,
-        item.subtitle,
-        item.categoryLabel,
-        item.rangeLabel,
-        item.priceLabel,
-        item.coverageLabel,
-        item.category,
-        ...item.roles,
-        ...item.tags,
-      ].join(" ").toLowerCase();
-      return haystack.includes(query);
-    });
-  }, [assetCatalogItems, catalogQuery]);
+  const catalogCategoryOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(assetCatalogItems.map((item) => [item.category, item.categoryLabel])).entries(),
+      ).map(([value, label]) => ({ value, label })),
+    [assetCatalogItems],
+  );
+  const catalogProtectionTypeOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(assetCatalogItems.map((item) => item.protectionType).filter(Boolean)),
+      ).sort((left, right) => left!.localeCompare(right!, "ru-RU")) as string[],
+    [assetCatalogItems],
+  );
+  const filteredCatalogItems = useMemo(
+    () =>
+      filterAndRankCatalog(assetCatalogItems, {
+        query: catalogQuery,
+        mode: catalogMode,
+        categories: catalogCategory ? [catalogCategory] : undefined,
+        protectionTypes: catalogProtectionType ? [catalogProtectionType] : undefined,
+        compatibilityStatuses: catalogCompatibility ? [catalogCompatibility] : undefined,
+      }),
+    [assetCatalogItems, catalogCategory, catalogCompatibility, catalogMode, catalogProtectionType, catalogQuery],
+  );
+  const hasCatalogFilters = Boolean(catalogCategory || catalogProtectionType || catalogCompatibility);
   const selectedRadii = selectedLayer ? getLayerRadii(selectedLayer) : { innerRadiusM: 0, widthM: 0, outerRadiusM: 0 };
   const insertOptions = useMemo(() => findLayerInsertOptions(project), [project]);
   const wizardLayer = useMemo(() => {
@@ -300,7 +324,11 @@ export function DroneDefensePrototype() {
       opacity: 0.22,
     };
   }, [layerWizardState?.mode, wizardLayer]);
-  const placementHint = lastPlacementMessage ?? `Эшелон ${selectedLayer?.code ?? "—"} · выберите средство и кликните по карте`;
+  const placementHint =
+    lastPlacementMessage ??
+    (isActiveLayerHidden
+      ? `Эшелон ${selectedLayer?.code ?? "—"} скрыт · покажите его перед размещением`
+      : `Эшелон ${selectedLayer?.code ?? "—"} · выберите средство и кликните по карте`);
   const projectCatalogPlacements = useMemo(
     () =>
       placedObjectsToMapPlacements({
@@ -360,9 +388,9 @@ export function DroneDefensePrototype() {
     [layerSummaries, selectedLayer?.id],
   );
   const layerPanelSummaryLabel = `${project.layers.length} из ${MAX_DEFENSE_PROJECT_LAYERS}`;
-  const activeLayerHeaderLabel = `Активный: ${selectedLayer?.code ?? "—"} · ${formatObjectCountLabel(
-    activeLayerSummary?.objectCount ?? 0,
-  )}`;
+  const activeLayerHeaderLabel = `Активный: ${selectedLayer?.code ?? "—"}${
+    isActiveLayerHidden ? " · Скрыт" : ""
+  } · ${formatObjectCountLabel(activeLayerSummary?.objectCount ?? 0)}`;
   const objectVisibilityToggleLabel = showAllEchelonObjects ? "Только активный" : "Все объекты";
   const objectVisibilityToggleTitle = showAllEchelonObjects
     ? "Скрыть объекты других эшелонов на карте"
@@ -375,6 +403,18 @@ export function DroneDefensePrototype() {
     () => project.layers.find((layer) => layer.id === pendingLayerDeletionId) ?? null,
     [pendingLayerDeletionId, project.layers],
   );
+  const pendingPlacementDeletion = useMemo(
+    () => project.placedObjects.find((object) => object.id === pendingPlacementDeletionId) ?? null,
+    [pendingPlacementDeletionId, project.placedObjects],
+  );
+  const pendingPlacementDeletionName = useMemo(() => {
+    if (!pendingPlacementDeletion) return "Объект";
+    return (
+      project.assetLibrary.find((asset) => asset.id === pendingPlacementDeletion.assetId)?.name ??
+      pendingPlacementDeletion.name ??
+      "Объект"
+    );
+  }, [pendingPlacementDeletion, project.assetLibrary]);
   const selectedPlacedObject = useMemo(
     () => project.placedObjects.find((object) => object.id === selectedObjectId) ?? null,
     [project.placedObjects, selectedObjectId],
@@ -557,16 +597,62 @@ export function DroneDefensePrototype() {
     setLastPlacementMessage(result.ok ? "Эшелон удалён" : result.message);
   };
 
+  const clearDeletionUndoTimer = () => {
+    if (deletionUndoTimerRef.current === null) return;
+    clearTimeout(deletionUndoTimerRef.current);
+    deletionUndoTimerRef.current = null;
+  };
+
+  const requestPlacementDeletion = (objectId: string) => {
+    if (!project.placedObjects.some((object) => object.id === objectId)) return;
+    setPlacementDeletionError(null);
+    setPendingPlacementDeletionId(objectId);
+  };
+
+  const confirmPlacementDeletion = () => {
+    if (!pendingPlacementDeletion) return;
+    const objectName = pendingPlacementDeletionName;
+    const deleted = deletePlacedObject(pendingPlacementDeletion.id);
+    if (!deleted) {
+      const errorMessage = `Не удалось удалить «${objectName}».`;
+      setPlacementDeletionError(errorMessage);
+      setLastPlacementMessage(errorMessage);
+      return;
+    }
+    setPendingPlacementDeletionId(null);
+    setPlacementDeletionError(null);
+    clearDeletionUndoTimer();
+    setDeletedPlacementNotice(objectName);
+    setLastPlacementMessage(`${objectName} удалён из общей конфигурации`);
+    deletionUndoTimerRef.current = setTimeout(() => {
+      clearDeletedPlacementUndo();
+      setDeletedPlacementNotice(null);
+      deletionUndoTimerRef.current = null;
+    }, 10_000);
+  };
+
+  const undoPlacementDeletion = () => {
+    clearDeletionUndoTimer();
+    const restored = undoDeletePlacedObject();
+    if (restored) {
+      setLastPlacementMessage(`${deletedPlacementNotice ?? "Объект"} восстановлен`);
+    }
+    setDeletedPlacementNotice(null);
+  };
+
+  useEffect(
+    () => () => {
+      clearDeletionUndoTimer();
+    },
+    [],
+  );
+
   const toggleLayerVisibility = (layerId: string, isVisible: boolean) => {
     setLayerVisibility(layerId, isVisible);
-    if (!isVisible && layerId === selectedLayer?.id) {
-      const fallback =
-        orderedProjectLayers.find((layer) => layer.id !== layerId && layer.isVisible !== false) ??
-        orderedProjectLayers.find((layer) => layer.id !== layerId);
-      if (fallback) {
-        selectLayerWithDefaultSlot(fallback.id);
-      }
-    }
+    const layer = project.layers.find((item) => item.id === layerId);
+    setLastPlacementMessage(
+      `${layer?.code ?? "Эшелон"} ${isVisible ? "показан" : "скрыт"}. Активный эшелон не изменён.`,
+    );
   };
 
   const toggleObjectVisibilityMode = () => {
@@ -667,11 +753,7 @@ export function DroneDefensePrototype() {
   };
 
   const deleteProjectPlacement = (objectId: string) => {
-    const object = project.placedObjects.find((item) => item.id === objectId);
-    if (!object) return;
-    const messageAsset = project.assetLibrary.find((item) => item.id === object.assetId);
-    deletePlacedObject(objectId);
-    setLastPlacementMessage(`${messageAsset?.name ?? "Объект"} удалён из общей конфигурации`);
+    requestPlacementDeletion(objectId);
   };
 
   const toggleProjectPlacementVisibility = (objectId: string) => {
@@ -787,8 +869,7 @@ export function DroneDefensePrototype() {
       setLastPlacementMessage(`${asset?.name ?? "Средство защиты"}: выберите размещённый объект для удаления`);
       return;
     }
-    deletePlacedObject(selectedPlacedObject.id);
-    setLastPlacementMessage(`${asset?.name ?? "Средство защиты"} удалено из общей конфигурации`);
+    requestPlacementDeletion(selectedPlacedObject.id);
   };
 
   const selectLayerWithDefaultSlot = (layerId: string) => {
@@ -797,7 +878,6 @@ export function DroneDefensePrototype() {
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
     setLastPlacementMessage(null);
-    setIsEchelonObjectsPanelOpen(true);
     const nextSlot =
       echelonModel.slots.find((slot) => slot.layerId === layerId && slot.status === "empty") ??
       echelonModel.slots.find((slot) => slot.layerId === layerId) ??
@@ -820,11 +900,16 @@ export function DroneDefensePrototype() {
 
   return (
     <div className="flex h-full min-h-0 flex-col lg:flex-row">
+      <p className="sr-only" role="status" aria-live="polite">
+        Активный эшелон {selectedLayer?.code ?? "не выбран"}
+        {isActiveLayerHidden ? ", скрыт" : ", показан"}
+      </p>
       {activeView === "gis" ? (
         <section
           data-sidebar-state={isCatalogTrayOpen ? "open" : "closed"}
           className={styles.prototypeSidebar}
           aria-hidden={!isCatalogTrayOpen}
+          inert={!isCatalogTrayOpen}
         >
           <div className={styles.prototypeSidebarHeader}>
             <div className={styles.prototypeBrandRow}>
@@ -867,7 +952,127 @@ export function DroneDefensePrototype() {
                 value={catalogQuery}
                 onChange={(event) => setCatalogQuery(event.target.value)}
                 placeholder="Найти средство..."
+                aria-label="Поиск по библиотеке средств защиты"
               />
+              <div className="mt-2 grid grid-cols-2 gap-2" aria-label="Режим сортировки библиотеки">
+                {([
+                  ["compatible-first", "Совместимые сначала"],
+                  ["all", "Все"],
+                ] as const).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`${styles.prototypeButton} min-h-11 px-2 text-xs ${
+                      catalogMode === mode ? "border-blue-500 bg-blue-50 text-blue-700" : ""
+                    }`}
+                    aria-pressed={catalogMode === mode}
+                    onClick={() => setCatalogMode(mode)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <label className="grid gap-1 text-[11px] font-semibold text-slate-600">
+                  Категория
+                  <select
+                    className={`${styles.prototypeField} min-h-11`}
+                    value={catalogCategory}
+                    onChange={(event) => setCatalogCategory(event.target.value as AssetCatalogItem["category"] | "")}
+                  >
+                    <option value="">Все категории</option>
+                    {catalogCategoryOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1 text-[11px] font-semibold text-slate-600">
+                  Тип защиты
+                  <select
+                    className={`${styles.prototypeField} min-h-11`}
+                    value={catalogProtectionType}
+                    onChange={(event) => setCatalogProtectionType(event.target.value)}
+                  >
+                    <option value="">Все типы</option>
+                    {catalogProtectionTypeOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="col-span-2 grid gap-1 text-[11px] font-semibold text-slate-600">
+                  Совместимость
+                  <select
+                    className={`${styles.prototypeField} min-h-11`}
+                    value={catalogCompatibility}
+                    onChange={(event) => setCatalogCompatibility(event.target.value as AssetCatalogItem["compatibilityStatus"] | "")}
+                  >
+                    <option value="">Любая совместимость</option>
+                    <option value="recommended">Рекомендуется</option>
+                    <option value="compatible">Совместимо</option>
+                    <option value="warning">Не рекомендуется</option>
+                    <option value="incompatible">Несовместимо</option>
+                  </select>
+                </label>
+              </div>
+              <div className="mt-2 flex min-h-11 items-center justify-between gap-2">
+                <p className="text-xs text-slate-500" aria-live="polite">
+                  Найдено: {filteredCatalogItems.length}
+                </p>
+                {hasCatalogFilters ? (
+                  <button
+                    type="button"
+                    className={`${styles.prototypeButton} min-h-11 px-2 text-xs`}
+                    onClick={() => {
+                      setCatalogCategory("");
+                      setCatalogProtectionType("");
+                      setCatalogCompatibility("");
+                    }}
+                  >
+                    Сбросить фильтры
+                  </button>
+                ) : null}
+              </div>
+              {filteredCatalogItems.length === 0 && (catalogQuery || hasCatalogFilters) ? (
+                <div className={`${styles.prototypeNotice} mt-2`} role="status">
+                  <p>По текущему запросу и фильтрам ничего не найдено.</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {catalogQuery ? (
+                      <button
+                        type="button"
+                        className={`${styles.prototypeButton} min-h-11 px-3`}
+                        onClick={() => setCatalogQuery("")}
+                      >
+                        Сбросить поиск
+                      </button>
+                    ) : null}
+                    {hasCatalogFilters ? (
+                      <button
+                        type="button"
+                        className={`${styles.prototypeButton} min-h-11 px-3`}
+                        onClick={() => {
+                          setCatalogCategory("");
+                          setCatalogProtectionType("");
+                          setCatalogCompatibility("");
+                        }}
+                      >
+                        Сбросить фильтры
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+              {isActiveLayerHidden && selectedLayer ? (
+                <div className={`${styles.prototypeNoticeWarning} mt-3`}>
+                  <p>Активный эшелон {selectedLayer.code} скрыт. Размещение временно недоступно.</p>
+                  <button
+                    type="button"
+                    className={`${styles.prototypeButton} mt-2 min-h-11 px-3`}
+                    onClick={() => toggleLayerVisibility(selectedLayer.id, true)}
+                  >
+                    Показать эшелон
+                  </button>
+                </div>
+              ) : null}
             </div>
             <AssetLibraryManager
               assets={project.assetLibrary}
@@ -899,6 +1104,11 @@ export function DroneDefensePrototype() {
                 projectAssets={project.assetLibrary}
                 selectedToolId={activeToolId}
                 selectedObjectAssetId={selectedPlacedObject?.assetId}
+                disabledReason={
+                  isActiveLayerHidden
+                    ? `Эшелон ${selectedLayer?.code ?? "—"} скрыт. Покажите эшелон перед размещением.`
+                    : undefined
+                }
                 onSelectTool={handleSelectTool}
                 onOpenCoordinates={openCoordinatePlacement}
                 onDragAsset={startAssetDrag}
@@ -1000,7 +1210,6 @@ export function DroneDefensePrototype() {
               onSelectSlot={(slot) => {
                 selectLayer(slot.layerId);
                 setSelectedSlotId(slot.id);
-                setIsEchelonObjectsPanelOpen(true);
               }}
               onSelectTool={(groupId) => {
                 const asset =
@@ -1172,6 +1381,7 @@ export function DroneDefensePrototype() {
                           onClick: () => {
                             selectLayerWithDefaultSlot(layer.id);
                             setEchelonObjectsLayerId(layer.id as DefenseLayerId);
+                            setIsEchelonObjectsPanelOpen(true);
                           },
                         },
                         {
@@ -1221,8 +1431,9 @@ export function DroneDefensePrototype() {
                                 event.stopPropagation();
                                 toggleLayerVisibility(layer.id, layer.isVisible === false);
                               }}
-                              title={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
-                              aria-label={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
+                              title={`${layer.isVisible === false ? "Показать" : "Скрыть"} эшелон ${layer.code}`}
+                              aria-label={`${layer.isVisible === false ? "Показать" : "Скрыть"} эшелон ${layer.code}`}
+                              aria-pressed={layer.isVisible !== false}
                             >
                               {layer.isVisible === false ? <EyeInvisibleOutlined /> : <EyeOutlined />}
                             </button>
@@ -1249,8 +1460,10 @@ export function DroneDefensePrototype() {
                             type="button"
                             className={styles.prototypeLayerButton}
                             onClick={() => selectLayerWithDefaultSlot(layer.id)}
+                            aria-label={`Выбрать эшелон ${layer.code}`}
+                            aria-pressed={isSelected}
                           >
-                            <div className="flex items-start gap-2.5 pr-[4.4rem]">
+                            <div className="flex items-start gap-2.5 pr-[6.4rem]">
                               <div className="min-w-0 flex-1">
                                 <div className="flex min-w-0 items-start gap-2">
                                   <span
@@ -1286,6 +1499,11 @@ export function DroneDefensePrototype() {
                               {formatLayerObjectMeta(summary?.objectCount ?? 0, summary?.totalMln ?? 0)}
                             </p>
                           </button>
+                          {isSelected && layer.isVisible === false ? (
+                            <span className={`${styles.prototypeLayerLocked} ${styles.prototypeBadgeWarning}`}>
+                              Активный · Скрыт
+                            </span>
+                          ) : null}
                           {layer.isLocked ? (
                             <span className={`${styles.prototypeLayerLocked} ${styles.prototypeBadgeMuted}`}>
                               locked
@@ -1363,6 +1581,28 @@ export function DroneDefensePrototype() {
           />
         ) : null}
         <Modal
+          open={Boolean(pendingPlacementDeletion)}
+          title={`Удалить «${pendingPlacementDeletionName}»?`}
+          onCancel={() => {
+            setPendingPlacementDeletionId(null);
+            setPlacementDeletionError(null);
+          }}
+          onOk={confirmPlacementDeletion}
+          okText={placementDeletionError ? "Повторить" : "Удалить объект"}
+          cancelText="Отмена"
+          okButtonProps={{ danger: true }}
+          destroyOnHidden
+        >
+          <p className="text-sm text-slate-600">
+            Объект исчезнет с карты, из эшелона и из расчёта текущей конфигурации. После удаления действие можно отменить в течение 10 секунд.
+          </p>
+          {placementDeletionError ? (
+            <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800" role="alert">
+              {placementDeletionError} Контекст сохранён; повторите действие.
+            </p>
+          ) : null}
+        </Modal>
+        <Modal
           open={Boolean(pendingLayerDeletion)}
           title="Удалить эшелон?"
           onCancel={() => setPendingLayerDeletionId(null)}
@@ -1376,6 +1616,22 @@ export function DroneDefensePrototype() {
             {pendingLayerDeletion ? `${pendingLayerDeletion.code} · ${pendingLayerDeletion.name}` : "Выбранный эшелон"} будет удалён без возможности восстановления.
           </p>
         </Modal>
+        {deletedPlacementNotice ? (
+          <div
+            className="fixed bottom-6 left-1/2 z-[1001] flex min-h-11 -translate-x-1/2 items-center gap-3 rounded-lg bg-slate-950 px-4 py-2 text-sm font-medium text-white shadow-2xl"
+            role="status"
+            aria-live="polite"
+          >
+            <span>Объект «{deletedPlacementNotice}» удалён</span>
+            <button
+              type="button"
+              className="min-h-11 rounded-md px-3 font-semibold text-sky-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              onClick={undoPlacementDeletion}
+            >
+              Отменить
+            </button>
+          </div>
+        ) : null}
       </main>
     </div>
   );

@@ -22,6 +22,8 @@ import {
 } from "@/modules/drone-defense/domain/echelon-map-model";
 import type { BuildAssetIcon } from "@/modules/drone-defense/domain/echelon-build-assets";
 import { MapObjectMarker } from "@/modules/drone-defense/ui/map-object-marker";
+import { GisLegend } from "@/modules/drone-defense/ui/gis-legend";
+import { formatMeasuredDistance, measurePathMeters } from "@/modules/drone-defense/domain/map-measurement";
 import { withBasePath } from "@/shared/lib/base-path";
 import {
   getAvailableBaseMapSources,
@@ -119,16 +121,11 @@ const baseMapCategoryLabels: Record<BaseMapSourceCategory, string> = {
   topographic: "Топографические",
   satellite: "Спутник / ортофото",
   internal: "Закрытый контур / локальные",
-  custom: "Пользовательские / enterprise-specific",
+  custom: "Пользовательские",
 };
 
-function getBaseMapBadges(source: BaseMapSource) {
-  const badges: string[] = [];
-  badges.push(source.isExternal ? "online" : "internal");
-  if (source.requiresApiKey) badges.push("requires key");
-  if (source.requiresLicenseCheck) badges.push("license check");
-  return badges;
-}
+const cyrillicCharacterSet =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя.,:;!?—–-()№«»";
 
 function extractErrorMessage(event: unknown) {
   if (
@@ -260,6 +257,9 @@ export function GisBoard({
   const [baseMapWarning, setBaseMapWarning] = useState<string | null>(null);
   const [boardSize, setBoardSize] = useState({ width: 0, height: 0 });
   const [dropPreviewSlotId, setDropPreviewSlotId] = useState<string | null>(null);
+  const [isMeasurementMode, setIsMeasurementMode] = useState(false);
+  const [measurementPoints, setMeasurementPoints] = useState<Coordinates[]>([]);
+  const [measurementComplete, setMeasurementComplete] = useState(false);
   const [viewState, setViewState] = useState<LayerFocusViewState>(initialViewState);
   const boardRef = useRef<HTMLElement | null>(null);
   const baseMapMenuRef = useRef<HTMLDivElement | null>(null);
@@ -280,6 +280,10 @@ export function GisBoard({
   const visibleMapLayers = useMemo(
     () => (previewLayer ? [...mapLayers, previewLayer] : mapLayers),
     [mapLayers, previewLayer],
+  );
+  const visibleLayerIds = useMemo(
+    () => new Set(visibleMapLayers.map((layer) => layer.id)),
+    [visibleMapLayers],
   );
   const selectedLayer = visibleMapLayers.find((layer) => layer.id === selectedLayerId) ?? visibleMapLayers[0] ?? defenseLayers[0];
   const echelonModel = useMemo(
@@ -337,6 +341,7 @@ export function GisBoard({
       }),
     [viewState.latitude, viewState.zoom],
   );
+  const measuredDistance = useMemo(() => measurePathMeters(measurementPoints), [measurementPoints]);
 
   const stopFocusAnimation = useCallback(() => {
     if (animationFrameRef.current !== null) {
@@ -495,6 +500,24 @@ export function GisBoard({
     };
   }, [adjustMapZoom]);
 
+  useEffect(() => {
+    if (!isMeasurementMode) return;
+    const handleMeasurementKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (!measurementComplete) setMeasurementPoints([]);
+        setMeasurementComplete(false);
+        setIsMeasurementMode(false);
+      }
+      if (event.key === "Enter" && measurementPoints.length >= 2) {
+        event.preventDefault();
+        setMeasurementComplete(true);
+        setIsMeasurementMode(false);
+      }
+    };
+    window.addEventListener("keydown", handleMeasurementKeyDown);
+    return () => window.removeEventListener("keydown", handleMeasurementKeyDown);
+  }, [isMeasurementMode, measurementComplete, measurementPoints.length]);
+
   const zoomReadout = viewState.zoom;
   const markerOverlayPlacements = useMemo(() => {
     if (!boardSize.width || !boardSize.height) return [];
@@ -563,7 +586,9 @@ export function GisBoard({
       return configuration.placements;
     })();
 
-    const visibleCoverage = coveredPlacements.filter((placement) => Boolean(placement.mapRef));
+    const visibleCoverage = coveredPlacements.filter(
+      (placement) => Boolean(placement.mapRef) && Boolean(placement.layerId && visibleLayerIds.has(placement.layerId)),
+    );
     if (visibleCoverage.length === 0) return [];
 
     const layers: Layer[] = [];
@@ -613,7 +638,7 @@ export function GisBoard({
       }
     }
     return layers;
-  }, [configuration.placements, placementById, selectedFacility, selectedPlacementId]);
+  }, [configuration.placements, placementById, selectedFacility, selectedPlacementId, visibleLayerIds]);
 
   const polygonDraftLayers = useMemo(() => {
     if (!polygonDraft?.isActive || polygonDraft.points.length === 0) return [];
@@ -646,6 +671,59 @@ export function GisBoard({
     ];
   }, [polygonDraft]);
 
+  const measurementLayers = useMemo(() => {
+    if (measurementPoints.length === 0) return [];
+    const layers: Layer[] = [
+      new ScatterplotLayer<Coordinates>({
+        id: "distance-measurement-points",
+        data: measurementPoints,
+        getPosition: (point) => [point.lng, point.lat],
+        getRadius: 5,
+        radiusUnits: "pixels",
+        filled: true,
+        stroked: true,
+        getFillColor: [255, 255, 255, 255],
+        getLineColor: [30, 64, 175, 255],
+        getLineWidth: 2,
+        lineWidthUnits: "pixels",
+        pickable: false,
+      }),
+    ];
+    if (measurementPoints.length >= 2) {
+      layers.unshift(
+        new PathLayer<{ path: Coordinates[] }>({
+          id: "distance-measurement-line",
+          data: [{ path: measurementPoints }],
+          getPath: (item) => item.path.map((point) => [point.lng, point.lat] as [number, number]),
+          getColor: [30, 64, 175, 245],
+          getWidth: 3,
+          widthUnits: "pixels",
+          pickable: false,
+        }),
+      );
+      layers.push(
+        new TextLayer<Coordinates>({
+          id: "distance-measurement-label",
+          data: [measurementPoints[measurementPoints.length - 1]],
+          getPosition: (point) => [point.lng, point.lat],
+          getText: () => formatMeasuredDistance(measuredDistance),
+          characterSet: cyrillicCharacterSet,
+          fontFamily: "Arial, sans-serif",
+          getColor: [15, 23, 42, 255],
+          getSize: 12,
+          getPixelOffset: [8, -14],
+          getTextAnchor: "start",
+          getAlignmentBaseline: "bottom",
+          background: true,
+          getBackgroundColor: [255, 255, 255, 235],
+          backgroundPadding: [4, 3],
+          pickable: false,
+        }),
+      );
+    }
+    return layers;
+  }, [measuredDistance, measurementPoints]);
+
   const deckLayers = useMemo(
     () =>
       [
@@ -659,14 +737,13 @@ export function GisBoard({
             isPreview
               ? ([14, 165, 233, 54] as [number, number, number, number])
               : isActive
-                ? ([item.fillColor[0], item.fillColor[1], item.fillColor[2], Math.max(item.fillColor[3], 132)] as [number, number, number, number])
-                : ([item.fillColor[0], item.fillColor[1], item.fillColor[2], 0] as [number, number, number, number]);
-          const zoneLineColor = () =>
+                ? ([item.fillColor[0], item.fillColor[1], item.fillColor[2], 38] as [number, number, number, number])
+                : ([item.fillColor[0], item.fillColor[1], item.fillColor[2], 20] as [number, number, number, number]);
+          const zoneLineColor = (item: EchelonZone) =>
             isPreview
               ? ([2, 132, 199, 245] as [number, number, number, number])
-              : isActive
-                ? ([15, 23, 42, 255] as [number, number, number, number])
-                : ([100, 116, 139, 95] as [number, number, number, number]);
+              : ([item.lineColor[0], item.lineColor[1], item.lineColor[2], isActive ? 235 : 125] as [number, number, number, number]);
+          const zoneLineWidth = isPreview ? 3 : isActive ? 2 : 1;
           const handleZoneClick = (object: EchelonZone | null | undefined) => {
             if (!object) return;
             if (previewLayer?.id === object.layerId) return;
@@ -694,7 +771,7 @@ export function GisBoard({
                   radiusUnits: "meters",
                   getFillColor: zoneFillColor,
                   getLineColor: zoneLineColor,
-                  getLineWidth: () => (isPreview ? 3 : isActive ? 4 : 1.5),
+                  getLineWidth: zoneLineWidth,
                   lineWidthUnits: "pixels",
                   onClick: ({ object }) => handleZoneClick(object),
                   onHover: handleZoneHover,
@@ -709,7 +786,7 @@ export function GisBoard({
                   getPolygon: (item) => item.polygon,
                   getFillColor: zoneFillColor,
                   getLineColor: zoneLineColor,
-                  getLineWidth: () => (isPreview ? 3 : isActive ? 4 : 1.5),
+                  getLineWidth: zoneLineWidth,
                   lineWidthUnits: "pixels",
                   onClick: ({ object }) => handleZoneClick(object),
                   onHover: handleZoneHover,
@@ -734,6 +811,8 @@ export function GisBoard({
               data: [],
               getPosition: (item) => item.position,
               getText: (item) => item.label,
+              characterSet: cyrillicCharacterSet,
+              fontFamily: "Arial, sans-serif",
               getColor: (item) =>
                 item.status === "occupied"
                   ? [15, 23, 42, 255]
@@ -840,6 +919,8 @@ export function GisBoard({
           data: echelonModel.placements.filter((item) => item.layerId === selectedLayerId && !item.catalogGroupId),
           getPosition: (item) => item.position,
           getText: (item) => item.label,
+          characterSet: cyrillicCharacterSet,
+          fontFamily: "Arial, sans-serif",
           getColor: [15, 23, 42, 255],
           getSize: 11,
           getTextAnchor: "start",
@@ -884,12 +965,15 @@ export function GisBoard({
           data: visibleFacilities,
           getPosition: (item) => [item.center.lon, item.center.lat],
           getText: (item) => item.name,
+          characterSet: cyrillicCharacterSet,
+          fontFamily: "Arial, sans-serif",
           getColor: [30, 41, 59, 255],
           getSize: 12,
           getTextAnchor: "start",
           getAlignmentBaseline: "bottom",
           getPixelOffset: [12, -12],
         }),
+        ...measurementLayers,
       ] satisfies Layer[],
     [
       echelonModel,
@@ -899,6 +983,7 @@ export function GisBoard({
       filteredRoutes,
       hoveredPlacementId,
       layerCoverage,
+      measurementLayers,
       onSelectFacility,
       onSelectLayer,
       onSelectPlacement,
@@ -1023,6 +1108,12 @@ export function GisBoard({
       onDragOver={handleSectionDragOver}
       onDragLeave={handleSectionDragLeave}
       onDrop={handleSectionDrop}
+      onDoubleClick={() => {
+        if (isMeasurementMode && measurementPoints.length >= 2) {
+          setMeasurementComplete(true);
+          setIsMeasurementMode(false);
+        }
+      }}
     >
       <DeckGL
         ref={deckRef}
@@ -1040,9 +1131,17 @@ export function GisBoard({
           viewStateRef.current = normalizedNextViewState;
           setViewState(normalizedNextViewState);
         }}
-        controller={deckControllerOptions}
+        controller={{ ...deckControllerOptions, doubleClickZoom: !isMeasurementMode }}
         layers={deckLayers}
         onClick={(info) => {
+          if (isMeasurementMode && info.coordinate) {
+            setMeasurementComplete(false);
+            setMeasurementPoints((current) => [
+              ...current,
+              { lng: info.coordinate![0], lat: info.coordinate![1] },
+            ]);
+            return;
+          }
           if (polygonDraft?.isActive && info.coordinate) {
             polygonDraft.onAddPoint({ lng: info.coordinate[0], lat: info.coordinate[1] });
             return;
@@ -1145,7 +1244,7 @@ export function GisBoard({
       <div className="absolute left-4 top-4 z-10 flex max-w-[min(42rem,calc(100%-2rem))] flex-wrap items-center gap-2">
         <div className="min-w-[min(23rem,calc(100vw-6rem))] rounded-lg border border-white/60 bg-white/95 px-3 py-2 text-xs shadow-md shadow-slate-900/10 backdrop-blur">
           <select
-            className="h-7 w-full rounded-md border border-transparent bg-transparent pr-6 text-sm font-semibold text-slate-950 outline-none transition hover:border-slate-200 hover:bg-white focus:border-blue-300 focus:bg-white"
+            className="min-h-11 w-full rounded-md border border-transparent bg-transparent pr-6 text-sm font-semibold text-slate-950 outline-none transition hover:border-slate-200 hover:bg-white focus:border-blue-300 focus:bg-white"
             value={selectedFacility?.id ?? selectedFacilityId}
             onChange={(event) => onSelectFacility(event.target.value)}
             onClick={(event) => event.stopPropagation()}
@@ -1183,7 +1282,7 @@ export function GisBoard({
               <div className="mb-2 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Источники карты</p>
-                  <p className="text-xs text-slate-500">Basemap переключается независимо от слоёв Fortis.</p>
+                  <p className="text-xs text-slate-500">Подложка переключается независимо от слоёв Fortis.</p>
                 </div>
                 <button
                   className="grid h-11 w-11 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
@@ -1218,26 +1317,15 @@ export function GisBoard({
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold text-slate-900">{source.title}</p>
-                                <p className="mt-0.5 text-xs text-slate-500">
-                                  {source.type}
-                                  {source.description ? ` · ${source.description}` : ""}
-                                </p>
+                                {source.description ? (
+                                  <p className="mt-0.5 text-xs text-slate-500">{source.description}</p>
+                                ) : null}
                               </div>
                               {isActive ? (
                                 <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">
                                   текущий
                                 </span>
                               ) : null}
-                            </div>
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                              {getBaseMapBadges(source).map((badge) => (
-                                <span
-                                  key={`${source.id}:${badge}`}
-                                  className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600"
-                                >
-                                  {badge}
-                                </span>
-                              ))}
                             </div>
                           </button>
                         );
@@ -1246,8 +1334,48 @@ export function GisBoard({
                   </div>
                 ))}
               </div>
+              {currentBaseMapSource.attribution ? (
+                <div
+                  className="mt-3 border-t border-slate-200 pt-3 text-[11px] leading-4 text-slate-500"
+                  dangerouslySetInnerHTML={{ __html: currentBaseMapSource.attribution }}
+                />
+              ) : null}
             </div>
           ) : null}
+        </div>
+
+        <div className="flex flex-col overflow-hidden rounded-lg bg-white/95 text-slate-600 shadow-md shadow-slate-900/10 backdrop-blur">
+          <button
+            type="button"
+            className="min-h-11 px-3 text-xs font-semibold transition hover:bg-blue-50 hover:text-blue-700"
+            onClick={() => animateToViewState(protectedObjectInitialViewState, placementFocusTransitionDurationMs)}
+            aria-label="Показать весь объект"
+            title="Показать весь объект и видимые эшелоны"
+          >
+            Показать весь объект
+          </button>
+          <button
+            type="button"
+            className={`min-h-11 border-t border-slate-100 px-3 text-xs font-semibold transition hover:bg-blue-50 hover:text-blue-700 ${
+              isMeasurementMode ? "bg-blue-50 text-blue-700" : ""
+            }`}
+            aria-pressed={isMeasurementMode}
+            aria-label="Измерить расстояние"
+            title="Измерить расстояние по точкам на карте"
+            onClick={() => {
+              if (isMeasurementMode) {
+                setIsMeasurementMode(false);
+                return;
+              }
+              if (measurementComplete) {
+                setMeasurementPoints([]);
+                setMeasurementComplete(false);
+              }
+              setIsMeasurementMode(true);
+            }}
+          >
+            Измерить расстояние
+          </button>
         </div>
 
         <div className="flex flex-col overflow-hidden rounded-lg bg-white/95 text-slate-500 shadow-md shadow-slate-900/10 backdrop-blur">
@@ -1262,6 +1390,15 @@ export function GisBoard({
           </button>
           <button className="grid h-11 w-11 place-items-center border-b border-slate-100 text-xs font-semibold" type="button" disabled>
             {zoomReadout.toFixed(1)}
+          </button>
+          <button
+            className="grid h-11 w-11 cursor-pointer place-items-center border-b border-slate-100 text-xs font-bold transition hover:bg-blue-50 hover:text-blue-700"
+            type="button"
+            onClick={() => setInteractiveViewState({ ...viewStateRef.current, bearing: 0 })}
+            aria-label="Сбросить поворот карты"
+            title="Сбросить поворот карты на север"
+          >
+            N
           </button>
           <button
             className="grid h-11 w-11 cursor-pointer place-items-center text-lg transition hover:bg-blue-50 hover:text-blue-700"
@@ -1282,6 +1419,42 @@ export function GisBoard({
         <div className="mb-1 h-1 rounded-full bg-slate-800" style={{ width: `${scaleBar.widthPx}px` }} />
         {scaleBar.label}
       </div>
+
+      <GisLegend
+        layers={mapLayers}
+        selectedLayerId={selectedLayerId}
+        hasProtectionMarkers={echelonModel.placements.length > 0}
+        hasCoverage={coverageLayers.length > 0}
+        hasConstraints={contestedSlotIds.size > 0}
+      />
+
+      {measurementPoints.length > 0 ? (
+        <div
+          className="absolute bottom-16 right-4 z-10 w-[min(22rem,calc(100%-2rem))] rounded-xl border border-white/70 bg-white/95 p-3 text-xs text-slate-700 shadow-lg shadow-slate-900/15 backdrop-blur"
+          role="status"
+        >
+          <p className="font-semibold text-slate-950">
+            {measurementComplete ? "Расстояние измерено" : "Измерение расстояния"}
+          </p>
+          <p className="mt-1 text-lg font-bold text-blue-800">{formatMeasuredDistance(measuredDistance)}</p>
+          <p className="mt-1 text-slate-500">
+            {isMeasurementMode
+              ? "Добавляйте точки. Enter или двойной клик завершает, Escape отменяет."
+              : "Результат хранится только на карте."}
+          </p>
+          <button
+            type="button"
+            className="mt-2 min-h-11 rounded-lg border border-slate-200 bg-white px-3 font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
+            onClick={() => {
+              setMeasurementPoints([]);
+              setMeasurementComplete(false);
+              setIsMeasurementMode(false);
+            }}
+          >
+            Очистить
+          </button>
+        </div>
+      ) : null}
 
       {currentBaseMapSource.attribution ? (
         <div

@@ -47,6 +47,11 @@ import type { LayerGeometryValidationResult } from "@/shared/lib/defense-project
 export const FORTIS_DEFENSE_PROJECT_STORAGE_KEY = "fortis-defense-project";
 export const MAX_DEFENSE_PROJECT_LAYERS = 20;
 
+type DeletedPlacementSnapshot = {
+  object: PlacedDefenseObject;
+  selectedObjectId?: string;
+};
+
 type DefenseProjectState = {
   project: DefenseProject;
   hydrated: boolean;
@@ -59,6 +64,7 @@ type DefenseProjectState = {
   activeLayerId?: string;
   selectedAssetId?: string;
   selectedObjectId?: string;
+  lastDeletedPlacement: DeletedPlacementSnapshot | null;
   createLayer: (data: Partial<EditableDefenseLayer>) => void;
   createLayerFromDraft: (
     draft: Partial<EditableDefenseLayer> & { innerRadiusM: number; widthM: number },
@@ -79,7 +85,7 @@ type DefenseProjectState = {
   setLayerLocked: (layerId: string, isLocked: boolean) => void;
   selectLayer: (layerId: string) => void;
   setBaseObjectCenter: (center: Coordinates) => void;
-  selectBaseObject: (baseObject: ProtectedObject) => void;
+  selectBaseObject: (baseObject: ProtectedObjectOption) => void;
   selectAsset: (assetId: string) => void;
   selectObject: (objectId: string | null) => void;
   setAssetQuantity: (assetId: string, quantity: number) => void;
@@ -93,7 +99,9 @@ type DefenseProjectState = {
   transferObjectToLayer: (objectId: string, layerId: string) => PlacementValidationResult;
   updatePlacedObject: (objectId: string, patch: Partial<PlacedDefenseObject>) => void;
   setPlacedObjectMapVisibility: (objectId: string, isVisibleOnMap: boolean) => void;
-  deletePlacedObject: (objectId: string) => void;
+  deletePlacedObject: (objectId: string) => boolean;
+  undoDeletePlacedObject: () => boolean;
+  clearDeletedPlacementUndo: () => void;
   duplicatePlacedObject: (objectId: string) => void;
   validateObjectPlacement: (assetId: string, layerId: string, coordinates: Coordinates) => PlacementValidationResult;
   loadPresetProject: (presetId: string) => void;
@@ -202,6 +210,7 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
     protectedObjects: [createFallbackProtectedObjectOption(initialProject.baseObject)],
     protectedObjectsLoading: false,
     protectedObjectsError: null,
+    lastDeletedPlacement: null,
     ...syncSelection(initialProject),
     createLayer: (data) => {
       if (get().project.layers.length >= MAX_DEFENSE_PROJECT_LAYERS) return;
@@ -397,7 +406,10 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
       });
     },
     selectBaseObject: (baseObject) => {
-      const project = setProjectBaseObject(get().project, baseObject);
+      const project = {
+        ...setProjectBaseObject(get().project, baseObject),
+        enterpriseId: baseObject.source === "backend" ? baseObject.enterpriseId : undefined,
+      };
       applyProject(project, set);
       set({
         protectedObjects: mergeProtectedObjectOptions(project.baseObject, get().protectedObjects, get().protectedObjects),
@@ -423,6 +435,14 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
     },
     setAssetQuantity: (assetId, quantity) => applyProject(setAssetQuantityInProject(get().project, assetId, quantity), set),
     placeObject: (assetId, layerId, coordinates, patch) => {
+      const layer = get().project.layers.find((item) => item.id === layerId);
+      if (layer?.isVisible === false) {
+        return {
+          isValid: false,
+          level: "warning" as const,
+          message: `Эшелон ${layer.code} скрыт. Покажите эшелон перед размещением.`,
+        };
+      }
       const validation = validateObjectPlacement(get().project, assetId, layerId, coordinates);
       if (!validation.isValid) return validation;
       const project = placeObjectInProject(get().project, assetId, layerId, coordinates, patch);
@@ -446,7 +466,38 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
     updatePlacedObject: (objectId, patch) => applyProject(updatePlacedObjectInProject(get().project, objectId, patch), set),
     setPlacedObjectMapVisibility: (objectId, isVisibleOnMap) =>
       applyProject(updatePlacedObjectInProject(get().project, objectId, { isVisibleOnMap }), set),
-    deletePlacedObject: (objectId) => applyProject(deletePlacedObjectInProject(get().project, objectId), set),
+    deletePlacedObject: (objectId) => {
+      const object = get().project.placedObjects.find((item) => item.id === objectId);
+      if (!object) return false;
+      const selectedObjectId = get().project.selectedObjectId;
+      applyProject(deletePlacedObjectInProject(get().project, objectId), set);
+      set({
+        lastDeletedPlacement: {
+          object: structuredClone(object),
+          selectedObjectId,
+        },
+      });
+      return true;
+    },
+    undoDeletePlacedObject: () => {
+      const snapshot = get().lastDeletedPlacement;
+      if (!snapshot || get().project.placedObjects.some((item) => item.id === snapshot.object.id)) return false;
+      const project = {
+        ...get().project,
+        placedObjects: [...get().project.placedObjects, snapshot.object],
+        selectedObjectId: snapshot.selectedObjectId,
+        activeLayerId: snapshot.object.layerId,
+        layers: get().project.layers.map((layer) => ({
+          ...layer,
+          isActive: layer.id === snapshot.object.layerId,
+        })),
+        updatedAt: new Date().toISOString(),
+      };
+      applyProject(project, set);
+      set({ lastDeletedPlacement: null });
+      return true;
+    },
+    clearDeletedPlacementUndo: () => set({ lastDeletedPlacement: null }),
     duplicatePlacedObject: (objectId) => applyProject(duplicatePlacedObjectInProject(get().project, objectId), set),
     validateObjectPlacement: (assetId, layerId, coordinates) => validateObjectPlacement(get().project, assetId, layerId, coordinates),
     loadPresetProject: (presetId) => {
@@ -587,6 +638,7 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
         assetLibraryError: null,
         protectedObjects: [createFallbackProtectedObjectOption(project.baseObject)],
         protectedObjectsError: null,
+        lastDeletedPlacement: null,
         ...syncSelection(project),
       });
     },
@@ -599,6 +651,7 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
         budgetApplied: false,
         protectedObjects: mergeProtectedObjectOptions(project.baseObject, [], get().protectedObjects),
         protectedObjectsError: null,
+        lastDeletedPlacement: null,
         ...syncSelection(project),
       });
     },
@@ -606,6 +659,7 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
     importProjectJson: (raw) => {
       const project = importDefenseProjectJson(raw);
       applyProject(project, set);
+      set({ lastDeletedPlacement: null });
     },
   };
 });

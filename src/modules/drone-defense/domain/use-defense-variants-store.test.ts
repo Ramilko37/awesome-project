@@ -105,7 +105,12 @@ async function main() {
   await useDefenseVariantsStore.getState().saveAsNewVariant("name-A");
   assert(useDefenseVariantsStore.getState().activeVariantId === "A", "saveAsNewVariant must set activeVariantId");
   assert(useDefenseVariantsStore.getState().activeVariantName === "name-A", "saveAsNewVariant must set activeVariantName");
-  assert(useDefenseVariantsStore.getState().saveStatus === "idle", "saveAsNewVariant success must leave saveStatus idle");
+  assert(useDefenseVariantsStore.getState().saveStatus === "saved", "saveAsNewVariant success must expose saved state");
+  assert(Boolean(useDefenseVariantsStore.getState().lastSuccessfulSaveAt), "save success must set lastSuccessfulSaveAt");
+  assert(
+    useDefenseProjectStore.getState().project.enterpriseId === undefined,
+    "saving a local object must not turn its object id into an enterprise UUID",
+  );
   console.log("saveAsNewVariant: OK");
 
   // 3. loadVariant replaces the project and sets active id.
@@ -114,6 +119,10 @@ async function main() {
   await useDefenseVariantsStore.getState().loadVariant("B");
   assert(useDefenseProjectStore.getState().project.projectId === "B", "loadVariant must replace project to B");
   assert(useDefenseVariantsStore.getState().activeVariantId === "B", "loadVariant must set activeVariantId to B");
+  assert(
+    useDefenseProjectStore.getState().project.enterpriseId === undefined,
+    "loading a project without enterprise context must keep enterpriseId absent",
+  );
   console.log("loadVariant: OK");
 
   // 4. deleteVariant of the active variant clears the active id.
@@ -135,7 +144,33 @@ async function main() {
   assert(Boolean(useDefenseVariantsStore.getState().error), "save failure must set a truthy error");
   console.log("saveAsNewVariant failure: OK");
 
-  // 6. overwriteActiveVariant sends the known optimistic-lock version.
+  // 6. A rejected local request is an offline draft and preserves the exact retry intent.
+  resetStore();
+  fetchHandler = () => {
+    throw new TypeError("Failed to reach backend");
+  };
+  await useDefenseVariantsStore.getState().saveAsNewVariant("  Точный вариант  ");
+  assert(useDefenseVariantsStore.getState().saveStatus === "offline-draft", "network failure must expose offline draft");
+  const failedIntent = useDefenseVariantsStore.getState().lastFailedIntent;
+  assert(
+    failedIntent?.kind === "save-new" && failedIntent.name === "  Точный вариант  ",
+    "network failure must preserve the exact variant name",
+  );
+  fetchHandler = (method) => {
+    if (method === "POST") return { ok: true, status: 200, data: summary({ name: "  Точный вариант  " }) };
+    return { ok: true, status: 200, data: { items: [summary()], totalItems: 1 } };
+  };
+  const retried = await useDefenseVariantsStore.getState().retryLastFailedIntent();
+  assert(retried, "retry must report success");
+  const retriedPost = fetchCalls.filter((call) => call.method === "POST").at(-1);
+  assert(
+    (retriedPost?.body as { name?: string }).name === "  Точный вариант  ",
+    "retry must send the exact failed name",
+  );
+  assert(useDefenseVariantsStore.getState().lastFailedIntent === null, "successful retry must clear failed intent");
+  console.log("saveAsNewVariant offline/retry: OK");
+
+  // 7. overwriteActiveVariant sends the known optimistic-lock version.
   resetStore();
   useDefenseProjectStore.getState().replaceProject(minimalProject("C"));
   useDefenseVariantsStore.setState({ activeVariantId: "C", activeVariantName: "name-C" });
@@ -152,7 +187,7 @@ async function main() {
   assert(useDefenseProjectStore.getState().project.version === 8, "overwrite success must update project.version");
   console.log("overwriteActiveVariant version: OK");
 
-  // 7. 409 Conflict becomes a user-visible conflict state.
+  // 8. 409 Conflict becomes a user-visible conflict state.
   resetStore();
   useDefenseProjectStore.getState().replaceProject(minimalProject("D"));
   useDefenseVariantsStore.setState({ activeVariantId: "D", activeVariantName: "name-D" });
@@ -162,11 +197,11 @@ async function main() {
     data: { error: { code: "version_conflict", message: "version conflict" } },
   });
   await useDefenseVariantsStore.getState().overwriteActiveVariant();
-  assert(useDefenseVariantsStore.getState().saveStatus === "error", "409 must keep saveStatus error");
+  assert(useDefenseVariantsStore.getState().saveStatus === "conflict", "409 must expose conflict state");
   assert(useDefenseVariantsStore.getState().conflictState?.projectId === "D", "409 must expose conflict project id");
   assert(
-    useDefenseVariantsStore.getState().error?.includes("перезагруз"),
-    "409 must tell the user to reload the current version",
+    useDefenseVariantsStore.getState().error === "Версия проекта изменилась",
+    "409 must use localized conflict copy",
   );
   console.log("overwriteActiveVariant conflict: OK");
 

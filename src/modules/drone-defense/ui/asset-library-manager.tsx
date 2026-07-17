@@ -291,7 +291,7 @@ export function AssetLibraryManager({
           </button>
           <button
             type="button"
-            className={`${styles.prototypeButtonPrimary} w-8 cursor-pointer`}
+            className={`${styles.prototypeButtonPrimary} min-w-11 cursor-pointer`}
             onClick={startCreate}
             title="Создать средство защиты"
             aria-label="Создать средство защиты"

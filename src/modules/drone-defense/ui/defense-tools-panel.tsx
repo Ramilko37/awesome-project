@@ -15,6 +15,7 @@ type DefenseToolsPanelProps = {
   projectAssets: DefenseProject["assetLibrary"];
   selectedToolId: string | null;
   selectedObjectAssetId?: string;
+  disabledReason?: string;
   onSelectTool: (asset: AssetCatalogItem) => void;
   onOpenCoordinates: (asset: AssetCatalogItem) => void;
   onDragAsset: (asset: AssetCatalogItem, event: ReactDragEvent<HTMLDivElement>) => void;
@@ -28,6 +29,7 @@ export function DefenseToolsPanel({
   projectAssets,
   selectedToolId,
   selectedObjectAssetId,
+  disabledReason,
   onSelectTool,
   onOpenCoordinates,
   onDragAsset,
@@ -50,8 +52,6 @@ export function DefenseToolsPanel({
         const primaryGroupId = projectAsset?.mapCatalogGroupIds?.[0];
         const buildAsset = primaryGroupId ? getBuildAssetForCatalogGroup(primaryGroupId) : null;
         const installedCount = assetItem.placedCount;
-        const disabledReason = undefined;
-
         const imageUrl = buildAsset?.imageUrl ?? assetItem.imageUrl;
         const previewImageUrl = buildAsset?.previewImageUrl ?? assetItem.imageUrl;
 
@@ -71,6 +71,8 @@ export function DefenseToolsPanel({
             previewImageUrl={previewImageUrl}
             installedCount={installedCount}
             maxQuantity={assetItem.maxQuantity}
+            compatibilityLabel={assetItem.compatibilityLabel}
+            compatibilityStatus={assetItem.compatibilityStatus}
             disabledReason={disabledReason}
             canRemove={assetItem.assetId === selectedObjectAssetId}
             isPlaceholder={buildAsset?.isPlaceholder ?? !primaryGroupId}

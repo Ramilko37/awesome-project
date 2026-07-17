@@ -69,6 +69,22 @@ useDefenseProjectStore.getState().restoreProjectFromLocalStorage();
 assert(useDefenseProjectStore.getState().hydrated, "restore must mark store hydrated");
 assert(useDefenseProjectStore.getState().project.placedObjects.length === 2, "restore must load placed objects");
 
+const objectBeforeUndoableDelete = structuredClone(useDefenseProjectStore.getState().project.placedObjects[0]);
+const undoableDeleteResult = useDefenseProjectStore.getState().deletePlacedObject(objectBeforeUndoableDelete.id);
+assert(undoableDeleteResult === true, "deletePlacedObject must report success");
+assert(
+  useDefenseProjectStore.getState().lastDeletedPlacement?.object.id === objectBeforeUndoableDelete.id,
+  "delete must retain undo snapshot",
+);
+assert(useDefenseProjectStore.getState().undoDeletePlacedObject(), "undo must report success");
+const restoredAfterUndo = useDefenseProjectStore.getState().project.placedObjects.find(
+  (item) => item.id === objectBeforeUndoableDelete.id,
+);
+assert(
+  JSON.stringify(restoredAfterUndo) === JSON.stringify(objectBeforeUndoableDelete),
+  "undo must restore exact placement payload",
+);
+
 useDefenseProjectStore.getState().deletePlacedObject(useDefenseProjectStore.getState().project.placedObjects[0].id);
 assert(useDefenseProjectStore.getState().project.placedObjects.length === 1, "deletePlacedObject must remove an object");
 useDefenseProjectStore.getState().selectObject(useDefenseProjectStore.getState().project.placedObjects[0].id);
@@ -141,6 +157,18 @@ assert(movedLayer && movedLayer.order < updatedLayer.order, "moveLayerUp must de
 useDefenseProjectStore.getState().setLayerVisibility(createdLayer.id, false);
 const hiddenLayer = useDefenseProjectStore.getState().project.layers.find((layer) => layer.id === createdLayer.id);
 assert(hiddenLayer?.isVisible === false, "setLayerVisibility must persist hidden layer state");
+assert(
+  useDefenseProjectStore.getState().project.activeLayerId === createdLayer.id,
+  "hiding active layer must preserve activeLayerId",
+);
+const hiddenPlacement = useDefenseProjectStore.getState().placeObject(
+  "mobile-radar",
+  createdLayer.id,
+  { lat: 55.18, lng: 37.1 },
+);
+assert(!hiddenPlacement.isValid, "placement into hidden active layer must be rejected");
+assert(hiddenPlacement.message?.includes("Покажите эшелон"), "hidden placement must explain recovery");
+useDefenseProjectStore.getState().setLayerVisibility(createdLayer.id, true);
 
 useDefenseProjectStore.getState().setLayerLocked(createdLayer.id, true);
 const lockedLayer = useDefenseProjectStore.getState().project.layers.find((layer) => layer.id === createdLayer.id);
@@ -424,6 +452,7 @@ async function runProtectedObjectContracts() {
   const selectedProject = useDefenseProjectStore.getState().project;
   const selectedL2 = selectedProject.layers.find((layer) => layer.code === "L2");
   assert(selectedProject.baseObject.id === "enterprise-1", "selectBaseObject must sync DefenseProject.baseObject id");
+  assert(selectedProject.enterpriseId === "enterprise-1", "selectBaseObject must retain the backend enterprise UUID");
   assert(selectedProject.baseObject.name === "АО Северный терминал", "selectBaseObject must sync DefenseProject.baseObject name");
   assert(selectedProject.baseObject.center.lat === 56.8389, "selectBaseObject must sync DefenseProject.baseObject center");
   assert(

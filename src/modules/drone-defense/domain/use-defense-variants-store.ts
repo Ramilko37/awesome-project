@@ -10,8 +10,17 @@ import {
 } from "@/modules/drone-defense/infra/api-client";
 import { useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
 import type { DefenseProject, VariantSummary } from "@/shared/types/defense-project";
+import {
+  classifyPersistenceFailure,
+  isSaveConflict,
+  localizeSaveError,
+  type PersistenceState,
+} from "@/modules/drone-defense/domain/save-status";
 
 type Status = "idle" | "loading" | "error";
+export type SaveIntent =
+  | { kind: "save-new"; name: string }
+  | { kind: "overwrite"; projectId: string };
 
 type VariantsState = {
   variants: VariantSummary[];
@@ -19,13 +28,17 @@ type VariantsState = {
   activeVariantName: string | null;
   conflictState: { projectId: string; message: string } | null;
   listStatus: Status;
-  saveStatus: "idle" | "saving" | "error";
+  saveStatus: PersistenceState;
   loadStatus: Status;
   error: string | null;
+  technicalError: string | null;
+  lastSuccessfulSaveAt: string | null;
+  lastFailedIntent: SaveIntent | null;
 
   fetchVariants: () => Promise<void>;
-  saveAsNewVariant: (name: string) => Promise<void>;
-  overwriteActiveVariant: () => Promise<void>;
+  saveAsNewVariant: (name: string) => Promise<boolean>;
+  overwriteActiveVariant: () => Promise<boolean>;
+  retryLastFailedIntent: () => Promise<boolean>;
   loadVariant: (id: string) => Promise<void>;
   deleteVariant: (id: string) => Promise<void>;
 };
@@ -34,8 +47,8 @@ function message(err: unknown): string {
   return err instanceof Error ? err.message : "Операция не удалась";
 }
 
-function isVersionConflict(err: unknown) {
-  return err instanceof Error && (err as { status?: number; code?: string }).status === 409;
+function isOnline() {
+  return typeof navigator === "undefined" || navigator.onLine !== false;
 }
 
 function withBackendContext(project: DefenseProject, summary: VariantSummary): DefenseProject {
@@ -43,7 +56,7 @@ function withBackendContext(project: DefenseProject, summary: VariantSummary): D
     ...project,
     projectId: summary.projectId,
     projectName: summary.projectName || project.projectName,
-    enterpriseId: summary.enterpriseId ?? project.enterpriseId ?? project.baseObject.id,
+    enterpriseId: summary.enterpriseId ?? project.enterpriseId,
     version: summary.version,
     source: "backend",
     updatedAt: summary.updatedAt || project.updatedAt,
@@ -59,6 +72,9 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
   saveStatus: "idle",
   loadStatus: "idle",
   error: null,
+  technicalError: null,
+  lastSuccessfulSaveAt: null,
+  lastFailedIntent: null,
 
   fetchVariants: async () => {
     set({ listStatus: "loading", error: null });
@@ -71,22 +87,38 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
   },
 
   saveAsNewVariant: async (name) => {
-    set({ saveStatus: "saving", error: null, conflictState: null });
+    if (get().saveStatus === "saving") return false;
+    set({ saveStatus: "saving", error: null, technicalError: null, conflictState: null });
     try {
       const project = useDefenseProjectStore.getState().project;
       const summary = await apiSaveVariantAsNew({ name, project });
       useDefenseProjectStore.getState().replaceProject(withBackendContext(project, summary));
-      set({ saveStatus: "idle", activeVariantId: summary.projectId, activeVariantName: summary.name });
+      set({
+        saveStatus: "saved",
+        activeVariantId: summary.projectId,
+        activeVariantName: summary.name,
+        lastSuccessfulSaveAt: new Date().toISOString(),
+        lastFailedIntent: null,
+        technicalError: null,
+      });
       await get().fetchVariants();
+      return true;
     } catch (err) {
-      set({ saveStatus: "error", error: message(err) });
+      const state = classifyPersistenceFailure(err, isOnline());
+      set({
+        saveStatus: state,
+        error: localizeSaveError(err, true),
+        technicalError: message(err),
+        lastFailedIntent: { kind: "save-new", name },
+      });
+      return false;
     }
   },
 
   overwriteActiveVariant: async () => {
     const { activeVariantId, activeVariantName } = get();
-    if (!activeVariantId) return;
-    set({ saveStatus: "saving", error: null, conflictState: null });
+    if (!activeVariantId || get().saveStatus === "saving") return false;
+    set({ saveStatus: "saving", error: null, technicalError: null, conflictState: null });
     try {
       const project = useDefenseProjectStore.getState().project;
       const summary = await apiOverwriteVariant({
@@ -95,18 +127,44 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
         project,
       });
       useDefenseProjectStore.getState().replaceProject(withBackendContext(project, summary));
-      set({ saveStatus: "idle", activeVariantName: summary.name });
+      set({
+        saveStatus: "saved",
+        activeVariantName: summary.name,
+        lastSuccessfulSaveAt: new Date().toISOString(),
+        lastFailedIntent: null,
+        technicalError: null,
+      });
       await get().fetchVariants();
+      return true;
     } catch (err) {
-      const errorMessage = isVersionConflict(err)
-        ? "Версия проекта устарела: перезагрузите актуальную версию перед сохранением."
-        : message(err);
+      const state = classifyPersistenceFailure(err, isOnline());
+      const errorMessage = localizeSaveError(err, true);
+      set({
+        saveStatus: state,
+        error: errorMessage,
+        technicalError: message(err),
+        lastFailedIntent: { kind: "overwrite", projectId: activeVariantId },
+        conflictState: isSaveConflict(err) ? { projectId: activeVariantId, message: errorMessage } : null,
+      });
+      return false;
+    }
+  },
+
+  retryLastFailedIntent: async () => {
+    const { lastFailedIntent, saveStatus } = get();
+    if (!lastFailedIntent || saveStatus === "saving") return false;
+    if (lastFailedIntent.kind === "save-new") {
+      return get().saveAsNewVariant(lastFailedIntent.name);
+    }
+    if (get().activeVariantId !== lastFailedIntent.projectId) {
       set({
         saveStatus: "error",
-        error: errorMessage,
-        conflictState: isVersionConflict(err) ? { projectId: activeVariantId, message: errorMessage } : null,
+        error: "Не удалось повторить сохранение выбранного варианта",
+        technicalError: "Active variant changed before retry",
       });
+      return false;
     }
+    return get().overwriteActiveVariant();
   },
 
   loadVariant: async (id) => {
@@ -116,7 +174,7 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
       const known = get().variants.find((v) => v.projectId === id);
       useDefenseProjectStore.getState().replaceProject({
         ...project,
-        enterpriseId: known?.enterpriseId ?? project.enterpriseId ?? project.baseObject.id,
+        enterpriseId: known?.enterpriseId ?? project.enterpriseId,
         version: known?.version ?? project.version,
         source: "backend",
       });

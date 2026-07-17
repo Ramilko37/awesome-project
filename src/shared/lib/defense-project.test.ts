@@ -67,8 +67,9 @@ assert(
   "shared asset catalog must allow every asset in the active layer",
 );
 assert(
-  l2CatalogItems.every((item) => !item.compatibilityLabel && item.compatibilityStatus === "compatible"),
-  "shared asset catalog must not expose user-facing recommendation or compatibility labels",
+  l2CatalogItems.some((item) => item.compatibilityStatus === "recommended") &&
+    l2CatalogItems.some((item) => item.compatibilityStatus === "warning"),
+  "shared asset catalog must expose recommendation and warning states without hiding assets",
 );
 assert(
   project.assetLibrary.find((asset) => asset.id === "mobile-radar")?.recommendedLayerCodes?.includes("L3"),
@@ -80,18 +81,24 @@ assert(
 );
 const radarInL3 = getAssetCatalogItems(project, "L3", project.placedObjects).find((item) => item.assetId === "mobile-radar");
 assert(
-  radarInL3?.compatibilityStatus === "compatible" && radarInL3.canPlaceInActiveLayer,
-  "active-layer catalog must allow formerly recommended assets without recommendation copy",
+  radarInL3?.compatibilityStatus === "recommended" &&
+    radarInL3.compatibilityLabel === "Рекомендуется для L3" &&
+    radarInL3.canPlaceInActiveLayer,
+  "active-layer catalog must explain recommended assets while keeping placement available",
 );
 const ewOnL2 = l2CatalogItems.find((item) => item.assetId === "ew-narrowband");
 assert(
-  ewOnL2?.compatibilityStatus === "compatible" && ewOnL2.canPlaceInActiveLayer,
-  "active-layer catalog must allow formerly warning-compatible assets",
+  ewOnL2?.compatibilityStatus === "warning" &&
+    ewOnL2.compatibilityLabel === "Не рекомендуется для L2" &&
+    ewOnL2.canPlaceInActiveLayer,
+  "active-layer catalog must explain assets outside their compatible layer codes",
 );
 const laserOnL2 = l2CatalogItems.find((item) => item.assetId === "laser");
 assert(
-  laserOnL2?.compatibilityStatus === "compatible" && laserOnL2.canPlaceInActiveLayer,
-  "active-layer catalog must allow formerly incompatible assets",
+  laserOnL2?.compatibilityStatus === "warning" &&
+    laserOnL2.compatibilityLabel === "Не рекомендуется для L2" &&
+    laserOnL2.canPlaceInActiveLayer,
+  "active-layer catalog must keep explicitly incompatible assets visible with a warning",
 );
 assert(
   typeof radarInL3?.categoryLabel === "string" &&

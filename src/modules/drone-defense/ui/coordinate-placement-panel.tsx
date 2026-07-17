@@ -70,7 +70,7 @@ export function CoordinatePlacementPanel({
           </div>
           <button
             type="button"
-            className={`${styles.prototypeIconButton} shrink-0`}
+            className={`${styles.prototypeIconButton} min-h-11 min-w-11 shrink-0`}
             onClick={onCancel}
             aria-label="Закрыть"
             title="Закрыть"
@@ -79,14 +79,18 @@ export function CoordinatePlacementPanel({
           </button>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <p id="coordinate-format-hint" className={`${styles.prototypeMeta} mt-3`}>
+          Пример формата: 55,4400 и 37,1000. Поля остаются пустыми до ввода.
+        </p>
+        <div className="mt-2 grid grid-cols-2 gap-2">
           <label className={styles.prototypeLabel}>
             Широта
             <input
               value={input.lat}
               onChange={(event) => updateInput({ lat: event.target.value })}
               inputMode="decimal"
-              placeholder="55.4400"
+              placeholder="Например: 55,4400"
+              aria-describedby="coordinate-format-hint"
               className={styles.prototypeField}
             />
           </label>
@@ -96,7 +100,8 @@ export function CoordinatePlacementPanel({
               value={input.lng}
               onChange={(event) => updateInput({ lng: event.target.value })}
               inputMode="decimal"
-              placeholder="37.1000"
+              placeholder="Например: 37,1000"
+              aria-describedby="coordinate-format-hint"
               className={styles.prototypeField}
             />
           </label>
@@ -130,14 +135,14 @@ export function CoordinatePlacementPanel({
         <div className="mt-3 grid grid-cols-2 gap-2">
           <button
             type="button"
-            className={`${styles.prototypeButton} cursor-pointer px-3`}
+            className={`${styles.prototypeButton} min-h-11 cursor-pointer px-3`}
             onClick={() => onCheck(input)}
           >
             Проверить точку
           </button>
           <button
             type="submit"
-            className={`${styles.prototypeButtonPrimary} cursor-pointer px-3`}
+            className={`${styles.prototypeButtonPrimary} min-h-11 cursor-pointer px-3`}
           >
             Разместить
           </button>

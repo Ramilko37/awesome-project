@@ -106,21 +106,21 @@ if (
 
 const gisBoardSource = readFileSync("src/modules/drone-defense/ui/gis-board.tsx", "utf8");
 if (
-  !gisBoardSource.includes("application/x-fortis-defense-asset") ||
+  !gisBoardSource.includes("application/x-fortis-group") ||
   !gisBoardSource.includes("onDropAsset") ||
-  !gisBoardSource.includes("onPointerDropAsset")
+  !gisBoardSource.includes("handleSectionDrop")
 ) {
   throw new Error("GisBoard must accept dragged defense asset drops on the map");
 }
 
 const prototypeSource = readFileSync("src/modules/drone-defense/ui/drone-defense-prototype.tsx", "utf8");
-for (const forbiddenCopy of ["Реком.", "Рекомендовано", "не рекомендовано", "Недоступно"]) {
-  if (prototypeSource.includes(forbiddenCopy) || defenseToolIconSource.includes(forbiddenCopy)) {
-    throw new Error(`Defense Studio must not expose recommendation copy: ${forbiddenCopy}`);
+for (const requiredBehavior of ["filterAndRankCatalog", "Совместимые сначала", "Сбросить фильтры"]) {
+  if (!prototypeSource.includes(requiredBehavior)) {
+    throw new Error(`Defense Studio must expose approved catalog behavior: ${requiredBehavior}`);
   }
 }
-if (prototypeSource.includes("catalogFilter") || prototypeSource.includes("catalogFilterCategories")) {
-  throw new Error("Defense Studio library must not expose category/recommendation filter controls");
+if (!defenseToolIconSource.includes("compatibilityLabel")) {
+  throw new Error("Defense Studio library must explain compatibility without blocking placement");
 }
 
 console.log("user-facing-copy-contract.test.ts: Defense Studio copy hides legacy slot/asset terms");

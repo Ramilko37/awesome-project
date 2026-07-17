@@ -91,16 +91,17 @@ export function EchelonObjectsList({
             <div className="mt-2 flex gap-2">
               <button
                 type="button"
-                className={`${styles.prototypeButton} px-2`}
+                className={`${styles.prototypeButton} min-h-11 px-2`}
                 onClick={() => onLocate(placement)}
               >
                 На карте
               </button>
               <button
                 type="button"
-                className={`${isHidden ? styles.prototypeButtonPrimary : styles.prototypeButton} px-2`}
+                className={`${isHidden ? styles.prototypeButtonPrimary : styles.prototypeButton} min-h-11 px-2`}
                 onClick={() => onToggleVisibility(placement.id)}
                 title={isHidden ? "Показать на карте" : "Скрыть на карте"}
+                aria-label={`${isHidden ? "Показать" : "Скрыть"} ${summary.name} на карте`}
                 aria-pressed={!isHidden}
               >
                 {isHidden ? <EyeOutlined /> : <EyeInvisibleOutlined />}
@@ -108,8 +109,9 @@ export function EchelonObjectsList({
               </button>
               <button
                 type="button"
-                className={`${styles.prototypeButtonDanger} px-2`}
+                className={`${styles.prototypeButtonDanger} min-h-11 px-2`}
                 onClick={() => onRemove(placement.id)}
+                aria-label={`Удалить ${summary.name}`}
               >
                 Удалить
               </button>

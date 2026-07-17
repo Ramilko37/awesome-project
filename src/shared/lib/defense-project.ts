@@ -293,11 +293,42 @@ function assetCompatibility(
 ): Pick<AssetCatalogItem, "compatibilityStatus" | "compatibilityLabel" | "canPlaceInActiveLayer" | "isRecommendedForActiveLayer"> {
   const isRecommendedForActiveLayer = Boolean(activeLayerCode && asset.recommendedLayerCodes?.includes(activeLayerCode));
 
+  if (!activeLayerCode) {
+    return {
+      compatibilityStatus: "compatible",
+      compatibilityLabel: "",
+      canPlaceInActiveLayer: true,
+      isRecommendedForActiveLayer: false,
+    };
+  }
+
+  if (isRecommendedForActiveLayer) {
+    return {
+      compatibilityStatus: "recommended",
+      compatibilityLabel: `Рекомендуется для ${activeLayerCode}`,
+      canPlaceInActiveLayer: true,
+      isRecommendedForActiveLayer: true,
+    };
+  }
+
+  const explicitlyIncompatible = asset.incompatibleLayerCodes?.includes(activeLayerCode) === true;
+  const outsideCompatibleSet =
+    Boolean(asset.compatibleLayerCodes?.length) && !asset.compatibleLayerCodes?.includes(activeLayerCode);
+
+  if (explicitlyIncompatible || outsideCompatibleSet) {
+    return {
+      compatibilityStatus: "warning",
+      compatibilityLabel: `Не рекомендуется для ${activeLayerCode}`,
+      canPlaceInActiveLayer: true,
+      isRecommendedForActiveLayer: false,
+    };
+  }
+
   return {
-    compatibilityStatus: isRecommendedForActiveLayer ? "recommended" : "compatible",
+    compatibilityStatus: "compatible",
     compatibilityLabel: "",
     canPlaceInActiveLayer: true,
-    isRecommendedForActiveLayer,
+    isRecommendedForActiveLayer: false,
   };
 }
 
@@ -639,7 +670,9 @@ export function setProjectBaseObject(project: DefenseProject, baseObject: Defens
   return withUpdatedAt({
     ...recenteredProject,
     baseObject: {
-      ...baseObject,
+      id: baseObject.id,
+      name: baseObject.name,
+      center: { ...baseObject.center },
     },
   });
 }

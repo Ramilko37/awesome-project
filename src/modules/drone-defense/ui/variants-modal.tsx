@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircleFilled } from "@ant-design/icons";
 import { Alert, Button, Input, Modal, Spin, Tag, Typography, theme } from "antd";
 import { useDefenseVariantsStore } from "@/modules/drone-defense/domain/use-defense-variants-store";
+import { describePersistenceState } from "@/modules/drone-defense/domain/save-status";
 import type { VariantSummary } from "@/shared/types/defense-project";
 
 type Props = { open: boolean; onClose: () => void };
@@ -20,13 +21,17 @@ export function VariantsModal({ open, onClose }: Props) {
     saveStatus,
     conflictState,
     error,
+    technicalError,
+    activeVariantName,
     fetchVariants,
     saveAsNewVariant,
+    retryLastFailedIntent,
     loadVariant,
     deleteVariant,
   } = useDefenseVariantsStore();
   const { token } = theme.useToken();
   const [newName, setNewName] = useState("");
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
   useEffect(() => {
     if (open) fetchVariants();
@@ -36,10 +41,13 @@ export function VariantsModal({ open, onClose }: Props) {
   const trimmedName = newName.trim();
   const canSave = trimmedName.length > 0 && !saving;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!canSave) return;
-    void saveAsNewVariant(trimmedName).then(() => setNewName(""));
+    const saved = await saveAsNewVariant(trimmedName);
+    if (saved) setNewName("");
   };
+  const persistenceDescription = describePersistenceState({ state: saveStatus });
+  const hasSaveFailure = saveStatus === "offline-draft" || saveStatus === "conflict" || saveStatus === "error";
 
   return (
     <Modal
@@ -50,17 +58,57 @@ export function VariantsModal({ open, onClose }: Props) {
       width={520}
       destroyOnHidden
     >
-      {error ? (
+      {hasSaveFailure ? (
         <Alert
-          type="error"
-          message={error}
-          action={
-            conflictState ? (
-              <Button size="small" danger onClick={() => void loadVariant(conflictState.projectId)}>
-                Перезагрузить актуальную версию
-              </Button>
-            ) : undefined
+          type={saveStatus === "error" ? "error" : "warning"}
+          message={persistenceDescription.label}
+          description={
+            <div>
+              <span>{error}</span>
+              {showTechnicalDetails && technicalError ? (
+                <Typography.Paragraph copyable code style={{ display: "block", margin: `${token.marginXS}px 0 0` }}>
+                  {technicalError}
+                </Typography.Paragraph>
+              ) : null}
+            </div>
           }
+          action={(
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: token.marginXS }}>
+              <Button
+                size="small"
+                disabled={saving}
+                onClick={async () => {
+                  const saved = await retryLastFailedIntent();
+                  if (saved) setNewName("");
+                }}
+              >
+                {saveStatus === "offline-draft" ? "Повторить синхронизацию" : "Повторить"}
+              </Button>
+              {technicalError ? (
+                <Button size="small" onClick={() => setShowTechnicalDetails((current) => !current)}>
+                  Подробнее
+                </Button>
+              ) : null}
+              {conflictState ? (
+                <>
+                  <Button size="small" onClick={() => void loadVariant(conflictState.projectId)}>
+                    Обновить данные
+                  </Button>
+                  <Button
+                    size="small"
+                    type="primary"
+                    onClick={async () => {
+                      const copyName = trimmedName || `${activeVariantName ?? "Вариант"} — копия`;
+                      const saved = await saveAsNewVariant(copyName);
+                      if (saved) setNewName("");
+                    }}
+                  >
+                    Сохранить копию
+                  </Button>
+                </>
+              ) : null}
+            </div>
+          )}
           showIcon
           style={{ marginBottom: token.marginMD }}
         />
@@ -92,14 +140,14 @@ export function VariantsModal({ open, onClose }: Props) {
           <Input
             value={newName}
             onChange={(event) => setNewName(event.target.value)}
-            onPressEnter={handleSave}
+            onPressEnter={() => void handleSave()}
             placeholder="Имя нового варианта…"
             disabled={saving}
             maxLength={120}
           />
           <Button
             type="primary"
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={!canSave}
             loading={saving}
           >

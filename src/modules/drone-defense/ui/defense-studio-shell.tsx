@@ -70,6 +70,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               className={`${railItemClassName} ${isMapActive ? activeRailClassName : idleRailClassName}`}
               onClick={() => setView("gis")}
               title="Карта"
+              aria-current={isMapActive ? "page" : undefined}
             >
               <span className="text-lg">
                 <EnvironmentOutlined />
@@ -80,6 +81,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               href="/calculator"
               className={`${railItemClassName} ${isCalculator ? activeRailClassName : idleRailClassName}`}
               title="Просчитать конфигурацию в калькуляторе"
+              aria-current={isCalculator ? "page" : undefined}
             >
               <span className="text-lg">
                 <CalculatorOutlined />
@@ -91,6 +93,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               className={`${railItemClassName} ${isDrilldownActive ? activeRailClassName : idleRailClassName}`}
               onClick={() => setView("drilldown")}
               title={scenarioModelingTitle}
+              aria-current={isDrilldownActive ? "page" : undefined}
             >
               <span className="text-lg">
                 <RadarChartOutlined />
@@ -101,6 +104,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               href="/retrospective-analysis"
               className={`${railItemClassName} ${isRetrospective ? activeRailClassName : idleRailClassName}`}
               title="Анализ цепочки атаки (WIP)"
+              aria-current={isRetrospective ? "page" : undefined}
             >
               <span className="text-lg">
                 <LineChartOutlined />
@@ -113,7 +117,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               iconOnly
               className="flex h-12 w-full items-center justify-center rounded-xl text-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60"
             />
-            <button className="flex h-12 w-full items-center justify-center rounded-xl text-lg text-slate-400 hover:bg-slate-100" type="button" title="Экспорт">
+            <button className="flex h-12 w-full items-center justify-center rounded-xl text-lg text-slate-400 hover:bg-slate-100" type="button" title="Экспорт" aria-label="Экспортировать конфигурацию">
               <ExportOutlined />
             </button>
           </div>
@@ -149,12 +153,14 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
                 href="/prototype"
                 className={`${mobileItemClassName} ${isMapActive ? activeMobileClassName : idleMobileClassName}`}
                 onClick={() => setView("gis")}
+                aria-current={isMapActive ? "page" : undefined}
               >
                 Карта
               </Link>
               <Link
                 href="/calculator"
                 className={`${mobileItemClassName} ${isCalculator ? activeMobileClassName : idleMobileClassName}`}
+                aria-current={isCalculator ? "page" : undefined}
               >
                 Расчёт
               </Link>
@@ -163,6 +169,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
                 className={`${mobileItemClassName} ${isDrilldownActive ? activeMobileClassName : idleMobileClassName}`}
                 onClick={() => setView("drilldown")}
                 title={scenarioModelingTitle}
+                aria-current={isDrilldownActive ? "page" : undefined}
               >
                 Сценарии
               </Link>
@@ -170,6 +177,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
                 href="/retrospective-analysis"
                 className={`${mobileItemClassName} ${isRetrospective ? activeMobileClassName : idleMobileClassName}`}
                 title="Анализ цепочки атаки (WIP)"
+                aria-current={isRetrospective ? "page" : undefined}
               >
                 Анализ
               </Link>
