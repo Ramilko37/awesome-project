@@ -130,6 +130,7 @@ export function DroneDefensePrototype() {
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [catalogQuery, setCatalogQuery] = useState("");
   const [isCatalogTrayOpen, setIsCatalogTrayOpen] = useState(true);
+  const [isInspectorPanelOpen, setIsInspectorPanelOpen] = useState(true);
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
   const [isLayerPanelExpanded, setIsLayerPanelExpanded] = useState(false);
   const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(false);
@@ -936,7 +937,10 @@ export function DroneDefensePrototype() {
         </section>
       ) : null}
 
-      <main className={`${styles.prototypeMain} fortis-gis-main`}>
+      <main
+        className={`${styles.prototypeMain} fortis-gis-main`}
+        data-inspector-panel-state={isInspectorPanelOpen ? "open" : "closed"}
+      >
         {error ? (
           <div className={`${styles.prototypeNoticeDanger} absolute left-4 top-4 z-30 shadow`}>
             {error}
@@ -1068,20 +1072,38 @@ export function DroneDefensePrototype() {
               onDropAsset={placeDroppedAssetOnMap}
             />
 
-            <GisObjectInspector
-              project={project}
-              state={inspectorState}
-              onClose={() => {
-                selectObject(null);
-                setInspectorContextState({ type: "empty" });
-              }}
-              onUpdateObject={(objectId, patch) => {
-                updatePlacedObject(objectId, patch);
-                setLastPlacementMessage(
-                  "Изменения объекта сохранены локально. Сохраните вариант, чтобы отправить их на сервер.",
-                );
-              }}
-            />
+            {!isInspectorPanelOpen ? (
+              <div className="fortis-gis-inspector-toggle">
+                <Tooltip label={prototypeRu.inspector.expandPanel}>
+                  <IconButton
+                    aria-controls="fortis-gis-inspector-panel"
+                    aria-expanded={false}
+                    icon="navigation.chevron-left"
+                    label={prototypeRu.inspector.expandPanel}
+                    onClick={() => setIsInspectorPanelOpen(true)}
+                    variant="default"
+                  />
+                </Tooltip>
+              </div>
+            ) : null}
+
+            {isInspectorPanelOpen ? (
+              <GisObjectInspector
+                project={project}
+                state={inspectorState}
+                onCollapse={() => setIsInspectorPanelOpen(false)}
+                onClose={() => {
+                  selectObject(null);
+                  setInspectorContextState({ type: "empty" });
+                }}
+                onUpdateObject={(objectId, patch) => {
+                  updatePlacedObject(objectId, patch);
+                  setLastPlacementMessage(
+                    "Изменения объекта сохранены локально. Сохраните вариант, чтобы отправить их на сервер.",
+                  );
+                }}
+              />
+            ) : null}
 
             {coordinatePlacementAsset && selectedLayer ? (
               <CoordinatePlacementPanel

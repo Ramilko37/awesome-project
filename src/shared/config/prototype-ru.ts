@@ -46,6 +46,8 @@ export const prototypeRu = {
     selectedObject: "Выбранный объект",
     objectTitle: "Инспектор объекта",
     close: "Закрыть инспектор",
+    collapsePanel: "Свернуть панель контекста",
+    expandPanel: "Развернуть панель контекста",
     summary: "Сводка",
     quantity: "Количество",
     cost: "Стоимость",

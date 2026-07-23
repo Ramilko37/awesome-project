@@ -139,6 +139,7 @@ export type InspectorState =
 
 type GisObjectInspectorProps = {
   onClose: () => void;
+  onCollapse?: () => void;
   onUpdateObject: (objectId: string, patch: Partial<PlacedDefenseObject>) => void;
   project: DefenseProject;
   state: InspectorState;
@@ -270,7 +271,7 @@ function ObjectInspectorContent({
   );
 }
 
-export function GisObjectInspector({ onClose, onUpdateObject, project, state }: GisObjectInspectorProps) {
+export function GisObjectInspector({ onClose, onCollapse, onUpdateObject, project, state }: GisObjectInspectorProps) {
   let eyebrow: string = prototypeRu.inspector.context;
   let title: string = prototypeRu.inspector.title;
   let ariaLabel: string = prototypeRu.inspector.title;
@@ -370,15 +371,29 @@ export function GisObjectInspector({ onClose, onUpdateObject, project, state }: 
       aria-label={ariaLabel}
       className="fortis-gis-inspector"
       data-inspector-state={state.type}
+      id="fortis-gis-inspector-panel"
     >
       <div className="fortis-gis-panel-header">
         <div>
           <p className="fortis-gis-eyebrow">{eyebrow}</p>
           <h2>{title}</h2>
         </div>
-        {isSelectableState ? (
-          <IconButton icon="action.close" label={prototypeRu.inspector.close} onClick={onClose} size="sm" variant="quiet" />
-        ) : null}
+        <div className="fortis-gis-panel-header-actions">
+          {onCollapse ? (
+            <IconButton
+              aria-controls="fortis-gis-inspector-panel"
+              aria-expanded={true}
+              className="fortis-gis-inspector-collapse-button"
+              icon="navigation.chevron-right"
+              label={prototypeRu.inspector.collapsePanel}
+              onClick={onCollapse}
+              variant="quiet"
+            />
+          ) : null}
+          {isSelectableState ? (
+            <IconButton icon="action.close" label={prototypeRu.inspector.close} onClick={onClose} size="sm" variant="quiet" />
+          ) : null}
+        </div>
       </div>
       {content}
     </aside>

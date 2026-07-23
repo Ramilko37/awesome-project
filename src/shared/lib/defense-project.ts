@@ -1317,16 +1317,28 @@ export function exportDefenseProjectJson(project: DefenseProject): string {
   return JSON.stringify({ ...project, updatedAt: nowIso() }, null, 2);
 }
 
+function normalizePersistedConflictSnapshots(object: PlacedDefenseObject): PlacedDefenseObject {
+  // Conflict flags are diagnostic snapshots supplied by persistence/backend data.
+  // Hydration preserves explicit true values and only backfills missing legacy fields.
+  return {
+    ...object,
+    hasGeometryConflict: object.hasGeometryConflict === true,
+    hasCoverageConflict: object.hasCoverageConflict === true,
+    hasTerrainConflict: object.hasTerrainConflict === true,
+  };
+}
+
 export function importDefenseProjectJson(raw: string): DefenseProject {
   const parsed = JSON.parse(raw) as DefenseProject;
   if (parsed.schemaVersion !== PROJECT_SCHEMA_VERSION || !Array.isArray(parsed.layers) || !Array.isArray(parsed.placedObjects)) {
     throw new Error("Invalid defense project JSON");
   }
-  return syncPlacedObjectConflictFlags({
+  return {
     ...parsed,
     assetLibrary: normalizeProjectAssetLibrary(parsed.assetLibrary),
     layers: parsed.layers.map((layer) =>
       normalizeLayerGeometry({ ...layer, isVisible: isLayerVisible(layer) }, parsed.baseObject.center),
     ),
-  });
+    placedObjects: parsed.placedObjects.map(normalizePersistedConflictSnapshots),
+  };
 }
