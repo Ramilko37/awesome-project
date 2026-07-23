@@ -1339,19 +1339,25 @@
 
 @media (min-width: 48rem) {
   .fortis-gis-tree-slot {
-    display: block;
-    max-height: 22rem;
-    flex: 0 0 auto;
+    display: flex;
+    min-height: 8rem;
+    max-height: min(22rem, 40dvh);
+    flex: 0 1 min(22rem, 40dvh);
+    flex-direction: column;
     overflow: hidden;
     border-bottom: 1px solid var(--fortis-semantic-light-border-default);
   }
 
+  .fortis-gis-tree-slot > .fortis-gis-tree,
   .prototypeDesktopTreeSlot .fortis-gis-tree {
     display: flex;
+    min-height: 0;
+    flex: 1;
     max-height: 22rem;
     flex-direction: column;
   }
 
+  .fortis-gis-tree-slot .fortis-gis-tree-body,
   .prototypeDesktopTreeSlot .fortis-gis-tree-body {
     min-height: 0;
     flex: 1;

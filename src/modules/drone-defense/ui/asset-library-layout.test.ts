@@ -19,11 +19,21 @@ const stylesSource = readFileSync(
   "utf8",
 );
 
+function cssRule(selector: string) {
+  const start = stylesSource.indexOf(`${selector} {`);
+  assert.notEqual(start, -1, `Missing ${selector} CSS rule`);
+  const end = stylesSource.indexOf("}", start);
+  assert.notEqual(end, -1, `Unterminated ${selector} CSS rule`);
+  return stylesSource.slice(start, end + 1);
+}
+
 test("library keeps controls fixed and manager, feedback, empty state, and cards in one scroll region", () => {
   const libraryPanel = prototypeSource.slice(
     prototypeSource.indexOf('className={styles.prototypeLibraryPanel}'),
     prototypeSource.indexOf("</section>", prototypeSource.indexOf('className={styles.prototypeLibraryPanel}')),
   );
+  const scrollAreaStyles = cssRule(".prototypeLibraryScrollArea");
+  const catalogContentStyles = cssRule(".prototypeLibraryCatalogContent");
 
   assert.match(libraryPanel, /prototypeLibraryFixedControls/);
   assert.match(libraryPanel, /prototypeLibraryScrollArea/);
@@ -32,12 +42,18 @@ test("library keeps controls fixed and manager, feedback, empty state, and cards
     /prototypeLibraryScrollArea[\s\S]*<AssetLibraryManager[\s\S]*<DefenseToolsPanel/,
   );
   assert.doesNotMatch(libraryPanel, /overflow-hidden/);
-  assert.match(stylesSource, /\.prototypeLibraryScrollArea\s*\{[\s\S]*overflow-y:\s*auto/);
-  assert.match(stylesSource, /\.prototypeLibraryScrollArea\s*\{[\s\S]*padding-bottom:/);
+  assert.match(scrollAreaStyles, /display:\s*flex/);
+  assert.match(catalogContentStyles, /overflow-y:\s*auto/);
+  assert.match(catalogContentStyles, /padding-bottom:/);
   assert.match(toolsSource, /<EmptyState/);
 });
 
 test("create view replaces catalog, focuses the first field, validates inline, and keeps actions accessible", () => {
+  const formStyles = cssRule(".prototypeLibraryForm");
+  const formHeaderStyles = cssRule(".prototypeLibraryFormHeader");
+  const formBodyStyles = cssRule(".prototypeLibraryFormBody");
+  const formFooterStyles = cssRule(".prototypeLibraryFormFooter");
+
   assert.match(managerSource, /children\?: ReactNode/);
   assert.match(managerSource, /mode === "closed"[\s\S]*children/);
   assert.match(managerSource, /nameInputRef\.current\?\.focus\(\)/);
@@ -45,6 +61,9 @@ test("create view replaces catalog, focuses the first field, validates inline, a
   assert.match(managerSource, /message=\{formErrors\.name\}/);
   assert.match(managerSource, />\s*Отмена\s*</);
   assert.match(managerSource, /mode === "create" \? "Создать" : "Сохранить"/);
-  assert.match(stylesSource, /\.prototypeLibraryFormFooter\s*\{[\s\S]*position:\s*sticky/);
-  assert.match(stylesSource, /\.prototypeLibraryFormFooter\s*\{[\s\S]*bottom:\s*0/);
+  assert.match(formStyles, /min-height:\s*0/);
+  assert.match(formBodyStyles, /overflow-y:\s*auto/);
+  assert.match(formHeaderStyles, /flex:\s*0 0 auto/);
+  assert.match(formFooterStyles, /flex:\s*0 0 auto/);
+  assert.doesNotMatch(formFooterStyles, /position:\s*sticky/);
 });

@@ -6,12 +6,14 @@ const frontendRoot = dirname(fileURLToPath(import.meta.url));
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const isStaticExport = process.env.NEXT_STATIC_EXPORT === "true";
+const distDir = process.env.FORTIS_NEXT_DIST_DIR?.trim() || undefined;
 const fortisApiBaseUrl =
   process.env.FORTIS_API_BASE_URL?.trim() ||
   process.env.NEXT_PUBLIC_FORTIS_API_BASE_URL?.trim() ||
   "http://localhost:8090";
 
 const nextConfig: NextConfig = {
+  distDir,
   turbopack: {
     root: frontendRoot,
   },
