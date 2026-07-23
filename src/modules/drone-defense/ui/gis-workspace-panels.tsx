@@ -29,14 +29,6 @@ function objectLabel(object: PlacedDefenseObject, assets: DefenseAsset[]) {
   return object.name ?? assets.find((asset) => asset.id === object.assetId)?.name ?? prototypeRu.tree.fallbackObject;
 }
 
-function formatObjectCount(count: number) {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return `${count} объект`;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} объекта`;
-  return `${count} объектов`;
-}
-
 export function GisProjectTree({ activeLayerId, onSelectLayer, onSelectObject, project, selectedObjectId }: GisProjectTreeProps) {
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLocaleLowerCase("ru-RU");
@@ -63,9 +55,9 @@ export function GisProjectTree({ activeLayerId, onSelectLayer, onSelectObject, p
           value={query}
         />
       </div>
-      <div className="fortis-gis-tree-body" role="tree" aria-label="Эшелоны и объекты проекта">
+      <div className="fortis-gis-tree-body" role="tree" aria-label={prototypeRu.tree.projectContent}>
         <div aria-level={1} aria-selected={false} className="fortis-gis-base-object" role="treeitem">
-          <span className="fortis-gis-base-glyph" aria-hidden="true">О</span>
+          <span className="fortis-gis-base-glyph" aria-hidden="true">{prototypeRu.tree.baseObjectGlyph}</span>
           <span className="fortis-gis-tree-copy">
             <strong className="truncate" title={project.baseObject.name}>{project.baseObject.name}</strong>
             <span className="fortis-gis-tree-detail">{prototypeRu.tree.protectedObject}</span>
@@ -90,7 +82,11 @@ export function GisProjectTree({ activeLayerId, onSelectLayer, onSelectObject, p
                 color={layer.color}
                 count={objects.length}
                 current={isActive}
-                detail={`${isActive ? "Активный · " : ""}${layer.isVisible === false ? "скрыт" : "видим"} · ${formatObjectCount(objects.length)}`}
+                detail={prototypeRu.tree.echelonDetail(
+                  isActive,
+                  layer.isVisible === false,
+                  prototypeRu.tree.objectCount(objects.length),
+                )}
                 hidden={layer.isVisible === false}
                 label={layer.name}
                 level={layer.code}
@@ -154,15 +150,15 @@ function formatCoordinate(value: number) {
 
 function formatCost(value: number | null | undefined) {
   if (value == null) return "—";
-  return `${value.toLocaleString("ru-RU", { maximumFractionDigits: 1 })} млн ₽`;
+  return prototypeRu.inspector.costMln(value.toLocaleString("ru-RU", { maximumFractionDigits: 1 }));
 }
 
 function objectStatus(status: PlacedDefenseObject["status"]) {
   const labels: Record<PlacedDefenseObject["status"], string> = {
-    active: "Активен",
-    inactive: "Выключен",
-    maintenance: "На обслуживании",
-    planned: "Запланирован",
+    active: prototypeRu.inspector.active,
+    inactive: prototypeRu.inspector.inactive,
+    maintenance: prototypeRu.inspector.maintenance,
+    planned: prototypeRu.inspector.planned,
   };
   return labels[status];
 }
@@ -179,10 +175,10 @@ function ObjectInspectorContent({
   onUpdateObject: GisObjectInspectorProps["onUpdateObject"];
 }) {
   const conflictLabels = [
-    object.hasGeometryConflict ? "Геометрия пересекается с ограничением" : null,
-    object.hasCoverageConflict ? "Покрытие конфликтует с соседним объектом" : null,
-    object.hasTerrainConflict ? "Требуется проверить рельеф" : null,
-  ].filter((item): item is string => Boolean(item));
+    object.hasGeometryConflict ? prototypeRu.inspector.geometryConflict : null,
+    object.hasCoverageConflict ? prototypeRu.inspector.coverageConflict : null,
+    object.hasTerrainConflict ? prototypeRu.inspector.terrainConflict : null,
+  ].filter((item): item is NonNullable<typeof item> => Boolean(item));
   const unitPrice = object.customPricePerUnitMln ?? asset.pricePerUnitMln;
   const totalCost = unitPrice == null ? null : unitPrice * object.quantity;
 
@@ -202,35 +198,35 @@ function ObjectInspectorContent({
       ))}
 
       <section className="fortis-gis-inspector-section">
-        <h3>Сводка</h3>
+        <h3>{prototypeRu.inspector.summary}</h3>
         <dl className="fortis-gis-metric-grid">
-          <div><dt>Количество</dt><dd>{object.quantity}</dd></div>
-          <div><dt>Стоимость</dt><dd>{formatCost(totalCost)}</dd></div>
-          <div><dt>Покрытие</dt><dd>{object.customCoverageRadius ?? asset.coverageRadius ?? "—"}{asset.coverageRadius || object.customCoverageRadius ? " м" : ""}</dd></div>
-          <div><dt>Тип</dt><dd>{asset.deploymentType === "mobile" ? "Мобильный" : "Стационарный"}</dd></div>
+          <div><dt>{prototypeRu.inspector.quantity}</dt><dd>{object.quantity}</dd></div>
+          <div><dt>{prototypeRu.inspector.cost}</dt><dd>{formatCost(totalCost)}</dd></div>
+          <div><dt>{prototypeRu.inspector.coverage}</dt><dd>{object.customCoverageRadius ?? asset.coverageRadius ?? "—"}{asset.coverageRadius || object.customCoverageRadius ? prototypeRu.inspector.metersSuffix : ""}</dd></div>
+          <div><dt>{prototypeRu.inspector.type}</dt><dd>{asset.deploymentType === "mobile" ? prototypeRu.inspector.mobile : prototypeRu.inspector.stationary}</dd></div>
         </dl>
       </section>
 
       <section className="fortis-gis-inspector-section" aria-labelledby="object-controls-heading">
-        <h3 id="object-controls-heading">Управление объектом</h3>
+        <h3 id="object-controls-heading">{prototypeRu.inspector.objectControls}</h3>
         <div className="fortis-gis-inspector-controls">
           <div className="fortis-gis-control-row">
-            <span>Количество</span>
-            <div aria-label="Количество объектов" className="fortis-gis-stepper" role="group">
+            <span>{prototypeRu.inspector.quantity}</span>
+            <div aria-label={prototypeRu.inspector.objectQuantity} className="fortis-gis-stepper" role="group">
               <IconButton
-                aria-label="Уменьшить количество объектов"
+                aria-label={prototypeRu.inspector.decreaseQuantity}
                 disabled={object.quantity <= 1}
                 icon="minus"
-                label="Уменьшить количество объектов"
+                label={prototypeRu.inspector.decreaseQuantity}
                 onClick={() => onUpdateObject(object.id, { quantity: object.quantity - 1 })}
                 size="sm"
                 variant="quiet"
               />
-              <output aria-label="Количество объектов">{object.quantity}</output>
+              <output aria-label={prototypeRu.inspector.objectQuantity}>{object.quantity}</output>
               <IconButton
-                aria-label="Увеличить количество объектов"
+                aria-label={prototypeRu.inspector.increaseQuantity}
                 icon="action.add"
-                label="Увеличить количество объектов"
+                label={prototypeRu.inspector.increaseQuantity}
                 onClick={() => onUpdateObject(object.id, { quantity: object.quantity + 1 })}
                 size="sm"
                 variant="quiet"
@@ -238,15 +234,15 @@ function ObjectInspectorContent({
             </div>
           </div>
           <Select
-            aria-label="Статус объекта"
+            aria-label={prototypeRu.inspector.objectStatus}
             className="fortis-gis-object-status"
-            label="Статус объекта"
+            label={prototypeRu.inspector.objectStatus}
             onChange={(event) => onUpdateObject(object.id, { status: event.currentTarget.value as PlacedDefenseObject["status"] })}
             options={[
-              { label: "Запланирован", value: "planned" },
-              { label: "Активен", value: "active" },
-              { label: "Выключен", value: "inactive" },
-              { label: "На обслуживании", value: "maintenance" },
+              { label: prototypeRu.inspector.planned, value: "planned" },
+              { label: prototypeRu.inspector.active, value: "active" },
+              { label: prototypeRu.inspector.inactive, value: "inactive" },
+              { label: prototypeRu.inspector.maintenance, value: "maintenance" },
             ]}
             value={object.status}
           />
@@ -257,17 +253,17 @@ function ObjectInspectorContent({
             onClick={() => onUpdateObject(object.id, { isVisibleOnMap: object.isVisibleOnMap === false })}
             variant="secondary"
           >
-            {object.isVisibleOnMap === false ? "Показать на карте" : "Скрыть на карте"}
+            {object.isVisibleOnMap === false ? prototypeRu.inspector.showOnMap : prototypeRu.inspector.hideOnMap}
           </Button>
         </div>
       </section>
 
       <section className="fortis-gis-inspector-section">
-        <h3>Координаты</h3>
+        <h3>{prototypeRu.inspector.coordinates}</h3>
         <dl className="fortis-gis-property-list">
-          <div><dt>Широта</dt><dd>{formatCoordinate(object.coordinates.lat)}</dd></div>
-          <div><dt>Долгота</dt><dd>{formatCoordinate(object.coordinates.lng)}</dd></div>
-          <div><dt>Видимость</dt><dd>{object.isVisibleOnMap === false ? "Скрыт на карте" : "Показан на карте"}</dd></div>
+          <div><dt>{prototypeRu.inspector.latitude}</dt><dd>{formatCoordinate(object.coordinates.lat)}</dd></div>
+          <div><dt>{prototypeRu.inspector.longitude}</dt><dd>{formatCoordinate(object.coordinates.lng)}</dd></div>
+          <div><dt>{prototypeRu.inspector.visibility}</dt><dd>{object.isVisibleOnMap === false ? prototypeRu.tree.hiddenOnMap : prototypeRu.inspector.shownOnMap}</dd></div>
         </dl>
       </section>
     </>
@@ -321,23 +317,23 @@ export function GisObjectInspector({ onClose, onUpdateObject, project, state }: 
             </span>
             <div className="min-w-0 flex-1">
               <h3 title={layer.name}>{layer.name}</h3>
-              <p>{layer.code} · {layer.isVisible === false ? "Скрыт" : "Виден на карте"}</p>
+              <p>{layer.code} · {layer.isVisible === false ? prototypeRu.inspector.hidden : prototypeRu.inspector.visibleOnMap}</p>
             </div>
-            <Status label={layer.isVisible === false ? "Скрыт" : "Активен"} tone={layer.isVisible === false ? "neutral" : "success"} />
+            <Status label={layer.isVisible === false ? prototypeRu.inspector.hidden : prototypeRu.inspector.active} tone={layer.isVisible === false ? "neutral" : "success"} />
           </section>
           <section className="fortis-gis-inspector-section">
-            <h3>Сводка</h3>
+            <h3>{prototypeRu.inspector.summary}</h3>
             <dl className="fortis-gis-metric-grid">
-              <div><dt>Объекты</dt><dd>{objectCount}</dd></div>
-              <div><dt>Код</dt><dd>{layer.code}</dd></div>
-              <div><dt>Порядок</dt><dd>{layer.order + 1}</dd></div>
-              <div><dt>Видимость</dt><dd>{layer.isVisible === false ? "Скрыт" : "Виден"}</dd></div>
+              <div><dt>{prototypeRu.inspector.objects}</dt><dd>{objectCount}</dd></div>
+              <div><dt>{prototypeRu.inspector.code}</dt><dd>{layer.code}</dd></div>
+              <div><dt>{prototypeRu.inspector.order}</dt><dd>{layer.order + 1}</dd></div>
+              <div><dt>{prototypeRu.inspector.visibility}</dt><dd>{layer.isVisible === false ? prototypeRu.inspector.hidden : prototypeRu.inspector.visible}</dd></div>
             </dl>
           </section>
         </div>
       ) : (
         <div className="fortis-gis-inspector-state">
-          <InlineMessage tone="error">Эшелон больше не доступен.</InlineMessage>
+          <InlineMessage tone="error">{prototypeRu.inspector.missingEchelon}</InlineMessage>
         </div>
       );
       break;
@@ -360,7 +356,7 @@ export function GisObjectInspector({ onClose, onUpdateObject, project, state }: 
         </div>
       ) : (
         <div className="fortis-gis-inspector-state">
-          <InlineMessage tone="error">Объект больше не доступен.</InlineMessage>
+          <InlineMessage tone="error">{prototypeRu.inspector.missingObject}</InlineMessage>
         </div>
       );
       break;
@@ -381,7 +377,7 @@ export function GisObjectInspector({ onClose, onUpdateObject, project, state }: 
           <h2>{title}</h2>
         </div>
         {isSelectableState ? (
-          <IconButton icon="action.close" label="Закрыть инспектор" onClick={onClose} size="sm" variant="quiet" />
+          <IconButton icon="action.close" label={prototypeRu.inspector.close} onClick={onClose} size="sm" variant="quiet" />
         ) : null}
       </div>
       {content}

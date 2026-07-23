@@ -123,7 +123,10 @@ export function EchelonTreeItem({
       type="button"
     >
       <span className="fortis-tree-item__copy">
-        <span><span className="fortis-badge" data-tone="neutral">{level}</span> {label}</span>
+        <span className="fortis-tree-item__identity">
+          <span className="fortis-badge" data-tone="neutral">{level}</span>
+          <span className="fortis-tree-item__label" title={title ?? label}>{label}</span>
+        </span>
         {detail ? <small>{detail}</small> : null}
       </span>
       <span className="fortis-mono">{count}{warning ? " !" : ""}</span>

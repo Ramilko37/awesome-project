@@ -59,8 +59,11 @@ test("create view replaces catalog, focuses the first field, validates inline, a
   assert.match(managerSource, /nameInputRef\.current\?\.focus\(\)/);
   assert.match(managerSource, /invalid=\{Boolean\(formErrors\.name\)\}/);
   assert.match(managerSource, /message=\{formErrors\.name\}/);
-  assert.match(managerSource, />\s*Отмена\s*</);
-  assert.match(managerSource, /mode === "create" \? "Создать" : "Сохранить"/);
+  assert.match(managerSource, /\{prototypeRu\.library\.cancel\}/);
+  assert.match(
+    managerSource,
+    /mode === "create" \? prototypeRu\.library\.create : prototypeRu\.library\.save/,
+  );
   assert.match(formStyles, /min-height:\s*0/);
   assert.match(formBodyStyles, /overflow-y:\s*auto/);
   assert.match(formHeaderStyles, /flex:\s*0 0 auto/);

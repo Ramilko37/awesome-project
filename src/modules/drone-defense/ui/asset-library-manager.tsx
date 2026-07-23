@@ -18,6 +18,7 @@ import {
   updateDefenseAsset,
   type DefenseAssetMutationInput,
 } from "@/modules/drone-defense/infra/asset-library-api";
+import { prototypeRu } from "@/shared/config/prototype-ru";
 import styles from "./drone-defense-prototype.module.css";
 import type {
   DefenseAsset,
@@ -59,27 +60,11 @@ type AssetFormState = {
 type AssetFormErrors = Partial<Record<"name", string>>;
 
 const categoryOptions: Array<{ value: DefenseAssetCategory; label: string }> = [
-  { value: "detection", label: "Обнаружение" },
-  { value: "classification", label: "Классификация" },
-  { value: "jamming", label: "РЭБ" },
-  { value: "spoofing", label: "Спуфинг" },
-  { value: "kinetic", label: "Поражение" },
-  { value: "interceptor", label: "Перехват" },
-  { value: "passive-protection", label: "Пассивная защита" },
-  { value: "engineering-protection", label: "Инженерная защита" },
-  { value: "infrastructure", label: "Инфраструктура" },
-  { value: "command-center", label: "Командный центр" },
-  { value: "early-warning", label: "Раннее предупреждение" },
-  { value: "software", label: "ПО" },
-  { value: "external-service", label: "Внешний сервис" },
+  ...prototypeRu.library.categoryOptions,
 ];
 
 const coverageTypeOptions: Array<{ value: DefenseAssetCoverageType; label: string }> = [
-  { value: "circle", label: "Круг" },
-  { value: "sector", label: "Сектор" },
-  { value: "line", label: "Линия" },
-  { value: "polygon", label: "Полигон" },
-  { value: "none", label: "Нет" },
+  ...prototypeRu.library.coverageTypeOptions,
 ];
 
 function emptyForm(): AssetFormState {
@@ -249,7 +234,7 @@ export function AssetLibraryManager({
 
   const saveAsset = async () => {
     if (!form.name.trim()) {
-      setFormErrors({ name: "Укажите название средства защиты." });
+      setFormErrors({ name: prototypeRu.library.nameRequired });
       return;
     }
     setFormErrors({});
@@ -264,9 +249,9 @@ export function AssetLibraryManager({
       onSelectAsset(asset.id);
       setMode("edit");
       setForm(formFromAsset(asset));
-      onMessage(`${asset.name} сохранено в библиотеке`);
+      onMessage(prototypeRu.library.savedMessage(asset.name));
     } catch {
-      setLocalError("Не удалось сохранить карточку на сервере.");
+      setLocalError(prototypeRu.library.saveError);
     } finally {
       setSaving(false);
     }
@@ -275,7 +260,7 @@ export function AssetLibraryManager({
   const deleteSelectedAsset = async () => {
     if (!selectedAsset) return;
     if (selectedAssetUsed) {
-      setLocalError("Средство уже размещено на карте. Удаление заблокировано.");
+      setLocalError(prototypeRu.library.assetUsedDeleteError);
       return;
     }
     setSaving(true);
@@ -289,9 +274,9 @@ export function AssetLibraryManager({
       }
       setMode("closed");
       setForm(emptyForm());
-      onMessage(`${selectedAsset.name} удалено из библиотеки`);
+      onMessage(prototypeRu.library.deletedMessage(selectedAsset.name));
     } catch {
-      setLocalError("Не удалось удалить карточку на сервере.");
+      setLocalError(prototypeRu.library.deleteError);
     } finally {
       setSaving(false);
     }
@@ -303,13 +288,13 @@ export function AssetLibraryManager({
         <div className={`${styles.prototypeSection} ${styles.prototypeLibraryManager}`}>
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className={styles.prototypeEyebrow}>Управление карточками</p>
-              <p className={`${styles.prototypeMeta} truncate`}>{assets.length} средств в текущей библиотеке</p>
+              <p className={styles.prototypeEyebrow}>{prototypeRu.library.management}</p>
+              <p className={`${styles.prototypeMeta} truncate`}>{prototypeRu.library.count(assets.length)}</p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <IconButton
                 icon="action.refresh"
-                label="Обновить каталог с сервера"
+                label={prototypeRu.library.refresh}
                 onClick={() => void onRefresh()}
                 disabled={loading}
                 size="sm"
@@ -317,13 +302,13 @@ export function AssetLibraryManager({
               />
               <IconButton
                 icon="action.add"
-                label="Создать средство защиты"
+                label={prototypeRu.library.createAsset}
                 onClick={startCreate}
                 size="sm"
               />
               <IconButton
                 icon="action.edit"
-                label="Редактировать выбранное средство"
+                label={prototypeRu.library.editAsset}
                 onClick={startEdit}
                 disabled={!selectedAsset}
                 size="sm"
@@ -332,9 +317,9 @@ export function AssetLibraryManager({
             </div>
           </div>
 
-          {loading ? <Status label="Загрузка библиотеки" tone="info" /> : null}
-          {error ? <Alert title="Не удалось загрузить библиотеку" tone="warning">{error}</Alert> : null}
-          {localError ? <Alert title="Не удалось выполнить действие" tone="danger">{localError}</Alert> : null}
+          {loading ? <Status label={prototypeRu.library.loading} tone="info" /> : null}
+          {error ? <Alert title={prototypeRu.library.loadError} tone="warning">{error}</Alert> : null}
+          {localError ? <Alert title={prototypeRu.library.actionError} tone="danger">{localError}</Alert> : null}
         </div>
         <div className={styles.prototypeLibraryCatalog}>{children}</div>
       </div>
@@ -343,7 +328,7 @@ export function AssetLibraryManager({
 
   return (
     <form
-      aria-label={mode === "create" ? "Создание средства защиты" : "Редактирование средства защиты"}
+      aria-label={mode === "create" ? prototypeRu.library.createAria : prototypeRu.library.editAria}
       className={styles.prototypeLibraryForm}
       onSubmit={(event) => {
         event.preventDefault();
@@ -353,15 +338,15 @@ export function AssetLibraryManager({
       <div className={styles.prototypeLibraryFormHeader}>
         <div>
           <p className={styles.prototypeEyebrow}>
-            {mode === "create" ? "Новое средство" : "Карточка средства"}
+            {mode === "create" ? prototypeRu.library.newAsset : prototypeRu.library.assetCard}
           </p>
           <h2 className={styles.prototypeCardTitle}>
-            {mode === "create" ? "Создание средства защиты" : "Редактирование средства защиты"}
+            {mode === "create" ? prototypeRu.library.createAria : prototypeRu.library.editAria}
           </h2>
         </div>
         <IconButton
           icon="action.close"
-          label="Отменить и вернуться в библиотеку"
+          label={prototypeRu.library.cancelAndReturn}
           onClick={cancelForm}
           size="sm"
           variant="quiet"
@@ -369,11 +354,11 @@ export function AssetLibraryManager({
       </div>
 
       <div className={styles.prototypeLibraryFormBody}>
-        {localError ? <Alert title="Не удалось выполнить действие" tone="danger">{localError}</Alert> : null}
+        {localError ? <Alert title={prototypeRu.library.actionError} tone="danger">{localError}</Alert> : null}
         <div className="fortis-asset-library-form">
           <Input
             invalid={Boolean(formErrors.name)}
-            label="Название"
+            label={prototypeRu.library.name}
             message={formErrors.name}
             ref={nameInputRef}
             value={form.name}
@@ -385,7 +370,7 @@ export function AssetLibraryManager({
 
           <div className="fortis-asset-library-form__grid">
             <Select
-              label="Категория"
+              label={prototypeRu.library.category}
               options={categoryOptions}
               value={form.category}
               onChange={(event) =>
@@ -393,7 +378,7 @@ export function AssetLibraryManager({
               }
             />
             <Select
-              label="Тип покрытия"
+              label={prototypeRu.library.coverageType}
               options={coverageTypeOptions}
               value={form.coverageType}
               onChange={(event) =>
@@ -404,34 +389,34 @@ export function AssetLibraryManager({
 
           <div className="fortis-asset-library-form__grid">
             <Input
-              label="Тип защиты"
+              label={prototypeRu.library.protectionType}
               value={form.protectionType}
               onChange={(event) => setForm((current) => ({ ...current, protectionType: event.target.value }))}
             />
             <Input
-              label="Рекомендуемые эшелоны"
+              label={prototypeRu.library.recommendedEchelons}
               value={form.recommendedLayerCodes}
               onChange={(event) => setForm((current) => ({ ...current, recommendedLayerCodes: event.target.value }))}
-              placeholder="L2, L3"
+              placeholder={prototypeRu.library.recommendedEchelonsPlaceholder}
             />
           </div>
 
           <div className="fortis-asset-library-form__grid" data-columns="three">
             <Input
               inputMode="decimal"
-              label="Цена, млн ₽"
+              label={prototypeRu.library.priceMln}
               value={form.pricePerUnitMln}
               onChange={(event) => setForm((current) => ({ ...current, pricePerUnitMln: event.target.value }))}
             />
             <Input
               inputMode="decimal"
-              label="Радиус, км"
+              label={prototypeRu.library.radiusKm}
               value={form.coverageRadiusKm}
               onChange={(event) => setForm((current) => ({ ...current, coverageRadiusKm: event.target.value }))}
             />
             <Input
               inputMode="decimal"
-              label="Угол, °"
+              label={prototypeRu.library.angleDegrees}
               value={form.coverageAngle}
               onChange={(event) => setForm((current) => ({ ...current, coverageAngle: event.target.value }))}
             />
@@ -439,28 +424,28 @@ export function AssetLibraryManager({
 
           <Input
             inputMode="decimal"
-            label="Максимальная дальность, км"
+            label={prototypeRu.library.maxDistanceKm}
             value={form.maxEffectiveDistanceKm}
             onChange={(event) => setForm((current) => ({ ...current, maxEffectiveDistanceKm: event.target.value }))}
           />
 
           <Textarea
             className="fortis-asset-library-form__description"
-            label="Описание"
+            label={prototypeRu.library.description}
             value={form.description}
             onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
           />
 
           <Checkbox
             checked={form.isPublic}
-            description="Карточка доступна всем предприятиям."
-            label="Общий каталог"
+            description={prototypeRu.library.publicCatalogDescription}
+            label={prototypeRu.library.publicCatalog}
             onCheckedChange={(isPublic) => setForm((current) => ({ ...current, isPublic }))}
           />
 
           {!form.isPublic ? (
             <Input
-              label="Идентификатор предприятия"
+              label={prototypeRu.library.enterpriseId}
               value={form.enterpriseId}
               onChange={(event) => setForm((current) => ({ ...current, enterpriseId: event.target.value }))}
             />
@@ -472,14 +457,14 @@ export function AssetLibraryManager({
         {mode === "edit" ? (
           <IconButton
             icon="action.delete"
-            label={selectedAssetUsed ? "Средство размещено на карте" : "Удалить средство защиты"}
+            label={selectedAssetUsed ? prototypeRu.library.assetUsed : prototypeRu.library.deleteAsset}
             onClick={() => void deleteSelectedAsset()}
             disabled={saving || selectedAssetUsed}
             variant="danger"
           />
         ) : null}
         <Button disabled={saving} onClick={cancelForm} variant="secondary">
-          Отмена
+          {prototypeRu.library.cancel}
         </Button>
         <Button
           className="flex-1"
@@ -487,7 +472,7 @@ export function AssetLibraryManager({
           loading={saving}
           type="submit"
         >
-          {mode === "create" ? "Создать" : "Сохранить"}
+          {mode === "create" ? prototypeRu.library.create : prototypeRu.library.save}
         </Button>
       </div>
     </form>

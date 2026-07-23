@@ -82,7 +82,30 @@ test("selected and long-name cards keep one Fortis state language", async ({ pag
 
   const longTreeItem = page.locator(".fortis-tree-item").first();
   await expect(longTreeItem).toHaveAttribute("title", longLayerName);
+  const longTreeLabel = longTreeItem.locator(".fortis-tree-item__label");
+  await expect(longTreeLabel).toHaveAttribute("title", longLayerName);
+  const labelLayout = await longTreeLabel.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      clientWidth: element.clientWidth,
+      overflow: style.overflow,
+      scrollWidth: element.scrollWidth,
+      textOverflow: style.textOverflow,
+      whiteSpace: style.whiteSpace,
+    };
+  });
+  expect(labelLayout.whiteSpace).toBe("nowrap");
+  expect(labelLayout.overflow).toBe("hidden");
+  expect(labelLayout.textOverflow).toBe("ellipsis");
+  expect(labelLayout.scrollWidth).toBeGreaterThan(labelLayout.clientWidth);
+  const countWidthBeforeSelection = await longTreeItem.locator(":scope > .fortis-mono").evaluate(
+    (element) => element.getBoundingClientRect().width,
+  );
   await longTreeItem.click();
+  const countWidthAfterSelection = await longTreeItem.locator(":scope > .fortis-mono").evaluate(
+    (element) => element.getBoundingClientRect().width,
+  );
+  expect(countWidthAfterSelection).toBe(countWidthBeforeSelection);
 
   const drawer = page.getByRole("region", { name: "Обзор эшелонов" });
   await drawer.getByRole("button", { name: "Развернуть панель эшелонов" }).click();

@@ -81,15 +81,13 @@ function protectedObjectToFacility(object: ProtectedObjectOption) {
 }
 
 function formatLayerCost(totalMln: number) {
-  return `${totalMln.toLocaleString("ru-RU", { maximumFractionDigits: 1 })} млн ₽`;
+  return prototypeRu.inspector.costMln(
+    totalMln.toLocaleString("ru-RU", { maximumFractionDigits: 1 }),
+  );
 }
 
 function formatObjectCountLabel(count: number) {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return `${count} объект`;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} объекта`;
-  return `${count} объектов`;
+  return prototypeRu.tree.objectCount(count);
 }
 
 function formatLayerObjectMeta(objectCount: number, totalMln: number) {
@@ -100,18 +98,18 @@ function describeLayerDeletion(totalLayers: number, objectCount: number) {
   if (totalLayers <= 1) {
     return {
       canDelete: false,
-      reason: "Последний эшелон удалить нельзя.",
+      reason: prototypeRu.echelons.cannotDeleteLast,
     };
   }
   if (objectCount > 0) {
     return {
       canDelete: false,
-      reason: "Нельзя удалить: в эшелоне есть объекты.",
+      reason: prototypeRu.echelons.cannotDeleteWithObjects,
     };
   }
   return {
     canDelete: true,
-    reason: "Удаление доступно только после подтверждения.",
+    reason: prototypeRu.echelons.deleteRequiresConfirmation,
   };
 }
 
@@ -359,14 +357,20 @@ export function DroneDefensePrototype() {
     () => layerSummaries.find((item) => item.layerId === selectedLayer?.id) ?? null,
     [layerSummaries, selectedLayer?.id],
   );
-  const layerPanelSummaryLabel = `${project.layers.length} из ${MAX_DEFENSE_PROJECT_LAYERS}`;
-  const activeLayerHeaderLabel = `Активный: ${selectedLayer?.code ?? "—"} · ${formatObjectCountLabel(
-    activeLayerSummary?.objectCount ?? 0,
-  )}`;
-  const objectVisibilityToggleLabel = showAllEchelonObjects ? "Только активный" : "Все объекты";
+  const layerPanelSummaryLabel = prototypeRu.echelons.summary(
+    project.layers.length,
+    MAX_DEFENSE_PROJECT_LAYERS,
+  );
+  const activeLayerHeaderLabel = prototypeRu.echelons.activeHeader(
+    selectedLayer?.code ?? "—",
+    formatObjectCountLabel(activeLayerSummary?.objectCount ?? 0),
+  );
+  const objectVisibilityToggleLabel = showAllEchelonObjects
+    ? prototypeRu.echelons.showActiveOnly
+    : prototypeRu.echelons.showAllObjects;
   const objectVisibilityToggleTitle = showAllEchelonObjects
-    ? "Скрыть объекты других эшелонов на карте"
-    : "Показать объекты всех эшелонов на карте";
+    ? prototypeRu.echelons.showActiveOnlyTitle
+    : prototypeRu.echelons.showAllObjectsTitle;
   const activeEchelonObjectsLayer = useMemo(
     () => project.layers.find((layer) => layer.id === echelonObjectsLayerId) ?? selectedLayer,
     [echelonObjectsLayerId, project.layers, selectedLayer],
@@ -844,7 +848,7 @@ export function DroneDefensePrototype() {
                 <Icon decorative name="map.layers" size={18} />
               </div>
               <div className="min-w-0">
-                <h1 className={`${styles.prototypeTitleLarge} truncate`}>Моя карта</h1>
+                <h1 className={`${styles.prototypeTitleLarge} truncate`}>{prototypeRu.workspace.mapTitle}</h1>
                 <p className={`${styles.prototypeMeta} truncate`}>{prototypeRu.workspace.studioName}</p>
               </div>
             </div>
@@ -882,10 +886,10 @@ export function DroneDefensePrototype() {
               </div>
               <Search
                 className={styles.prototypeCatalogSearch}
-                label="Поиск по библиотеке средств защиты"
+                label={prototypeRu.library.searchLabel}
                 onChange={(event) => setCatalogQuery(event.target.value)}
                 onClear={() => setCatalogQuery("")}
-                placeholder="Найти средство..."
+                placeholder={prototypeRu.library.searchPlaceholder}
                 value={catalogQuery}
               />
             </div>
@@ -948,7 +952,7 @@ export function DroneDefensePrototype() {
           <aside className={`${styles.prototypeFloatingPanel} ${styles.prototypeObjectsPanel} fortis-gis-objects-panel`}>
             <div className={styles.prototypeFloatingHeader}>
               <div>
-                <p className={styles.prototypeEyebrow}>Объекты эшелона</p>
+                <p className={styles.prototypeEyebrow}>{prototypeRu.echelons.objectsPanel}</p>
                 <h3 className={styles.prototypeTitle}>{activeEchelonObjectsLayer.code} · {activeEchelonObjectsLayer.name}</h3>
                 <p className={styles.prototypeMeta}>{prototypeRu.echelons.objectsPanelDescription}</p>
               </div>
@@ -957,7 +961,7 @@ export function DroneDefensePrototype() {
                   type="button"
                   className={`${styles.prototypeIconButton} px-2`}
                   onClick={() => setIsEchelonObjectsCollapsed((current) => !current)}
-                  title={isEchelonObjectsCollapsed ? "Развернуть карточку" : "Свернуть карточку"}
+                  title={isEchelonObjectsCollapsed ? prototypeRu.echelons.expandCard : prototypeRu.echelons.collapseCard}
                 >
                   <Icon decorative name={isEchelonObjectsCollapsed ? "navigation.chevron-up" : "navigation.chevron-down"} size={16} />
                 </button>
@@ -965,8 +969,8 @@ export function DroneDefensePrototype() {
                   type="button"
                   className={styles.prototypeIconButton}
                   onClick={() => setIsEchelonObjectsPanelOpen(false)}
-                  title="Закрыть карточку"
-                  aria-label="Закрыть карточку"
+                  title={prototypeRu.echelons.closeCard}
+                  aria-label={prototypeRu.echelons.closeCard}
                 >
                   <Icon decorative name="action.close" size={16} />
                 </button>
@@ -1016,13 +1020,13 @@ export function DroneDefensePrototype() {
               baseMapSourceId={currentBaseMapSourceId}
               placementHint={placementHint}
               leadingControl={
-                <Tooltip label={isCatalogTrayOpen ? "Свернуть библиотеку" : "Развернуть библиотеку"}>
+                <Tooltip label={isCatalogTrayOpen ? prototypeRu.library.collapsePanel : prototypeRu.library.expandPanel}>
                   <IconButton
                     aria-controls="fortis-gis-library-panel"
                     aria-expanded={isCatalogTrayOpen}
                     className={styles.prototypeLibraryBoundaryControl}
                     icon={isCatalogTrayOpen ? "navigation.chevron-left" : "navigation.chevron-right"}
-                    label={isCatalogTrayOpen ? "Свернуть библиотеку" : "Развернуть библиотеку"}
+                    label={isCatalogTrayOpen ? prototypeRu.library.collapsePanel : prototypeRu.library.expandPanel}
                     onClick={() => setIsCatalogTrayOpen((current) => !current)}
                     variant="quiet"
                   />
@@ -1121,7 +1125,7 @@ export function DroneDefensePrototype() {
                 data-echelon-drawer-layout={showCompactLayerPanel ? "collapsed" : "expanded"}
               >
                 <section
-                  aria-label="Обзор эшелонов"
+                  aria-label={prototypeRu.echelons.overviewAria}
                   className={styles.prototypeLayerPanel}
                   data-echelon-drawer-state={showCompactLayerPanel ? "collapsed" : "expanded"}
                   data-echelon-role="quick-overview"
@@ -1158,19 +1162,19 @@ export function DroneDefensePrototype() {
                           </button>
                           <IconButton
                             icon="action.add"
-                            label={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
+                            label={canCreateLayer ? prototypeRu.echelons.add : prototypeRu.echelons.maximum(MAX_DEFENSE_PROJECT_LAYERS)}
                             onClick={createProjectLayer}
                             disabled={!canCreateLayer}
                             variant="quiet"
                           />
                         </>
                       ) : null}
-                      <Tooltip label={showCompactLayerPanel ? "Развернуть панель эшелонов" : "Свернуть панель эшелонов"}>
+                      <Tooltip label={showCompactLayerPanel ? prototypeRu.echelons.expandPanel : prototypeRu.echelons.collapsePanel}>
                         <IconButton
                           aria-controls="fortis-echelons-drawer-content"
                           aria-expanded={!showCompactLayerPanel}
                           icon={showCompactLayerPanel ? "navigation.chevron-up" : "navigation.chevron-down"}
-                          label={showCompactLayerPanel ? "Развернуть панель эшелонов" : "Свернуть панель эшелонов"}
+                          label={showCompactLayerPanel ? prototypeRu.echelons.expandPanel : prototypeRu.echelons.collapsePanel}
                           onClick={() => setIsLayerPanelExpanded((current) => !current)}
                           variant="quiet"
                         />
@@ -1189,7 +1193,7 @@ export function DroneDefensePrototype() {
                       className={`${styles.prototypeIconButton} shrink-0 cursor-pointer`}
                       onClick={() => scrollLayerStrip("left")}
                       disabled={!layerStripState.canScrollLeft}
-                      aria-label="Прокрутить эшелоны влево"
+                      aria-label={prototypeRu.echelons.scrollLeft}
                     >
                       <Icon decorative name="navigation.chevron-left" size={16} />
                     </button>
@@ -1214,7 +1218,7 @@ export function DroneDefensePrototype() {
                       const layerMenuItems = [
                         {
                           id: "objects",
-                          label: "Открыть объекты эшелона",
+                          label: prototypeRu.echelons.openObjects,
                           onSelect: () => {
                             selectLayerWithDefaultSlot(layer.id);
                             setEchelonObjectsLayerId(layer.id as DefenseLayerId);
@@ -1222,7 +1226,7 @@ export function DroneDefensePrototype() {
                         },
                         {
                           id: "edit",
-                          label: "Настроить эшелон",
+                          label: prototypeRu.echelons.edit,
                           onSelect: () => {
                             selectLayerWithDefaultSlot(layer.id);
                             editSelectedLayer();
@@ -1233,8 +1237,8 @@ export function DroneDefensePrototype() {
                           danger: true,
                           disabled: !layerDeleteState.canDelete,
                           label: layerDeleteState.canDelete
-                            ? "Удалить эшелон"
-                            : `Удалить эшелон · ${layerDeleteState.reason}`,
+                            ? prototypeRu.echelons.delete
+                            : prototypeRu.echelons.deleteUnavailable(layerDeleteState.reason),
                           onSelect: () => {
                             if (!layerDeleteState.canDelete) return;
                             setPendingLayerDeletionId(layer.id);
@@ -1250,11 +1254,11 @@ export function DroneDefensePrototype() {
                                 size="sm"
                                 variant={isSelected ? "primary" : "quiet"}
                               >
-                                {isSelected ? prototypeRu.echelons.selected : "Выбрать"}
+                                {isSelected ? prototypeRu.echelons.selected : prototypeRu.echelons.select}
                               </Button>
                               <IconButton
                                 icon={layer.isVisible === false ? "action.visibility-on" : "action.visibility-off"}
-                                label={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
+                                label={layer.isVisible === false ? prototypeRu.echelons.show : prototypeRu.echelons.hide}
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   toggleLayerVisibility(layer.id, layer.isVisible === false);
@@ -1266,7 +1270,7 @@ export function DroneDefensePrototype() {
                                 icon="action.more"
                                 iconOnly
                                 items={layerMenuItems}
-                                label="Открыть меню эшелона"
+                                label={prototypeRu.echelons.openMenu}
                               />
                             </>
                           }
@@ -1314,7 +1318,7 @@ export function DroneDefensePrototype() {
                       className={`${styles.prototypeIconButton} shrink-0 cursor-pointer`}
                       onClick={() => scrollLayerStrip("right")}
                       disabled={!layerStripState.canScrollRight}
-                      aria-label="Прокрутить эшелоны вправо"
+                      aria-label={prototypeRu.echelons.scrollRight}
                     >
                       <Icon decorative name="navigation.chevron-right" size={16} />
                     </button>
