@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import DeckGL, { type DeckGLRef } from "@deck.gl/react";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
@@ -67,6 +67,7 @@ type GisBoardProps = {
   activeToolId: string | null;
   baseMapSourceId: string;
   placementHint: string;
+  leadingControl?: ReactNode;
   onSelectBaseMapSource: (sourceId: string) => void;
   onSelectLayer: (layerId: string) => void;
   onHoverLayerChange?: (layerId: string | null) => void;
@@ -209,6 +210,7 @@ export function GisBoard({
   activeToolId,
   baseMapSourceId,
   placementHint,
+  leadingControl,
   onSelectBaseMapSource,
   onSelectLayer,
   onHoverLayerChange,
@@ -1140,15 +1142,18 @@ export function GisBoard({
       </div>
 
       <div className="fortis-map-object-control">
-        <Select
-          aria-label="Выбрать объект защиты"
-          label="Объект защиты"
-          onChange={(event) => onSelectFacility(event.target.value)}
-          onClick={(event) => event.stopPropagation()}
-          onPointerDown={(event) => event.stopPropagation()}
-          options={facilities.map((facility) => ({ label: facility.name, value: facility.id }))}
-          value={selectedFacility?.id ?? selectedFacilityId}
-        />
+        <div className="fortis-map-object-toolbar">
+          {leadingControl}
+          <Select
+            aria-label="Выбрать объект защиты"
+            label="Объект защиты"
+            onChange={(event) => onSelectFacility(event.target.value)}
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+            options={facilities.map((facility) => ({ label: facility.name, value: facility.id }))}
+            value={selectedFacility?.id ?? selectedFacilityId}
+          />
+        </div>
         <Status label={placementHint} tone="info" />
       </div>
 

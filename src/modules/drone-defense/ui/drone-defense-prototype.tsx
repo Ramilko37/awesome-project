@@ -57,6 +57,7 @@ import {
   Modal,
   Search,
   Select,
+  Tooltip,
 } from "@/shared/ui/fortis";
 
 const defenseAssetDragMimeType = "application/x-fortis-defense-asset";
@@ -210,6 +211,7 @@ export function DroneDefensePrototype() {
     void refreshAssetLibrary({ isPublic: true, limit: 100 });
     void refreshProtectedObjects({ limit: 100 });
   }, [refreshAssetLibrary, refreshProtectedObjects, restoreMapViewFromLocalStorage, restoreProjectFromLocalStorage]);
+
   const selectedProtectedObject = useMemo(
     () =>
       protectedObjects.find((item) => item.id === project.baseObject.id) ?? {
@@ -836,6 +838,7 @@ export function DroneDefensePrototype() {
     <div className="flex h-full min-h-0 flex-col md:flex-row">
       {activeView === "gis" ? (
         <section
+          id="fortis-gis-library-panel"
           data-sidebar-state={isCatalogTrayOpen ? "open" : "closed"}
           className={`${styles.prototypeSidebar} fortis-gis-sidebar`}
           aria-hidden={!isCatalogTrayOpen}
@@ -872,7 +875,7 @@ export function DroneDefensePrototype() {
 
           <div className={styles.prototypeLibraryPanel}>
             <div className={`${styles.prototypeSection} ${styles.prototypeLibraryFixedControls}`}>
-              <div className="flex items-start justify-between gap-2">
+              <div>
                 <div className="min-w-0">
                   <p className={styles.prototypeEyebrow}>Библиотека СЗ</p>
                   <h2 className={`${styles.prototypeTitle} truncate`}>
@@ -882,14 +885,6 @@ export function DroneDefensePrototype() {
                     {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className={`${styles.prototypeButton} shrink-0 cursor-pointer px-2`}
-                  onClick={() => setIsCatalogTrayOpen(false)}
-                  title="Свернуть библиотеку в угол карты"
-                >
-                  Свернуть
-                </button>
               </div>
               <Search
                 className={styles.prototypeCatalogSearch}
@@ -1026,6 +1021,19 @@ export function DroneDefensePrototype() {
               activeToolId={activeToolId}
               baseMapSourceId={currentBaseMapSourceId}
               placementHint={placementHint}
+              leadingControl={
+                <Tooltip label={isCatalogTrayOpen ? "Свернуть библиотеку" : "Развернуть библиотеку"}>
+                  <IconButton
+                    aria-controls="fortis-gis-library-panel"
+                    aria-expanded={isCatalogTrayOpen}
+                    className={styles.prototypeLibraryBoundaryControl}
+                    icon={isCatalogTrayOpen ? "navigation.chevron-left" : "navigation.chevron-right"}
+                    label={isCatalogTrayOpen ? "Свернуть библиотеку" : "Развернуть библиотеку"}
+                    onClick={() => setIsCatalogTrayOpen((current) => !current)}
+                    variant="quiet"
+                  />
+                </Tooltip>
+              }
               onSelectBaseMapSource={setBaseMapSource}
               onSelectLayer={selectLayerWithDefaultSlot}
               onHoverLayerChange={setHoveredLayerId}
@@ -1116,83 +1124,70 @@ export function DroneDefensePrototype() {
             {selectedLayer ? (
               <div
                 className={`${styles.prototypeLayerPanelWrap} fortis-gis-layer-panel-wrap`}
-                data-compact={showCompactLayerPanel ? "true" : "false"}
+                data-echelon-drawer-layout={showCompactLayerPanel ? "collapsed" : "expanded"}
               >
-                <div
+                <section
+                  aria-label="Обзор эшелонов"
                   className={styles.prototypeLayerPanel}
-                  data-compact={showCompactLayerPanel ? "true" : "false"}
+                  data-echelon-drawer-state={showCompactLayerPanel ? "collapsed" : "expanded"}
                 >
-                  {showCompactLayerPanel ? (
-                    <div className={styles.prototypeLayerCompactCard}>
-                      <div className="min-w-0 flex-1">
-                        <p className={styles.prototypeEyebrow}>
-                          Эшелоны проекта · {layerPanelSummaryLabel}
-                        </p>
-                        <p
-                          className={`${styles.prototypeTitle} mt-1 truncate`}
-                          title={`Активный: ${selectedLayer.code} · ${selectedLayer.name}`}
-                        >
-                          Активный: {selectedLayer.code} · {selectedLayer.name}
-                        </p>
-                        <p className={styles.prototypeMeta}>
-                          {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)} ·{" "}
-                          {formatLayerObjectMeta(activeLayerSummary?.objectCount ?? 0, activeLayerSummary?.totalMln ?? 0)}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className={`${styles.prototypeButtonPrimary} h-9 w-9 shrink-0 cursor-pointer`}
-                        onClick={() => {
-                          setIsCatalogTrayOpen(false);
-                          setIsLayerPanelExpanded(true);
-                        }}
-                        title="Развернуть панель эшелонов"
-                        aria-label="Развернуть панель эшелонов"
-                      >
-                        <Icon decorative name="action.expand" size={16} />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                  <div className={styles.prototypeLayerHeader}>
-                    <div>
-                      <p className={styles.prototypeEyebrow}>Эшелоны проекта</p>
-                      <p className={styles.prototypeTitle}>
+                  <header className={styles.prototypeLayerHeader}>
+                    <div className="min-w-0 flex-1">
+                      <p className={styles.prototypeEyebrow}>
                         Эшелоны проекта · {layerPanelSummaryLabel}
                       </p>
-                      <p className={styles.prototypeMeta}>{activeLayerHeaderLabel}</p>
+                      <p
+                        className={`${styles.prototypeTitle} mt-1 truncate`}
+                        title={`Активный: ${selectedLayer.code} · ${selectedLayer.name}`}
+                      >
+                        Активный: {selectedLayer.code} · {selectedLayer.name}
+                      </p>
+                      <p className={styles.prototypeMeta}>
+                        {showCompactLayerPanel
+                          ? `${formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)} · ${formatLayerObjectMeta(activeLayerSummary?.objectCount ?? 0, activeLayerSummary?.totalMln ?? 0)}`
+                          : activeLayerHeaderLabel}
+                      </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className={`${showAllEchelonObjects ? styles.prototypeButtonPrimary : styles.prototypeButton} cursor-pointer px-3`}
-                        onClick={toggleObjectVisibilityMode}
-                        aria-pressed={showAllEchelonObjects}
-                        title={objectVisibilityToggleTitle}
-                      >
-                        <Icon decorative name={showAllEchelonObjects ? "action.visibility-off" : "action.visibility-on"} size={16} />
-                        {objectVisibilityToggleLabel}
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.prototypeButtonPrimary} w-9 cursor-pointer`}
-                        onClick={createProjectLayer}
-                        disabled={!canCreateLayer}
-                        title={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
-                        aria-label={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
-                      >
-                        <Icon decorative name="action.add" size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.prototypeButton} cursor-pointer px-3`}
-                        onClick={() => setIsLayerPanelExpanded(false)}
-                      >
-                        Свернуть
-                      </button>
+                    <div className={styles.prototypeLayerHeaderActions}>
+                      {!showCompactLayerPanel ? (
+                        <>
+                          <button
+                            type="button"
+                            className={`${showAllEchelonObjects ? styles.prototypeButtonPrimary : styles.prototypeButton} cursor-pointer px-3`}
+                            onClick={toggleObjectVisibilityMode}
+                            aria-pressed={showAllEchelonObjects}
+                            title={objectVisibilityToggleTitle}
+                          >
+                            <Icon decorative name={showAllEchelonObjects ? "action.visibility-off" : "action.visibility-on"} size={16} />
+                            {objectVisibilityToggleLabel}
+                          </button>
+                          <IconButton
+                            icon="action.add"
+                            label={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
+                            onClick={createProjectLayer}
+                            disabled={!canCreateLayer}
+                            variant="quiet"
+                          />
+                        </>
+                      ) : null}
+                      <Tooltip label={showCompactLayerPanel ? "Развернуть панель эшелонов" : "Свернуть панель эшелонов"}>
+                        <IconButton
+                          aria-controls="fortis-echelons-drawer-content"
+                          aria-expanded={!showCompactLayerPanel}
+                          icon={showCompactLayerPanel ? "navigation.chevron-up" : "navigation.chevron-down"}
+                          label={showCompactLayerPanel ? "Развернуть панель эшелонов" : "Свернуть панель эшелонов"}
+                          onClick={() => setIsLayerPanelExpanded((current) => !current)}
+                          variant="quiet"
+                        />
+                      </Tooltip>
                     </div>
-                  </div>
+                  </header>
 
+                  <div
+                    hidden={showCompactLayerPanel}
+                    id="fortis-echelons-drawer-content"
+                    className={styles.prototypeLayerDrawerContent}
+                  >
                   <div className={styles.prototypeLayerScrollRow}>
                     <button
                       type="button"
@@ -1206,7 +1201,11 @@ export function DroneDefensePrototype() {
                     <div className="relative min-w-0 flex-1">
                       {layerStripState.canScrollLeft ? <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white via-white/80 to-transparent" /> : null}
                       {layerStripState.canScrollRight ? <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white via-white/80 to-transparent" /> : null}
-                  <div ref={layerStripRef} className={styles.prototypeLayerStrip}>
+                  <div
+                    ref={layerStripRef}
+                    className={styles.prototypeLayerStrip}
+                    data-echelon-scroll-rule="horizontal"
+                  >
                     {orderedProjectLayers.map((layer) => {
                       const summary = layerSummaries.find((item) => item.layerId === layer.id);
                       const isSelected = layer.id === selectedLayer.id;
@@ -1332,25 +1331,10 @@ export function DroneDefensePrototype() {
                       <Icon decorative name="navigation.chevron-right" size={16} />
                     </button>
                   </div>
-
-                    </>
-                  )}
-                </div>
+                  </div>
+                </section>
               </div>
             ) : null}
-
-            <button
-              type="button"
-              data-sidebar-toggle-state={isCatalogTrayOpen ? "hidden" : "visible"}
-              className={`${styles.prototypeToggleLauncher} ${styles.prototypeButtonPrimary} cursor-pointer transition duration-300 ease-in-out`}
-              onClick={() => setIsCatalogTrayOpen(true)}
-              title="Открыть библиотеку средств защиты"
-              aria-label="Открыть библиотеку средств защиты"
-              aria-hidden={isCatalogTrayOpen}
-              tabIndex={isCatalogTrayOpen ? -1 : 0}
-            >
-              <Icon decorative name="map.layers" size={18} />
-            </button>
           </>
         ) : null}
 

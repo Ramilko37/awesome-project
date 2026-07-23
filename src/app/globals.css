@@ -579,6 +579,13 @@
   font-size: 0.6875rem;
 }
 
+.fortis-map-object-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: var(--fortis-space-2);
+}
+
 .fortis-map-control-corner {
   top: var(--fortis-space-3);
   right: var(--fortis-space-3);
