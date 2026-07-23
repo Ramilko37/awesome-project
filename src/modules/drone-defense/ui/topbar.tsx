@@ -1,13 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  ArrowLeftOutlined,
-  CompassOutlined,
-  PauseCircleOutlined,
-  PlayCircleOutlined,
-  SafetyCertificateOutlined,
-} from "@ant-design/icons";
+import { Icon } from "@/shared/ui/fortis";
 import { scenarioLabels, type ScenarioId } from "../domain/prototype-types";
 import styles from "./drone-defense-prototype.module.css";
 
@@ -30,10 +24,10 @@ export function Topbar({
     <header className={styles.topbar}>
       <div className={styles.brand}>
         <Link href="/dashboard" className={styles.backButton} aria-label="Назад к панели">
-          <ArrowLeftOutlined />
+          <Icon decorative name="navigation.back" />
         </Link>
         <div className={styles.shieldMark}>
-          <SafetyCertificateOutlined />
+          <Icon decorative name="asset.protection" />
         </div>
         <div>
           <strong>FORTIS</strong>
@@ -49,7 +43,7 @@ export function Topbar({
             type="button"
             onClick={() => onScenarioChange(id)}
           >
-            <CompassOutlined />
+            <Icon decorative name="navigation.scenario" />
             <span>{scenarioLabels[id]}</span>
           </button>
         ))}
@@ -60,7 +54,7 @@ export function Topbar({
             onClick={onToggleDemo}
             aria-pressed={demoMode}
           >
-            {demoMode ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+            <Icon decorative name={demoMode ? "action.pause" : "action.play"} />
             <span>{demoMode ? "Остановить сценарий" : "Запустить сценарий"}</span>
           </button>
         ) : null}

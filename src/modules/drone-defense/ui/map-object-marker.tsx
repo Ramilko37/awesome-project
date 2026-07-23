@@ -1,19 +1,8 @@
 "use client";
 
-import {
-  ApiOutlined,
-  ApartmentOutlined,
-  BuildOutlined,
-  ClusterOutlined,
-  CompassOutlined,
-  EyeOutlined,
-  GlobalOutlined,
-  RadarChartOutlined,
-  SafetyCertificateOutlined,
-  VideoCameraOutlined,
-} from "@ant-design/icons";
 import { useCallback, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import type { EchelonMapPlacement } from "@/modules/drone-defense/domain/echelon-map-model";
+import { Icon, type FortisIconName } from "@/shared/ui/fortis";
 
 export type MapMarkerState = "default" | "hover" | "selected" | "disabled" | "warning" | "conflict" | "inactive";
 
@@ -53,38 +42,50 @@ export function getAssetCategoryColor(placement: EchelonMapPlacement) {
 export function getAssetMarkerIcon(placement: EchelonMapPlacement): ReactNode {
   const category = placement.markerCategory ?? layerCategoryFallback[placement.layerId] ?? "infrastructure";
   const label = placement.label.toLowerCase();
-  if (label.includes("osint")) return <GlobalOutlined />;
-  if (label.includes("комендат") || label.includes("штаб")) return <ApartmentOutlined />;
-  if (label.includes("тепловиз")) return <EyeOutlined />;
-  if (label.includes("опти") || label.includes("кам")) return <VideoCameraOutlined />;
-  if (label.includes("рлс") || label.includes("радар")) return <RadarChartOutlined />;
-  if (label.includes("рэб") || label.includes("подав") || label.includes("спуф")) return <ApiOutlined />;
-  if (label.includes("турел") || label.includes("перехв")) return <CompassOutlined />;
-  if (label.includes("сет") || label.includes("барьер") || label.includes("защит")) return <SafetyCertificateOutlined />;
+  let iconName: FortisIconName;
 
-  switch (category) {
-    case "early-warning":
-    case "command-center":
-      return <ApartmentOutlined />;
-    case "detection":
-      return <RadarChartOutlined />;
-    case "classification":
-      return <EyeOutlined />;
-    case "jamming":
-    case "spoofing":
-      return <ApiOutlined />;
-    case "kinetic":
-    case "interceptor":
-      return <CompassOutlined />;
-    case "passive-protection":
-    case "engineering-protection":
-      return <SafetyCertificateOutlined />;
-    case "software":
-    case "external-service":
-      return <ClusterOutlined />;
-    default:
-      return <BuildOutlined />;
+  if (label.includes("osint")) iconName = "asset.network";
+  else if (label.includes("комендат") || label.includes("штаб")) iconName = "asset.command-center";
+  else if (label.includes("тепловиз")) iconName = "action.visibility-on";
+  else if (label.includes("опти") || label.includes("кам")) iconName = "asset.camera";
+  else if (label.includes("рлс") || label.includes("радар")) iconName = "asset.detection";
+  else if (label.includes("рэб") || label.includes("подав") || label.includes("спуф")) iconName = "asset.jamming";
+  else if (label.includes("турел") || label.includes("перехв")) iconName = "asset.interceptor";
+  else if (label.includes("сет") || label.includes("барьер") || label.includes("защит")) iconName = "asset.protection";
+  else {
+    switch (category) {
+      case "early-warning":
+      case "command-center":
+        iconName = "asset.command-center";
+        break;
+      case "detection":
+        iconName = "asset.detection";
+        break;
+      case "classification":
+        iconName = "action.visibility-on";
+        break;
+      case "jamming":
+      case "spoofing":
+        iconName = "asset.jamming";
+        break;
+      case "kinetic":
+      case "interceptor":
+        iconName = "asset.interceptor";
+        break;
+      case "passive-protection":
+      case "engineering-protection":
+        iconName = "asset.protection";
+        break;
+      case "software":
+      case "external-service":
+        iconName = "asset.network";
+        break;
+      default:
+        iconName = "asset.infrastructure";
+    }
   }
+
+  return <Icon decorative name={iconName} />;
 }
 
 export function getMarkerState(placement: EchelonMapPlacement, isHovered: boolean): MapMarkerState {

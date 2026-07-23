@@ -2,7 +2,17 @@
 
 import { useMemo, useState } from "react";
 
-import { Badge, IconButton, InlineMessage, Status } from "@/shared/ui/fortis";
+import {
+  Badge,
+  Button,
+  EchelonTreeItem,
+  Icon,
+  IconButton,
+  InlineMessage,
+  Search,
+  Select,
+  Status,
+} from "@/shared/ui/fortis";
 import type { DefenseAsset, DefenseProject, EditableDefenseLayer, PlacedDefenseObject } from "@/shared/types/defense-project";
 
 type GisProjectTreeProps = {
@@ -43,15 +53,13 @@ export function GisProjectTree({ activeLayerId, onSelectLayer, onSelectObject, p
         <Badge variant="neutral">{project.layers.length}</Badge>
       </div>
       <div className="fortis-gis-tree-search">
-        <label>
-          <span>Поиск в структуре</span>
-          <input
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Актив или эшелон"
-            type="search"
-            value={query}
-          />
-        </label>
+        <Search
+          label="Поиск в структуре"
+          onChange={(event) => setQuery(event.target.value)}
+          onClear={() => setQuery("")}
+          placeholder="Актив или эшелон"
+          value={query}
+        />
       </div>
       <div className="fortis-gis-tree-body" role="tree" aria-label="Эшелоны и объекты проекта">
         <div aria-level={1} aria-selected={false} className="fortis-gis-base-object" role="treeitem">
@@ -71,23 +79,23 @@ export function GisProjectTree({ activeLayerId, onSelectLayer, onSelectObject, p
           if (!shouldRender) return null;
 
           const isActive = layer.id === activeLayerId;
+          const hasWarning = objects.some(
+            (object) => object.hasCoverageConflict || object.hasGeometryConflict || object.hasTerrainConflict,
+          );
           return (
             <div key={layer.id} className="fortis-gis-tree-group" role="group">
-              <button
-                aria-current={isActive ? "true" : undefined}
-                aria-selected={isActive}
-                className="fortis-gis-tree-layer"
-                onClick={() => onSelectLayer(layer.id)}
-                role="treeitem"
-                type="button"
-              >
-                <span className="fortis-gis-layer-dot" style={{ backgroundColor: layer.color ?? "#2563eb" }} aria-hidden="true" />
-                <span className="fortis-gis-tree-copy">
-                  <strong className="truncate">{layer.code} · {layer.name}</strong>
-                  <span className="fortis-gis-tree-detail">{formatObjectCount(objects.length)} · {layer.isVisible === false ? "скрыт" : "видим"}</span>
-                </span>
-                <span className="fortis-gis-layer-meta">{isActive ? "Активный" : ""}</span>
-              </button>
+              <EchelonTreeItem
+                color={layer.color}
+                count={objects.length}
+                current={isActive}
+                detail={`${isActive ? "Активный · " : ""}${layer.isVisible === false ? "скрыт" : "видим"} · ${formatObjectCount(objects.length)}`}
+                hidden={layer.isVisible === false}
+                label={layer.name}
+                level={layer.code}
+                onSelect={() => onSelectLayer(layer.id)}
+                selected={isActive}
+                warning={hasWarning}
+              />
               {(matchesLayer ? objects : visibleObjects).map((object) => {
                 const isSelected = object.id === selectedObjectId;
                 return (
@@ -211,45 +219,48 @@ export function GisObjectInspector({ asset, layer, object, onClose, onUpdateObje
             <div className="fortis-gis-control-row">
               <span>Количество</span>
               <div aria-label="Количество объектов" className="fortis-gis-stepper" role="group">
-                <button
+                <IconButton
                   aria-label="Уменьшить количество объектов"
                   disabled={object.quantity <= 1}
+                  icon="minus"
+                  label="Уменьшить количество объектов"
                   onClick={() => onUpdateObject(object.id, { quantity: object.quantity - 1 })}
-                  type="button"
-                >
-                  −
-                </button>
+                  size="sm"
+                  variant="quiet"
+                />
                 <output aria-label="Количество объектов">{object.quantity}</output>
-                <button
+                <IconButton
                   aria-label="Увеличить количество объектов"
+                  icon="action.add"
+                  label="Увеличить количество объектов"
                   onClick={() => onUpdateObject(object.id, { quantity: object.quantity + 1 })}
-                  type="button"
-                >
-                  +
-                </button>
+                  size="sm"
+                  variant="quiet"
+                />
               </div>
             </div>
-            <label className="fortis-gis-control-field">
-              <span>Статус объекта</span>
-              <select
-                aria-label="Статус объекта"
-                onChange={(event) => onUpdateObject(object.id, { status: event.currentTarget.value as PlacedDefenseObject["status"] })}
-                value={object.status}
-              >
-                <option value="planned">Запланирован</option>
-                <option value="active">Активен</option>
-                <option value="inactive">Выключен</option>
-                <option value="maintenance">На обслуживании</option>
-              </select>
-            </label>
-            <button
+            <Select
+              aria-label="Статус объекта"
+              className="fortis-gis-object-status"
+              label="Статус объекта"
+              onChange={(event) => onUpdateObject(object.id, { status: event.currentTarget.value as PlacedDefenseObject["status"] })}
+              options={[
+                { label: "Запланирован", value: "planned" },
+                { label: "Активен", value: "active" },
+                { label: "Выключен", value: "inactive" },
+                { label: "На обслуживании", value: "maintenance" },
+              ]}
+              value={object.status}
+            />
+            <Button
               aria-pressed={object.isVisibleOnMap !== false}
               className="fortis-gis-visibility-toggle"
+              leadingIcon={<Icon decorative name={object.isVisibleOnMap === false ? "action.visibility-on" : "action.visibility-off"} size={16} />}
               onClick={() => onUpdateObject(object.id, { isVisibleOnMap: object.isVisibleOnMap === false })}
-              type="button"
+              variant="secondary"
             >
               {object.isVisibleOnMap === false ? "Показать на карте" : "Скрыть на карте"}
-            </button>
+            </Button>
           </div>
         </section>
 

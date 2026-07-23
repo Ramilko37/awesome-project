@@ -13,27 +13,30 @@
 }
 
 :global(:root) {
-  --prototype-surface: #ffffff;
-  --prototype-surface-soft: #f8fafc;
-  --prototype-surface-muted: #f1f5f9;
-  --prototype-border: #dbe4ef;
-  --prototype-border-strong: #b9c8da;
-  --prototype-text: #172336;
-  --prototype-text-muted: #64748b;
-  --prototype-text-soft: #8a9aad;
-  --prototype-blue: #2563eb;
-  --prototype-blue-soft: #eff6ff;
-  --prototype-green: #059669;
-  --prototype-green-soft: #ecfdf5;
-  --prototype-amber: #b45309;
-  --prototype-amber-soft: #fffbeb;
-  --prototype-danger: #e11d48;
-  --prototype-danger-soft: #fff1f2;
-  --prototype-radius-card: 8px;
-  --prototype-radius-field: 6px;
-  --prototype-shadow-soft: 0 12px 28px rgba(15, 23, 42, 0.08);
+  --prototype-surface: var(--fortis-surface, #ffffff);
+  --prototype-surface-soft: var(--fortis-surface-subtle, #f8fafc);
+  --prototype-surface-muted: var(--fortis-surface-muted, #f1f5f9);
+  --prototype-border: var(--fortis-border, #dbe4ef);
+  --prototype-border-strong: var(--fortis-border-strong, #b9c8da);
+  --prototype-text: var(--fortis-text, #172336);
+  --prototype-text-muted: var(--fortis-text-muted, #64748b);
+  --prototype-text-soft: var(--fortis-text-secondary, #8a9aad);
+  --prototype-blue: var(--fortis-action, #2563eb);
+  --prototype-blue-soft: var(--fortis-surface-selected, #eff6ff);
+  --prototype-green: var(--fortis-status-success, #059669);
+  --prototype-green-soft: var(--fortis-status-success-surface, #ecfdf5);
+  --prototype-amber: var(--fortis-status-warning, #b45309);
+  --prototype-amber-soft: var(--fortis-status-warning-surface, #fffbeb);
+  --prototype-danger: var(--fortis-status-danger, #e11d48);
+  --prototype-danger-soft: var(--fortis-status-danger-surface, #fff1f2);
+  --prototype-radius-card: var(--fortis-radius-lg, 8px);
+  --prototype-radius-field: var(--fortis-radius-md, 6px);
+  --prototype-shadow-soft: var(
+    --fortis-overlay-shadow,
+    0 12px 28px rgba(15, 23, 42, 0.08)
+  );
   --prototype-control-sm: 2rem;
-  --prototype-control-md: 2.25rem;
+  --prototype-control-md: var(--fortis-control-height-compact, 2.25rem);
 }
 
 .prototypeSidebar,
@@ -58,7 +61,7 @@
 }
 
 .prototypeSidebar[data-sidebar-state="open"] {
-  max-height: 42vh;
+  max-height: 36vh;
   border-bottom-width: 1px;
   opacity: 1;
 }
@@ -132,6 +135,10 @@
   height: 100%;
   overflow-y: auto;
   padding: 0.75rem 0.75rem 7rem;
+}
+
+.prototypeCatalogSearch {
+  margin-top: 0.75rem;
 }
 
 .prototypeCard,
@@ -1862,7 +1869,7 @@
   background: linear-gradient(90deg, #38bdf8, var(--prototype-blue), #334155);
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .prototypeSidebar[data-sidebar-state="open"] {
     width: 20rem;
     height: 100%;

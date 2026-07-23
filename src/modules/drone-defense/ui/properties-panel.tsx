@@ -1,16 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  BuildOutlined,
-  CameraOutlined,
-  ColumnHeightOutlined,
-  CopyOutlined,
-  DeleteOutlined,
-  GatewayOutlined,
-  RadarChartOutlined,
-  SafetyCertificateOutlined,
-} from "@ant-design/icons";
+import { Icon, IconButton } from "@/shared/ui/fortis";
 import {
   DEFAULT_ASSET_DIMENSIONS,
   REALISTIC_ASSET_SIZE_RANGES,
@@ -49,33 +40,17 @@ function statusLabel(status: string) {
 }
 
 function AssetIcon({ kind }: { kind: AssetCatalogItem["kind"] | ObjectKind }) {
-  if (kind === "facility") return <BuildOutlined />;
-  if (kind === "operator_substation") return <BuildOutlined />;
-  if (kind === "scaffolding") return <ColumnHeightOutlined />;
-  if (kind === "fbs_enclosure") return <SafetyCertificateOutlined />;
-  if (kind === "perimeter_barrier") return <GatewayOutlined />;
-  if (kind === "cable_mesh") return <CameraOutlined />;
-  if (kind === "sensor") return <ColumnHeightOutlined />;
-  if (kind === "camera") return <CameraOutlined />;
-  if (kind === "shield") return <RadarChartOutlined />;
-  if (kind === "post") return <GatewayOutlined />;
-  return <SafetyCertificateOutlined />;
-}
-
-function IconButton({
-  label,
-  children,
-  onClick,
-}: {
-  label: string;
-  children: ReactNode;
-  onClick?: () => void;
-}) {
-  return (
-    <button className={styles.iconButton} type="button" aria-label={label} title={label} onClick={onClick}>
-      {children}
-    </button>
-  );
+  if (kind === "facility") return <Icon decorative name="asset.infrastructure" />;
+  if (kind === "operator_substation") return <Icon decorative name="asset.command-center" />;
+  if (kind === "scaffolding") return <Icon decorative name="asset.infrastructure" />;
+  if (kind === "fbs_enclosure") return <Icon decorative name="asset.protection" />;
+  if (kind === "perimeter_barrier") return <Icon decorative name="asset.protection" />;
+  if (kind === "cable_mesh") return <Icon decorative name="asset.network" />;
+  if (kind === "sensor") return <Icon decorative name="asset.detection" />;
+  if (kind === "camera") return <Icon decorative name="asset.camera" />;
+  if (kind === "shield") return <Icon decorative name="asset.protection" />;
+  if (kind === "post") return <Icon decorative name="asset.command-center" />;
+  return <Icon decorative name="asset.protection" />;
 }
 
 function PropertyRow({ label, value }: { label: string; value: ReactNode }) {
@@ -110,9 +85,13 @@ export function PropertiesPanel({
     <aside className={styles.propertiesPanel} aria-label="Свойства">
       <div className={styles.panelHeader}>
         <h2>Свойства</h2>
-        <button type="button" aria-label="Закрыть свойства" onClick={onClose}>
-          ×
-        </button>
+        <IconButton
+          icon="action.close"
+          label="Закрыть свойства"
+          onClick={onClose}
+          size="sm"
+          variant="quiet"
+        />
       </div>
 
       {selectedObject ? (
@@ -130,12 +109,18 @@ export function PropertiesPanel({
           </div>
 
           <div className={styles.actionStrip}>
-            <IconButton label="Дублировать элемент" onClick={onDuplicate}>
-              <CopyOutlined />
-            </IconButton>
-            <IconButton label="Удалить элемент" onClick={onDelete}>
-              <DeleteOutlined />
-            </IconButton>
+            <IconButton
+              icon="action.duplicate"
+              label="Дублировать элемент"
+              onClick={onDuplicate}
+              variant="quiet"
+            />
+            <IconButton
+              icon="action.delete"
+              label="Удалить элемент"
+              onClick={onDelete}
+              variant="danger"
+            />
           </div>
 
           <div className={styles.propertyGroup}>
@@ -203,7 +188,7 @@ export function PropertiesPanel({
           </div>
 
           <div className={styles.performanceSummary}>
-            <RadarChartOutlined />
+            <Icon decorative name="navigation.analysis" />
             <span>Зона влияет на сценарную симуляцию и подсветку риска.</span>
           </div>
         </>

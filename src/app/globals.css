@@ -370,6 +370,417 @@
 }
 
 /* Fortis GIS Workspace: desktop docking layer. The tokens remain scoped by FortisProvider. */
+.fortis-studio-shell {
+  height: 100dvh;
+  overflow: hidden;
+  color: var(--fortis-text);
+  background: var(--fortis-canvas);
+}
+
+.fortis-studio-frame,
+.fortis-studio-content {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.fortis-studio-frame {
+  width: 100%;
+}
+
+.fortis-studio-content {
+  flex: 1;
+  flex-direction: column;
+}
+
+.fortis-studio-main {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.fortis-studio-rail {
+  display: none;
+}
+
+.fortis-studio-compact-header {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--fortis-space-2);
+  border-bottom: 1px solid var(--fortis-border);
+  padding: var(--fortis-space-2) var(--fortis-space-3);
+  background: var(--fortis-surface);
+  box-shadow: 0 0.125rem 0.375rem rgb(16 23 29 / 8%);
+  z-index: var(--fortis-z-sticky);
+}
+
+.fortis-studio-compact-mark {
+  display: grid;
+  width: var(--fortis-control-height);
+  height: var(--fortis-control-height);
+  place-items: center;
+  border-radius: var(--fortis-radius-md);
+  color: var(--fortis-text-on-action);
+  background: var(--fortis-action);
+}
+
+.fortis-studio-compact-title {
+  display: grid;
+  min-width: 0;
+  gap: 0.125rem;
+}
+
+.fortis-studio-compact-title strong,
+.fortis-studio-compact-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fortis-studio-compact-title strong {
+  font-size: 0.875rem;
+}
+
+.fortis-studio-compact-title span {
+  color: var(--fortis-text-secondary);
+  font-size: 0.75rem;
+}
+
+.fortis-studio-compact-status {
+  grid-column: 1 / -1;
+}
+
+.fortis-studio-navigation {
+  display: grid;
+  gap: var(--fortis-space-1);
+}
+
+.fortis-studio-nav-link,
+.fortis-studio-back-link {
+  color: var(--fortis-text-secondary);
+  text-decoration: none;
+  transition:
+    color var(--fortis-exit) var(--fortis-ease),
+    background-color var(--fortis-exit) var(--fortis-ease);
+}
+
+.fortis-studio-nav-link {
+  display: flex;
+  min-height: var(--fortis-control-height);
+  align-items: center;
+  gap: var(--fortis-space-2);
+  border-left: 2px solid transparent;
+  padding: 0 var(--fortis-space-3);
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.fortis-studio-nav-link:hover,
+.fortis-studio-back-link:hover {
+  color: var(--fortis-text);
+  background: var(--fortis-surface-muted);
+}
+
+.fortis-studio-nav-link[data-active="true"] {
+  border-left-color: var(--fortis-action);
+  color: var(--fortis-link);
+  background: var(--fortis-surface-selected);
+}
+
+@media (min-width: 80rem) {
+  .fortis-studio-rail {
+    display: flex;
+    width: 4.75rem;
+    flex: 0 0 4.75rem;
+    flex-direction: column;
+    border-right: 1px solid var(--fortis-border);
+    background: var(--fortis-surface);
+    box-shadow: 0 0.125rem 0.375rem rgb(16 23 29 / 8%);
+  }
+
+  .fortis-studio-back-link {
+    display: grid;
+    min-height: 4.625rem;
+    place-items: center;
+    border-bottom: 1px solid var(--fortis-border);
+  }
+
+  .fortis-studio-rail .fortis-studio-navigation {
+    flex: 1;
+    padding: var(--fortis-space-3) var(--fortis-space-2);
+  }
+
+  .fortis-studio-rail .fortis-studio-nav-link {
+    min-height: 3.5rem;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--fortis-space-1);
+    border: 0;
+    border-radius: var(--fortis-radius-md);
+    padding: var(--fortis-space-1);
+    font-size: 0.625rem;
+  }
+
+  .fortis-studio-rail-actions {
+    display: grid;
+    gap: var(--fortis-space-2);
+    border-top: 1px solid var(--fortis-border);
+    padding: var(--fortis-space-3) var(--fortis-space-2);
+  }
+
+  .fortis-studio-rail-action {
+    width: 100%;
+  }
+
+  .fortis-studio-compact-header {
+    display: none;
+  }
+}
+
+.fortis-map-board {
+  position: relative;
+  height: 100%;
+  min-height: 34rem;
+  overflow: hidden;
+  border: 1px solid var(--fortis-border);
+  border-radius: var(--fortis-radius-lg);
+  background: var(--fortis-map-background);
+}
+
+.fortis-map-object-control,
+.fortis-map-control-corner,
+.fortis-map-scale,
+.fortis-map-attribution,
+.fortis-map-warning,
+.fortis-map-hover-label,
+.fortis-map-drop-preview {
+  position: absolute;
+  z-index: 10;
+}
+
+.fortis-map-object-control {
+  top: var(--fortis-space-3);
+  left: var(--fortis-space-3);
+  display: grid;
+  width: min(23rem, calc(100% - 6rem));
+  gap: var(--fortis-space-2);
+  border: 1px solid color-mix(in srgb, var(--fortis-border) 82%, transparent);
+  border-radius: var(--fortis-radius-md);
+  padding: var(--fortis-space-3);
+  background: color-mix(in srgb, var(--fortis-surface) 96%, transparent);
+  box-shadow: 0 0.25rem 0.75rem rgb(16 23 29 / 12%);
+  backdrop-filter: blur(0.5rem);
+}
+
+.fortis-map-object-control .fortis-field__label {
+  font-size: 0.6875rem;
+}
+
+.fortis-map-control-corner {
+  top: var(--fortis-space-3);
+  right: var(--fortis-space-3);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--fortis-space-2);
+}
+
+.fortis-map-basemap-wrap {
+  position: relative;
+}
+
+.fortis-map-basemap-trigger {
+  max-width: min(20rem, calc(100vw - 9rem));
+  box-shadow: 0 0.25rem 0.75rem rgb(16 23 29 / 12%);
+}
+
+.fortis-map-basemap-trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fortis-map-basemap-menu {
+  position: absolute;
+  top: calc(100% + var(--fortis-space-2));
+  right: 0;
+  display: grid;
+  width: min(26rem, calc(100vw - 2rem));
+  max-height: 70dvh;
+  gap: var(--fortis-space-3);
+  overflow-y: auto;
+  border: 1px solid var(--fortis-border);
+  border-radius: var(--fortis-radius-lg);
+  padding: var(--fortis-space-3);
+  color: var(--fortis-text);
+  background: color-mix(in srgb, var(--fortis-surface) 97%, transparent);
+  box-shadow: var(--fortis-overlay-shadow);
+  backdrop-filter: blur(0.75rem);
+}
+
+.fortis-map-basemap-header,
+.fortis-map-source-copy {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--fortis-space-3);
+}
+
+.fortis-map-basemap-header p,
+.fortis-map-source-copy small {
+  display: block;
+  margin: var(--fortis-space-1) 0 0;
+  color: var(--fortis-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.fortis-map-basemap-groups,
+.fortis-map-basemap-options {
+  display: grid;
+  gap: var(--fortis-space-2);
+}
+
+.fortis-map-basemap-groups h3 {
+  margin: 0 0 var(--fortis-space-1);
+  color: var(--fortis-text-secondary);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fortis-map-source-option {
+  display: grid;
+  width: 100%;
+  min-height: var(--fortis-control-height);
+  gap: var(--fortis-space-2);
+  border: 1px solid var(--fortis-border);
+  border-radius: var(--fortis-radius-md);
+  padding: var(--fortis-space-3);
+  color: var(--fortis-text);
+  background: var(--fortis-surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fortis-map-source-option:hover,
+.fortis-map-source-option[data-active="true"] {
+  border-color: var(--fortis-border-selected);
+  background: var(--fortis-surface-selected);
+}
+
+.fortis-map-source-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fortis-space-1);
+}
+
+.fortis-map-zoom-group {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--fortis-border);
+  border-radius: var(--fortis-radius-md);
+  color: var(--fortis-text-secondary);
+  background: color-mix(in srgb, var(--fortis-surface) 96%, transparent);
+  box-shadow: 0 0.25rem 0.75rem rgb(16 23 29 / 12%);
+  backdrop-filter: blur(0.5rem);
+}
+
+.fortis-map-zoom-group > * + * {
+  border-top: 1px solid var(--fortis-border);
+}
+
+.fortis-map-zoom-readout {
+  display: grid;
+  min-width: var(--fortis-control-height);
+  min-height: 2rem;
+  place-items: center;
+  font: 650 0.6875rem/1 var(--fortis-font-mono);
+}
+
+.fortis-map-scale,
+.fortis-map-attribution {
+  bottom: var(--fortis-space-3);
+  border: 1px solid var(--fortis-border);
+  border-radius: var(--fortis-radius-sm);
+  padding: var(--fortis-space-2) var(--fortis-space-3);
+  color: var(--fortis-text-secondary);
+  background: color-mix(in srgb, var(--fortis-surface) 92%, transparent);
+  box-shadow: 0 0.125rem 0.375rem rgb(16 23 29 / 10%);
+  font-size: 0.6875rem;
+}
+
+.fortis-map-scale {
+  left: var(--fortis-space-3);
+}
+
+.fortis-map-scale-line {
+  height: 0.1875rem;
+  margin-bottom: var(--fortis-space-1);
+  border-radius: 999px;
+  background: var(--fortis-text);
+}
+
+.fortis-map-attribution {
+  right: var(--fortis-space-3);
+  max-width: min(32rem, calc(100% - 2rem));
+  line-height: 1.4;
+}
+
+.fortis-map-warning {
+  top: 5rem;
+  left: 50%;
+  width: min(32rem, calc(100% - 2rem));
+  transform: translateX(-50%);
+}
+
+.fortis-map-hover-label {
+  bottom: var(--fortis-space-3);
+  left: var(--fortis-space-3);
+  pointer-events: none;
+  border-radius: var(--fortis-radius-sm);
+  padding: var(--fortis-space-1) var(--fortis-space-2);
+  background: rgb(16 23 29 / 88%);
+}
+
+.fortis-map-hover-label .fortis-status {
+  color: white;
+}
+
+.fortis-map-drop-preview {
+  top: var(--fortis-space-3);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+@media (max-width: 79.99rem) {
+  .fortis-map-control-corner {
+    top: 9.75rem;
+  }
+}
+
+@media (max-width: 47.99rem) {
+  .fortis-map-object-control {
+    right: var(--fortis-space-3);
+    width: auto;
+  }
+
+  .fortis-map-control-corner {
+    top: 9.75rem;
+  }
+
+  .fortis-map-basemap-trigger span {
+    max-width: 8rem;
+  }
+
+  .fortis-map-attribution {
+    display: none;
+  }
+}
+
 .fortis-gis-tree-slot {
   display: none;
 }
@@ -778,7 +1189,155 @@
   text-align: right;
 }
 
-@media (min-width: 1280px) {
+.fortis-variants-modal {
+  display: grid;
+  gap: var(--fortis-space-4);
+  padding: 0 var(--fortis-space-5) var(--fortis-space-5);
+}
+
+.fortis-variants-list {
+  display: grid;
+  max-height: 22.5rem;
+  padding: 0;
+  margin: 0 calc(var(--fortis-space-5) * -1);
+  overflow-y: auto;
+  list-style: none;
+}
+
+.fortis-variants-list__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--fortis-space-2);
+  align-items: center;
+  padding: var(--fortis-space-3) var(--fortis-space-5);
+  border-bottom: 1px solid var(--fortis-semantic-light-border-default);
+  transition: background var(--fortis-motion-duration-fast);
+}
+
+.fortis-variants-list__item[data-active] {
+  background: var(--fortis-semantic-light-background-selected);
+}
+
+.fortis-variants-list__active-icon {
+  color: var(--fortis-semantic-light-icon-success);
+}
+
+.fortis-variants-list__content {
+  min-width: 0;
+}
+
+.fortis-variants-list__title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--fortis-space-2);
+}
+
+.fortis-variants-list__title strong {
+  overflow: hidden;
+  color: var(--fortis-semantic-light-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fortis-variants-list__meta {
+  display: block;
+  margin-top: var(--fortis-space-1);
+  color: var(--fortis-semantic-light-text-secondary);
+  font-size: var(--fortis-font-size-sm);
+}
+
+.fortis-variants-list__actions {
+  display: flex;
+  grid-column: 2;
+  flex-wrap: wrap;
+  gap: var(--fortis-space-1);
+}
+
+.fortis-variants-save {
+  padding-top: var(--fortis-space-4);
+  border-top: 1px solid var(--fortis-semantic-light-border-default);
+}
+
+.fortis-variants-save h3 {
+  margin: 0 0 var(--fortis-space-3);
+  color: var(--fortis-semantic-light-text-primary);
+  font-size: var(--fortis-font-size-md);
+}
+
+.fortis-variants-save__controls {
+  display: grid;
+  gap: var(--fortis-space-3);
+}
+
+.fortis-asset-library-form {
+  display: grid;
+  gap: var(--fortis-space-3);
+  padding: var(--fortis-space-3);
+  margin-top: var(--fortis-space-3);
+  border: 1px solid var(--fortis-border);
+  border-radius: var(--fortis-radius-lg);
+  background: var(--fortis-surface-subtle);
+}
+
+.fortis-asset-library-form__grid {
+  display: grid;
+  gap: var(--fortis-space-3);
+}
+
+.fortis-asset-library-form__description {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.fortis-echelons-object-actions,
+.fortis-echelons-object-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fortis-space-2);
+}
+
+.fortis-echelons-object-status {
+  justify-content: flex-end;
+}
+
+.fortis-tool-coordinate-action {
+  flex: 0 0 auto;
+}
+
+.fortis-drilldown-toast {
+  position: fixed;
+  top: var(--fortis-space-4);
+  right: var(--fortis-space-4);
+  z-index: var(--fortis-z-toast);
+  width: min(28rem, calc(100vw - 2rem));
+}
+
+@media (min-width: 36rem) {
+  .fortis-variants-list__item {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .fortis-variants-list__actions {
+    grid-column: auto;
+    flex-wrap: nowrap;
+  }
+
+  .fortis-variants-save__controls {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .fortis-asset-library-form__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fortis-asset-library-form__grid[data-columns="three"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 48rem) {
   .fortis-gis-tree-slot {
     display: block;
     max-height: 22rem;
@@ -797,7 +1356,9 @@
     min-height: 0;
     flex: 1;
   }
+}
 
+@media (min-width: 64rem) {
   .fortis-gis-main {
     display: flex;
     min-width: 0;
@@ -810,8 +1371,8 @@
 
   .fortis-gis-inspector {
     display: flex;
-    width: 21rem;
-    min-width: 21rem;
+    width: 18rem;
+    min-width: 18rem;
     flex-direction: column;
     border-left: 1px solid var(--fortis-semantic-light-border-default);
     box-shadow: -12px 0 28px rgb(15 23 42 / 6%);
@@ -825,6 +1386,21 @@
 
   .fortis-gis-inspector-empty {
     flex: 1;
+  }
+
+  .fortis-gis-objects-panel {
+    right: 19rem;
+  }
+
+  .fortis-gis-layer-panel-wrap {
+    right: 18rem;
+  }
+}
+
+@media (min-width: 80rem) {
+  .fortis-gis-inspector {
+    width: 21rem;
+    min-width: 21rem;
   }
 
   .fortis-gis-objects-panel {

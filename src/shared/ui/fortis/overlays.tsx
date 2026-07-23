@@ -4,7 +4,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button, IconButton } from "./core";
-import { Icon } from "./icon";
+import { Icon, type FortisIconName } from "./icon";
 
 type Tone = "info" | "success" | "warning" | "danger";
 const alertIcon = { danger: "status.error", info: "status.info", success: "status.success", warning: "status.warning" } as const;
@@ -24,5 +24,70 @@ export function Modal({ children, description, onClose, open, title }: OverlayPr
 export function Drawer({ children, description, onClose, open, title }: OverlayProps) { if (!open) return null; return <FocusOverlay onClose={onClose}><aside aria-describedby={description ? "fortis-drawer-description" : undefined} aria-labelledby="fortis-drawer-title" aria-modal="true" className="fortis-drawer" role="dialog"><div className="fortis-overlay__header"><div><h2 id="fortis-drawer-title">{title}</h2>{description ? <p id="fortis-drawer-description">{description}</p> : null}</div><IconButton autoFocus icon="action.close" label="Закрыть панель" onClick={onClose} size="sm" variant="quiet" /></div>{children}</aside></FocusOverlay>; }
 
 export function Tooltip({ children, label }: { children: ReactNode; label: string }) { return <span className="fortis-tooltip">{children}<span className="fortis-tooltip__bubble" role="tooltip">{label}</span></span>; }
-export function DropdownMenu({ items, label = "Действия" }: { items: { danger?: boolean; disabled?: boolean; label: string; onSelect: () => void }[]; label?: string }) { const [open, setOpen] = useState(false); return <span className="fortis-menu-wrap"><Button aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)} trailingIcon={<Icon decorative name="navigation.chevron-down" size={16} />} variant="secondary">{label}</Button>{open ? <span className="fortis-menu" role="menu">{items.map((item) => <button data-danger={item.danger || undefined} disabled={item.disabled} key={item.label} onClick={() => { item.onSelect(); setOpen(false); }} role="menuitem" type="button">{item.label}</button>)}</span> : null}</span>; }
+type DropdownMenuItem = {
+  danger?: boolean;
+  disabled?: boolean;
+  id?: string;
+  label: ReactNode;
+  onSelect: () => void;
+};
+
+export function DropdownMenu({
+  icon,
+  iconOnly = false,
+  items,
+  label = "Действия",
+}: {
+  icon?: FortisIconName;
+  iconOnly?: boolean;
+  items: DropdownMenuItem[];
+  label?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const toggle = () => setOpen((current) => !current);
+  return (
+    <span className="fortis-menu-wrap">
+      {iconOnly && icon ? (
+        <IconButton
+          aria-expanded={open}
+          aria-haspopup="menu"
+          icon={icon}
+          label={label}
+          onClick={toggle}
+          variant="quiet"
+        />
+      ) : (
+        <Button
+          aria-expanded={open}
+          aria-haspopup="menu"
+          leadingIcon={icon ? <Icon decorative name={icon} size={16} /> : undefined}
+          onClick={toggle}
+          trailingIcon={<Icon decorative name="navigation.chevron-down" size={16} />}
+          variant="secondary"
+        >
+          {label}
+        </Button>
+      )}
+      {open ? (
+        <span className="fortis-menu" role="menu">
+          {items.map((item, index) => (
+            <button
+              data-danger={item.danger || undefined}
+              disabled={item.disabled}
+              key={item.id ?? index}
+              onClick={() => {
+                item.onSelect();
+                setOpen(false);
+              }}
+              role="menuitem"
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </span>
+      ) : null}
+    </span>
+  );
+}
 export function Popover({ children, label }: { children: ReactNode; label: string }) { const [open, setOpen] = useState(false); return <span className="fortis-menu-wrap"><Button aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(!open)} variant="secondary">{label}</Button>{open ? <span className="fortis-menu" role="dialog">{children}</span> : null}</span>; }

@@ -105,15 +105,16 @@ if (
 }
 
 const gisBoardSource = readFileSync("src/modules/drone-defense/ui/gis-board.tsx", "utf8");
+const prototypeSource = readFileSync("src/modules/drone-defense/ui/drone-defense-prototype.tsx", "utf8");
 if (
-  !gisBoardSource.includes("application/x-fortis-defense-asset") ||
+  !prototypeSource.includes("application/x-fortis-defense-asset") ||
+  !prototypeSource.includes("application/x-fortis-group") ||
   !gisBoardSource.includes("onDropAsset") ||
-  !gisBoardSource.includes("onPointerDropAsset")
+  !gisBoardSource.includes("onDrop={handleSectionDrop}")
 ) {
   throw new Error("GisBoard must accept dragged defense asset drops on the map");
 }
 
-const prototypeSource = readFileSync("src/modules/drone-defense/ui/drone-defense-prototype.tsx", "utf8");
 for (const forbiddenCopy of ["Реком.", "Рекомендовано", "не рекомендовано", "Недоступно"]) {
   if (prototypeSource.includes(forbiddenCopy) || defenseToolIconSource.includes(forbiddenCopy)) {
     throw new Error(`Defense Studio must not expose recommendation copy: ${forbiddenCopy}`);

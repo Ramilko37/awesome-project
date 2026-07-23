@@ -2,13 +2,16 @@
 
 import { useMemo, useState } from "react";
 import {
-  CloseOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  PlusOutlined,
-  ReloadOutlined,
-  SaveOutlined,
-} from "@ant-design/icons";
+  Alert,
+  Button,
+  Checkbox,
+  Icon,
+  IconButton,
+  Input,
+  Select,
+  Status,
+  Textarea,
+} from "@/shared/ui/fortis";
 import {
   createDefenseAsset,
   deleteDefenseAsset,
@@ -279,188 +282,156 @@ export function AssetLibraryManager({
           <p className={`${styles.prototypeMeta} truncate`}>{assets.length} средств в текущей библиотеке</p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            className={`${styles.prototypeIconButton} cursor-pointer disabled:cursor-wait`}
+          <IconButton
+            icon="action.refresh"
+            label="Обновить каталог с сервера"
             onClick={() => void onRefresh()}
             disabled={loading}
-            title="Обновить каталог с сервера"
-            aria-label="Обновить каталог с сервера"
-          >
-            <ReloadOutlined />
-          </button>
-          <button
-            type="button"
-            className={`${styles.prototypeButtonPrimary} w-8 cursor-pointer`}
+            size="sm"
+            variant="quiet"
+          />
+          <IconButton
+            icon="action.add"
+            label="Создать средство защиты"
             onClick={startCreate}
-            title="Создать средство защиты"
-            aria-label="Создать средство защиты"
-          >
-            <PlusOutlined />
-          </button>
-          <button
-            type="button"
-            className={`${styles.prototypeIconButton} cursor-pointer`}
+            size="sm"
+          />
+          <IconButton
+            icon="action.edit"
+            label="Редактировать выбранное средство"
             onClick={startEdit}
             disabled={!selectedAsset}
-            title="Редактировать выбранное средство"
-            aria-label="Редактировать выбранное средство"
-          >
-            <EditOutlined />
-          </button>
+            size="sm"
+            variant="quiet"
+          />
         </div>
       </div>
 
-      {loading ? <p className={`${styles.prototypeMeta} mt-2 text-blue-600`}>Загрузка библиотеки…</p> : null}
-      {error ? <p className={`${styles.prototypeNoticeWarning} mt-2`}>{error}</p> : null}
-      {localError ? <p className={`${styles.prototypeNoticeDanger} mt-2`}>{localError}</p> : null}
+      {loading ? <Status label="Загрузка библиотеки" tone="info" /> : null}
+      {error ? <Alert title="Не удалось загрузить библиотеку" tone="warning">{error}</Alert> : null}
+      {localError ? <Alert title="Не удалось выполнить действие" tone="danger">{localError}</Alert> : null}
 
       {mode !== "closed" ? (
-        <div className={`${styles.prototypeFormCard} mt-3 grid gap-2 bg-slate-50 p-2`}>
+        <div className="fortis-asset-library-form">
           <div className="flex items-center justify-between gap-2">
             <p className={styles.prototypeCardTitle}>
               {mode === "create" ? "Новая карточка" : "Редактирование"}
             </p>
-            <button
-              type="button"
-              className={`${styles.prototypeIconButton} cursor-pointer`}
+            <IconButton
+              icon="action.close"
+              label="Закрыть форму"
               onClick={() => setMode("closed")}
-              title="Закрыть форму"
-              aria-label="Закрыть форму"
-            >
-              <CloseOutlined />
-            </button>
+              size="sm"
+              variant="quiet"
+            />
           </div>
 
-          <input
-            className={styles.prototypeField}
+          <Input
+            label="Название"
             value={form.name}
             onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-            placeholder="Название"
           />
 
-          <div className="grid grid-cols-2 gap-2">
-            <select
-              className={styles.prototypeSelect}
+          <div className="fortis-asset-library-form__grid">
+            <Select
+              label="Категория"
+              options={categoryOptions}
               value={form.category}
               onChange={(event) =>
                 setForm((current) => ({ ...current, category: event.target.value as DefenseAssetCategory }))
               }
-            >
-              {categoryOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <select
-              className={styles.prototypeSelect}
+            />
+            <Select
+              label="Тип покрытия"
+              options={coverageTypeOptions}
               value={form.coverageType}
               onChange={(event) =>
                 setForm((current) => ({ ...current, coverageType: event.target.value as DefenseAssetCoverageType }))
               }
-            >
-              {coverageTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              className={styles.prototypeField}
+          <div className="fortis-asset-library-form__grid">
+            <Input
+              label="Тип защиты"
               value={form.protectionType}
               onChange={(event) => setForm((current) => ({ ...current, protectionType: event.target.value }))}
-              placeholder="Тип защиты"
             />
-            <input
-              className={styles.prototypeField}
+            <Input
+              label="Рекомендуемые эшелоны"
               value={form.recommendedLayerCodes}
               onChange={(event) => setForm((current) => ({ ...current, recommendedLayerCodes: event.target.value }))}
-              placeholder="Эшелоны: L2, L3"
+              placeholder="L2, L3"
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <input
-              className={styles.prototypeField}
+          <div className="fortis-asset-library-form__grid" data-columns="three">
+            <Input
+              inputMode="decimal"
+              label="Цена, млн ₽"
               value={form.pricePerUnitMln}
               onChange={(event) => setForm((current) => ({ ...current, pricePerUnitMln: event.target.value }))}
-              placeholder="млн ₽"
-              inputMode="decimal"
             />
-            <input
-              className={styles.prototypeField}
+            <Input
+              inputMode="decimal"
+              label="Радиус, км"
               value={form.coverageRadiusKm}
               onChange={(event) => setForm((current) => ({ ...current, coverageRadiusKm: event.target.value }))}
-              placeholder="радиус, км"
-              inputMode="decimal"
             />
-            <input
-              className={styles.prototypeField}
+            <Input
+              inputMode="decimal"
+              label="Угол, °"
               value={form.coverageAngle}
               onChange={(event) => setForm((current) => ({ ...current, coverageAngle: event.target.value }))}
-              placeholder="угол"
-              inputMode="decimal"
             />
           </div>
 
-          <input
-            className={styles.prototypeField}
+          <Input
+            inputMode="decimal"
+            label="Максимальная дальность, км"
             value={form.maxEffectiveDistanceKm}
             onChange={(event) => setForm((current) => ({ ...current, maxEffectiveDistanceKm: event.target.value }))}
-            placeholder="максимальная дальность, км"
-            inputMode="decimal"
           />
 
-          <textarea
-            className={`${styles.prototypeTextarea} min-h-16 resize-y`}
+          <Textarea
+            className="fortis-asset-library-form__description"
+            label="Описание"
             value={form.description}
             onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-            placeholder="Описание"
           />
 
-          <label className={`${styles.prototypeInlineCard} text-xs text-slate-600`}>
-            <span>Общий каталог</span>
-            <input
-              type="checkbox"
-              checked={form.isPublic}
-              onChange={(event) => setForm((current) => ({ ...current, isPublic: event.target.checked }))}
-            />
-          </label>
+          <Checkbox
+            checked={form.isPublic}
+            description="Карточка доступна всем предприятиям."
+            label="Общий каталог"
+            onCheckedChange={(isPublic) => setForm((current) => ({ ...current, isPublic }))}
+          />
 
           {!form.isPublic ? (
-            <input
-              className={styles.prototypeField}
+            <Input
+              label="Идентификатор предприятия"
               value={form.enterpriseId}
               onChange={(event) => setForm((current) => ({ ...current, enterpriseId: event.target.value }))}
-              placeholder="enterpriseId"
             />
           ) : null}
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className={`${styles.prototypeButtonPrimary} flex-1 cursor-pointer px-3 disabled:cursor-wait`}
+            <Button
+              className="flex-1"
+              leadingIcon={<Icon decorative name="action.save" />}
+              loading={saving}
               onClick={() => void saveAsset()}
-              disabled={saving}
             >
-              <SaveOutlined />
               Сохранить
-            </button>
+            </Button>
             {mode === "edit" ? (
-              <button
-                type="button"
-                className={`${styles.prototypeButtonDanger} w-10 cursor-pointer`}
+              <IconButton
+                icon="action.delete"
+                label={selectedAssetUsed ? "Средство размещено на карте" : "Удалить средство защиты"}
                 onClick={() => void deleteSelectedAsset()}
                 disabled={saving || selectedAssetUsed}
-                title={selectedAssetUsed ? "Средство размещено на карте" : "Удалить средство защиты"}
-                aria-label="Удалить средство защиты"
-              >
-                <DeleteOutlined />
-              </button>
+                variant="danger"
+              />
             ) : null}
           </div>
         </div>

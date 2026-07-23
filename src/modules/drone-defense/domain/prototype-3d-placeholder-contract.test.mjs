@@ -13,7 +13,11 @@ const topbarSource = readFileSync("src/modules/drone-defense/ui/topbar.tsx", "ut
 const sceneSource = readFileSync("src/modules/drone-defense/ui/scene.tsx", "utf8");
 const dashboardSidebarSource = readFileSync("src/modules/dashboard/ui/sidebar.tsx", "utf8");
 
-assert(shellSource.includes("setView(\"drilldown\")"), "Scenario modeling navigation must open a dedicated prototype state");
+assert(
+  shellSource.includes('navigate("drilldown")') &&
+    shellSource.includes("if (view) setView(view);"),
+  "Scenario modeling navigation must open a dedicated prototype state",
+);
 assert(
   shellSource.includes("href=\"/prototype?view=scenario-modeling\""),
   "Scenario modeling navigation must use a shareable prototype state URL",

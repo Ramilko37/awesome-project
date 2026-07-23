@@ -20,13 +20,15 @@ assert(!/usePathname/.test(pageSource), "Retrospective page should stay simple a
 
 assert(
   shellSource.includes("href=\"/retrospective-analysis\"") &&
-    shellSource.includes(">Анализ<") &&
-    shellSource.includes("isRetrospective"),
-  "DefenseStudioShell must expose the new WIP route in desktop and mobile rails",
+    shellSource.includes('label="Анализ"') &&
+    shellSource.includes("isRetrospective") &&
+    shellSource.includes("<Drawer"),
+  "DefenseStudioShell must expose the new WIP route in desktop rail and compact navigation drawer",
 );
 assert(
-  shellSource.includes("grid-cols-4"),
-  "DefenseStudioShell must have mobile nav capacity for four tabs",
+  shellSource.includes("<StudioNavigation {...navigationProps}") &&
+    shellSource.includes("setNavigationOpen"),
+  "DefenseStudioShell must reuse the complete navigation in compact mode",
 );
 assert(
   sidebarSource.includes("href=\"/retrospective-analysis\"") &&

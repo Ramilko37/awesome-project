@@ -1,8 +1,8 @@
 "use client";
 
-import { AimOutlined, DragOutlined, EnvironmentOutlined } from "@ant-design/icons";
 import Image from "next/image";
 import { withBasePath } from "@/shared/lib/base-path";
+import { Icon, IconButton } from "@/shared/ui/fortis";
 import type { DefenseAssetLibraryItem } from "@/shared/types/defense-project";
 import type {
   DragEvent as ReactDragEvent,
@@ -232,7 +232,7 @@ export function DefenseToolIcon({
       }}
     >
       <span className="grid h-full place-items-center text-slate-400" aria-hidden="true">
-        {canDrag ? <DragOutlined /> : null}
+        {canDrag ? <Icon decorative name="action.drag" /> : null}
       </span>
 
       <span className="relative block h-12 w-12 overflow-hidden rounded-md border border-slate-100 bg-slate-100">
@@ -299,19 +299,18 @@ export function DefenseToolIcon({
             {disabledReason ?? actionText}
           </span>
           <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              className="grid h-6 w-6 cursor-pointer place-items-center rounded-md bg-slate-100 text-slate-500 transition hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-35"
+            <IconButton
+              className="fortis-tool-coordinate-action"
               disabled={!canAdd}
+              icon="map.coordinates"
+              label={isZoneObject ? "Нарисовать область" : "Ввести координаты"}
               onClick={(event) => {
                 event.stopPropagation();
                 onOpenCoordinates();
               }}
-              title="Ввести координаты"
-              aria-label="Ввести координаты"
-            >
-              {isZoneObject ? <AimOutlined /> : <EnvironmentOutlined />}
-            </button>
+              size="sm"
+              variant="quiet"
+            />
           </div>
         </div>
       </div>

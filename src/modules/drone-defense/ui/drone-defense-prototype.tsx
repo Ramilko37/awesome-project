@@ -2,22 +2,6 @@
 
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  AppstoreOutlined,
-  CloseOutlined,
-  DeleteOutlined,
-  DownOutlined,
-  EditOutlined,
-  ExpandAltOutlined,
-  EyeInvisibleOutlined,
-  EyeOutlined,
-  LeftOutlined,
-  MoreOutlined,
-  PlusOutlined,
-  RightOutlined,
-  UpOutlined,
-} from "@ant-design/icons";
-import { Dropdown, Modal } from "antd";
 import { useDefenseStudioStore, studioPreviewData } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import { buildEchelonMapModel } from "@/modules/drone-defense/domain/echelon-map-model";
 import { placedObjectsToMapPlacements } from "@/modules/drone-defense/domain/project-map-adapter";
@@ -59,6 +43,17 @@ import type { LayerInsertOption } from "@/shared/lib/defense-project";
 import type { DefenseLayer, DefenseLayerId } from "@/shared/types/drone-defense";
 import type { Coordinates, ProtectedObjectOption } from "@/shared/types/defense-project";
 import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
+import {
+  Button,
+  DropdownMenu,
+  Icon,
+  IconButton,
+  InlineMessage,
+  Input,
+  Modal,
+  Search,
+  Select,
+} from "@/shared/ui/fortis";
 
 const defenseAssetDragMimeType = "application/x-fortis-defense-asset";
 
@@ -138,7 +133,7 @@ export function DroneDefensePrototype() {
   const [catalogQuery, setCatalogQuery] = useState("");
   const [isCatalogTrayOpen, setIsCatalogTrayOpen] = useState(true);
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
-  const [isLayerPanelExpanded, setIsLayerPanelExpanded] = useState(true);
+  const [isLayerPanelExpanded, setIsLayerPanelExpanded] = useState(false);
   const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(false);
   const [layerWizardState, setLayerWizardState] = useState<LayerWizardState | null>(null);
   const [pendingLayerDeletionId, setPendingLayerDeletionId] = useState<string | null>(null);
@@ -820,7 +815,7 @@ export function DroneDefensePrototype() {
   });
 
   return (
-    <div className="flex h-full min-h-0 flex-col lg:flex-row">
+    <div className="flex h-full min-h-0 flex-col md:flex-row">
       {activeView === "gis" ? (
         <section
           data-sidebar-state={isCatalogTrayOpen ? "open" : "closed"}
@@ -830,7 +825,7 @@ export function DroneDefensePrototype() {
           <div className={styles.prototypeSidebarHeader}>
             <div className={styles.prototypeBrandRow}>
               <div className={styles.prototypeBrandIcon}>
-                <AppstoreOutlined />
+                <Icon decorative name="map.layers" size={18} />
               </div>
               <div className="min-w-0">
                 <h1 className={`${styles.prototypeTitleLarge} truncate`}>Моя карта</h1>
@@ -879,11 +874,13 @@ export function DroneDefensePrototype() {
                   Свернуть
                 </button>
               </div>
-              <input
-                className={`${styles.prototypeField} mt-3`}
-                value={catalogQuery}
+              <Search
+                className={styles.prototypeCatalogSearch}
+                label="Поиск по библиотеке средств защиты"
                 onChange={(event) => setCatalogQuery(event.target.value)}
+                onClear={() => setCatalogQuery("")}
                 placeholder="Найти средство..."
+                value={catalogQuery}
               />
             </div>
             <AssetLibraryManager
@@ -955,7 +952,7 @@ export function DroneDefensePrototype() {
                   onClick={() => setIsEchelonObjectsCollapsed((current) => !current)}
                   title={isEchelonObjectsCollapsed ? "Развернуть карточку" : "Свернуть карточку"}
                 >
-                  {isEchelonObjectsCollapsed ? <UpOutlined /> : <DownOutlined />}
+                  <Icon decorative name={isEchelonObjectsCollapsed ? "navigation.chevron-up" : "navigation.chevron-down"} size={16} />
                 </button>
                 <button
                   type="button"
@@ -964,7 +961,7 @@ export function DroneDefensePrototype() {
                   title="Закрыть карточку"
                   aria-label="Закрыть карточку"
                 >
-                  <CloseOutlined />
+                  <Icon decorative name="action.close" size={16} />
                 </button>
               </div>
             </div>
@@ -1130,7 +1127,7 @@ export function DroneDefensePrototype() {
                         title="Развернуть панель эшелонов"
                         aria-label="Развернуть панель эшелонов"
                       >
-                        <ExpandAltOutlined />
+                        <Icon decorative name="action.expand" size={16} />
                       </button>
                     </div>
                   ) : (
@@ -1151,7 +1148,7 @@ export function DroneDefensePrototype() {
                         aria-pressed={showAllEchelonObjects}
                         title={objectVisibilityToggleTitle}
                       >
-                        {showAllEchelonObjects ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                        <Icon decorative name={showAllEchelonObjects ? "action.visibility-off" : "action.visibility-on"} size={16} />
                         {objectVisibilityToggleLabel}
                       </button>
                       <button
@@ -1162,7 +1159,7 @@ export function DroneDefensePrototype() {
                         title={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
                         aria-label={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
                       >
-                        <PlusOutlined />
+                        <Icon decorative name="action.add" size={16} />
                       </button>
                       <button
                         type="button"
@@ -1182,7 +1179,7 @@ export function DroneDefensePrototype() {
                       disabled={!layerStripState.canScrollLeft}
                       aria-label="Прокрутить эшелоны влево"
                     >
-                      <LeftOutlined />
+                      <Icon decorative name="navigation.chevron-left" size={16} />
                     </button>
                     <div className="relative min-w-0 flex-1">
                       {layerStripState.canScrollLeft ? <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white via-white/80 to-transparent" /> : null}
@@ -1196,39 +1193,29 @@ export function DroneDefensePrototype() {
                       const titleParts = splitLayerTitle(layer.code, layer.name);
                       const layerMenuItems = [
                         {
-                          key: "objects",
-                          icon: <AppstoreOutlined />,
+                          id: "objects",
                           label: "Открыть объекты эшелона",
-                          onClick: () => {
+                          onSelect: () => {
                             selectLayerWithDefaultSlot(layer.id);
                             setEchelonObjectsLayerId(layer.id as DefenseLayerId);
                           },
                         },
                         {
-                          key: "edit",
-                          icon: <EditOutlined />,
+                          id: "edit",
                           label: "Настроить эшелон",
-                          onClick: () => {
+                          onSelect: () => {
                             selectLayerWithDefaultSlot(layer.id);
                             editSelectedLayer();
                           },
                         },
                         {
-                          key: "delete",
-                          icon: <DeleteOutlined />,
+                          id: "delete",
                           danger: true,
                           disabled: !layerDeleteState.canDelete,
-                          label: (
-                            <div className="py-0.5">
-                              <p>Удалить эшелон</p>
-                              {!layerDeleteState.canDelete ? (
-                                <p className="mt-1 max-w-48 whitespace-normal text-[11px] font-medium text-slate-400">
-                                  {layerDeleteState.reason}
-                                </p>
-                              ) : null}
-                            </div>
-                          ),
-                          onClick: () => {
+                          label: layerDeleteState.canDelete
+                            ? "Удалить эшелон"
+                            : `Удалить эшелон · ${layerDeleteState.reason}`,
+                          onSelect: () => {
                             if (!layerDeleteState.canDelete) return;
                             setPendingLayerDeletionId(layer.id);
                           },
@@ -1244,36 +1231,23 @@ export function DroneDefensePrototype() {
                           onMouseLeave={() => setHoveredLayerId((current) => (current === layer.id ? null : current))}
                         >
                           <div className={styles.prototypeLayerActions}>
-                            <button
-                              type="button"
+                            <IconButton
                               className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
+                              icon={layer.isVisible === false ? "action.visibility-on" : "action.visibility-off"}
+                              label={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 toggleLayerVisibility(layer.id, layer.isVisible === false);
                               }}
-                              title={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
-                              aria-label={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
-                            >
-                              {layer.isVisible === false ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                            </button>
-                            <Dropdown
-                              trigger={["click"]}
-                              placement="bottomRight"
-                              arrow
-                              menu={{
-                                items: layerMenuItems,
-                                className: "min-w-[13rem]",
-                              }}
-                            >
-                              <button
-                                type="button"
-                                className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
-                                onClick={(event) => event.stopPropagation()}
-                                aria-label="Открыть меню эшелона"
-                              >
-                                <MoreOutlined />
-                              </button>
-                            </Dropdown>
+                              size="sm"
+                              variant="quiet"
+                            />
+                            <DropdownMenu
+                              icon="action.more"
+                              iconOnly
+                              items={layerMenuItems}
+                              label="Открыть меню эшелона"
+                            />
                           </div>
                           <button
                             type="button"
@@ -1333,7 +1307,7 @@ export function DroneDefensePrototype() {
                       disabled={!layerStripState.canScrollRight}
                       aria-label="Прокрутить эшелоны вправо"
                     >
-                      <RightOutlined />
+                      <Icon decorative name="navigation.chevron-right" size={16} />
                     </button>
                   </div>
 
@@ -1353,7 +1327,7 @@ export function DroneDefensePrototype() {
               aria-hidden={isCatalogTrayOpen}
               tabIndex={isCatalogTrayOpen ? -1 : 0}
             >
-              <AppstoreOutlined />
+              <Icon decorative name="map.layers" size={18} />
             </button>
           </>
         ) : null}
@@ -1393,18 +1367,18 @@ export function DroneDefensePrototype() {
           />
         ) : null}
         <Modal
+          description="Объекты должны быть удалены или перенесены до удаления эшелона."
+          onClose={() => setPendingLayerDeletionId(null)}
           open={Boolean(pendingLayerDeletion)}
           title="Удалить эшелон?"
-          onCancel={() => setPendingLayerDeletionId(null)}
-          onOk={confirmLayerDeletion}
-          okText="Удалить"
-          cancelText="Отмена"
-          okButtonProps={{ danger: true }}
-          destroyOnHidden
         >
-          <p className="text-sm text-slate-600">
+          <p>
             {pendingLayerDeletion ? `${pendingLayerDeletion.code} · ${pendingLayerDeletion.name}` : "Выбранный эшелон"} будет удалён без возможности восстановления.
           </p>
+          <div className="fortis-overlay__footer">
+            <Button onClick={() => setPendingLayerDeletionId(null)} variant="secondary">Отмена</Button>
+            <Button onClick={confirmLayerDeletion} variant="danger">Удалить эшелон</Button>
+          </div>
         </Modal>
       </main>
     </div>
@@ -1524,115 +1498,96 @@ function LayerGeometryWizard({
               {state.mode === "create" ? "Новый эшелон защиты появится в выбранном диапазоне вокруг объекта." : "Обновите код, название и диапазон эшелона без изменения общей модели проекта."}
             </p>
           </div>
-          <button
-            type="button"
-            className={`${styles.prototypeButton} cursor-pointer px-3`}
-            onClick={onCancel}
-          >
+          <Button onClick={onCancel} variant="secondary">
             Отмена
-          </button>
+          </Button>
         </div>
 
         <div className="mt-4">
           <p className={styles.prototypeEyebrow}>Форма эшелона</p>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              className={`${state.draft.geometryMode === "circle" ? styles.prototypeButtonPrimary : styles.prototypeButton} cursor-pointer px-3`}
+            <Button
               onClick={() => onDraftChange({ geometryMode: "circle", polygonClosed: false })}
+              variant={state.draft.geometryMode === "circle" ? "primary" : "secondary"}
             >
               Круг / радиус
-            </button>
-            <button
-              type="button"
-              className={`${state.draft.geometryMode === "polygon" ? styles.prototypeButtonPrimary : styles.prototypeButton} cursor-pointer px-3`}
+            </Button>
+            <Button
               onClick={() => onDraftChange({ geometryMode: "polygon" })}
+              variant={state.draft.geometryMode === "polygon" ? "primary" : "secondary"}
             >
               Произвольный контур
-            </button>
+            </Button>
           </div>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-[1.15fr_0.85fr]">
           <div className="grid gap-3 sm:grid-cols-2">
             {state.mode === "create" ? (
-              <label className="sm:col-span-2">
-                <span className={styles.prototypeEyebrow}>Где создать эшелон</span>
-                <select
-                  className={`${styles.prototypeSelect} mt-1 cursor-pointer`}
-                  value={state.insertPosition}
-                  onChange={(event) => onSelectInsertPosition(event.target.value)}
-                >
-                  {insertOptions.map((option) => (
-                    <option key={layerInsertOptionKey(option)} value={layerInsertOptionKey(option)}>
-                      {option.label} · {formatWizardRange(option)}
-                      {option.availableWidthM <= 0 ? " · нет свободного gap" : ""}
-                    </option>
-                  ))}
-                </select>
-                {fieldErrors?.geometry ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.geometry}</p> : null}
-              </label>
+              <Select
+                className="sm:col-span-2"
+                invalid={Boolean(fieldErrors?.geometry)}
+                label="Где создать эшелон"
+                message={fieldErrors?.geometry}
+                onChange={(event) => onSelectInsertPosition(event.target.value)}
+                options={insertOptions.map((option) => ({
+                  disabled: option.availableWidthM <= 0,
+                  label: `${option.label} · ${formatWizardRange(option)}${
+                    option.availableWidthM <= 0 ? " · нет свободного gap" : ""
+                  }`,
+                  value: layerInsertOptionKey(option),
+                }))}
+                value={state.insertPosition}
+              />
             ) : null}
 
-            <label>
-              <span className={styles.prototypeEyebrow}>Код</span>
-              <input
-                className={`${styles.prototypeField} mt-1`}
-                value={state.draft.code}
-                onChange={(event) => onDraftChange({ code: event.target.value })}
-              />
-              {fieldErrors?.code ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.code}</p> : null}
-            </label>
-            <label>
-              <span className={styles.prototypeEyebrow}>Название</span>
-              <input
-                className={`${styles.prototypeField} mt-1`}
-                value={state.draft.name}
-                onChange={(event) => onDraftChange({ name: event.target.value })}
-              />
-              {fieldErrors?.name ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.name}</p> : null}
-            </label>
+            <Input
+              invalid={Boolean(fieldErrors?.code)}
+              label="Код"
+              message={fieldErrors?.code}
+              onChange={(event) => onDraftChange({ code: event.target.value })}
+              value={state.draft.code}
+            />
+            <Input
+              invalid={Boolean(fieldErrors?.name)}
+              label="Название"
+              message={fieldErrors?.name}
+              onChange={(event) => onDraftChange({ name: event.target.value })}
+              value={state.draft.name}
+            />
             {state.draft.geometryMode === "circle" ? (
               <>
-                <label>
-                  <span className={styles.prototypeEyebrow}>Внутренний радиус, км</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.1}
-                    className={`${styles.prototypeField} mt-1`}
-                    value={metersToKilometers(state.draft.innerRadiusM)}
-                    onChange={(event) => onDraftChange({ innerRadiusM: kilometersToMeters(event.target.value) })}
-                  />
-                  {fieldErrors?.innerRadiusM ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.innerRadiusM}</p> : null}
-                </label>
-                <label>
-                  <span className={styles.prototypeEyebrow}>Ширина, км</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.1}
-                    className={`${styles.prototypeField} mt-1`}
-                    value={metersToKilometers(state.draft.widthM)}
-                    onChange={(event) => onDraftChange({ widthM: kilometersToMeters(event.target.value) })}
-                  />
-                  {fieldErrors?.widthM ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.widthM}</p> : null}
-                </label>
+                <Input
+                  invalid={Boolean(fieldErrors?.innerRadiusM)}
+                  label="Внутренний радиус, км"
+                  message={fieldErrors?.innerRadiusM}
+                  min={0}
+                  onChange={(event) => onDraftChange({ innerRadiusM: kilometersToMeters(event.target.value) })}
+                  step={0.1}
+                  type="number"
+                  value={metersToKilometers(state.draft.innerRadiusM)}
+                />
+                <Input
+                  invalid={Boolean(fieldErrors?.widthM)}
+                  label="Ширина, км"
+                  message={fieldErrors?.widthM}
+                  min={0}
+                  onChange={(event) => onDraftChange({ widthM: kilometersToMeters(event.target.value) })}
+                  step={0.1}
+                  type="number"
+                  value={metersToKilometers(state.draft.widthM)}
+                />
               </>
             ) : (
               <div className="sm:col-span-2">
                 <span className={styles.prototypeEyebrow}>Контур на карте</span>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={`${styles.prototypeButtonPrimary} cursor-pointer px-3`}
+                  <Button
                     onClick={() => onDraftChange({ polygonCoordinates: [], polygonClosed: false })}
                   >
                     Нарисовать контур
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.prototypeButton} cursor-pointer px-3`}
+                  </Button>
+                  <Button
                     disabled={state.draft.polygonCoordinates.length === 0}
                     onClick={() =>
                       onDraftChange({
@@ -1640,25 +1595,24 @@ function LayerGeometryWizard({
                         polygonClosed: false,
                       })
                     }
+                    variant="secondary"
                   >
                     Отменить точку
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.prototypeButton} cursor-pointer px-3`}
+                  </Button>
+                  <Button
                     disabled={state.draft.polygonCoordinates.length === 0}
                     onClick={() => onDraftChange({ polygonCoordinates: [], polygonClosed: false })}
+                    variant="secondary"
                   >
                     Очистить
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.prototypeButton} cursor-pointer px-3`}
+                  </Button>
+                  <Button
                     disabled={state.draft.polygonCoordinates.length < 3 || state.draft.polygonClosed}
                     onClick={() => onDraftChange({ polygonClosed: true })}
+                    variant="secondary"
                   >
                     Замкнуть контур
-                  </button>
+                  </Button>
                 </div>
                 <p className={`${styles.prototypeMeta} mt-2`}>
                   Точек: {state.draft.polygonCoordinates.length} · {state.draft.polygonClosed ? "контур замкнут" : "кликайте по карте"}
@@ -1703,9 +1657,9 @@ function LayerGeometryWizard({
               </div>
             </div>
             {validationMessage ? (
-              <div className={`${styles.prototypeNoticeDanger} mt-3`}>
+              <InlineMessage tone="error">
                 {validationMessage}
-              </div>
+              </InlineMessage>
             ) : null}
           </div>
         </div>
@@ -1716,14 +1670,12 @@ function LayerGeometryWizard({
               ? "Точки контура видны только в режиме создания или редактирования."
               : "Пересечения запрещены, касание границ допустимо. Соседние эшелоны не сдвигаются."}
           </p>
-          <button
-            type="button"
-            className={`${styles.prototypeButtonPrimary} cursor-pointer px-4`}
+          <Button
             disabled={!isValid}
             onClick={onSubmit}
           >
             {state.mode === "create" ? "Создать" : "Сохранить"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

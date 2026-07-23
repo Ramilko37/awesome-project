@@ -34,6 +34,8 @@ test("Project Tree exposes the base object, layers and placed objects as a seman
   assert.match(html, new RegExp(layer.code));
   assert.match(html, /aria-current="true"/);
   assert.match(html, /aria-selected="true"/);
+  assert.match(html, /class="fortis-search"/);
+  assert.match(html, /class="fortis-tree-item"/);
 });
 
 test("Object Inspector shows selected asset context and does not invent an object when selection is empty", () => {
@@ -78,6 +80,8 @@ test("Object Inspector shows selected asset context and does not invent an objec
   assert.match(selected, /aria-label="Количество объектов"/);
   assert.match(selected, /aria-label="Статус объекта"/);
   assert.match(selected, /Скрыть на карте/);
+  assert.match(selected, /class="fortis-select/);
+  assert.match(selected, /class="fortis-button/);
   assert.match(empty, /Выберите объект на карте или в структуре проекта/);
   assert.doesNotMatch(empty, /Количество/);
 });

@@ -1,8 +1,13 @@
 "use client";
 
-import { EyeInvisibleOutlined, EyeOutlined } from "@ant-design/icons";
 import { describePlacement } from "@/modules/drone-defense/domain/placement-helpers";
-import styles from "./drone-defense-prototype.module.css";
+import {
+  AssetCard,
+  Button,
+  EmptyState,
+  Icon,
+  Status,
+} from "@/shared/ui/fortis";
 import type {
   DefenseCatalogResponse,
   DefenseLayer,
@@ -48,10 +53,10 @@ export function EchelonObjectsList({
 
   if (layerPlacements.length === 0) {
     return (
-      <div className={`${styles.prototypeCard} ${styles.prototypeMutedCard}`}>
-        <p className={styles.prototypeCardTitle}>В этом эшелоне пока нет объектов</p>
-        <p className={styles.prototypeMeta}>Перетащите средство из каталога на карту</p>
-      </div>
+      <EmptyState
+        description="Перетащите средство из каталога на карту."
+        title="В этом эшелоне пока нет объектов"
+      />
     );
   }
 
@@ -61,59 +66,71 @@ export function EchelonObjectsList({
         const summary = describePlacement({ placement, catalog, layers });
         const isSelected = placement.id === selectedPlacementId;
         const isHidden = hiddenPlacementIds.has(placement.id);
-        const statusClass =
+        const statusTone =
           summary.status === "ready"
-            ? styles.prototypeBadgeSuccess
+            ? "success"
             : summary.status === "warning"
-              ? styles.prototypeBadgeWarning
-              : styles.prototypeBadgeMuted;
+              ? "warning"
+              : "neutral";
+
         return (
-          <li
-            key={placement.id}
-            className={`${styles.prototypeCard} ${isSelected ? styles.prototypeCardSelected : ""}`}
-          >
-            <button type="button" className="block w-full text-left" onClick={() => onSelect(placement.id)}>
-              <div className="flex items-start justify-between gap-2">
-                <p className={styles.prototypeCardTitle}>{summary.name}</p>
-                {isHidden ? (
-                  <span className={styles.prototypeBadgeWarning}>
-                    скрыт на карте
-                  </span>
-                ) : null}
-                <span className={statusClass}>
-                  {statusLabel[summary.status]}
-                </span>
-              </div>
-              <p className={styles.prototypeMeta}>
-                {summary.echelonShortName} · {summary.echelonName} · ×{summary.qty} · {formatCostRub(summary.costRub)}
-              </p>
-            </button>
-            <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                className={`${styles.prototypeButton} px-2`}
-                onClick={() => onLocate(placement)}
-              >
-                На карте
-              </button>
-              <button
-                type="button"
-                className={`${isHidden ? styles.prototypeButtonPrimary : styles.prototypeButton} px-2`}
-                onClick={() => onToggleVisibility(placement.id)}
-                title={isHidden ? "Показать на карте" : "Скрыть на карте"}
-                aria-pressed={!isHidden}
-              >
-                {isHidden ? <EyeOutlined /> : <EyeInvisibleOutlined />}
-                {isHidden ? "Показать" : "Скрыть"}
-              </button>
-              <button
-                type="button"
-                className={`${styles.prototypeButtonDanger} px-2`}
-                onClick={() => onRemove(placement.id)}
-              >
-                Удалить
-              </button>
-            </div>
+          <li key={placement.id}>
+            <AssetCard
+              actions={
+                <div className="fortis-echelons-object-actions">
+                  <Button
+                    onClick={() => onSelect(placement.id)}
+                    size="sm"
+                    variant={isSelected ? "primary" : "quiet"}
+                  >
+                    {isSelected ? "Выбран" : "Выбрать"}
+                  </Button>
+                  <Button
+                    leadingIcon={<Icon decorative name="action.locate" />}
+                    onClick={() => onLocate(placement)}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    На карте
+                  </Button>
+                  <Button
+                    aria-pressed={!isHidden}
+                    leadingIcon={
+                      <Icon
+                        decorative
+                        name={isHidden ? "action.visibility-on" : "action.visibility-off"}
+                      />
+                    }
+                    onClick={() => onToggleVisibility(placement.id)}
+                    size="sm"
+                    variant={isHidden ? "primary" : "secondary"}
+                  >
+                    {isHidden ? "Показать" : "Скрыть"}
+                  </Button>
+                  <Button
+                    leadingIcon={<Icon decorative name="action.delete" />}
+                    onClick={() => onRemove(placement.id)}
+                    size="sm"
+                    variant="danger"
+                  >
+                    Удалить
+                  </Button>
+                </div>
+              }
+              meta={`${summary.echelonShortName} · ${summary.echelonName} · ×${summary.qty} · ${formatCostRub(summary.costRub)}`}
+              selected={isSelected}
+              status={
+                <div className="fortis-echelons-object-status">
+                  {isHidden ? <Status label="Скрыт на карте" tone="warning" /> : null}
+                  <Status
+                    label={statusLabel[summary.status]}
+                    tone={statusTone}
+                  />
+                </div>
+              }
+              title={summary.name}
+              warning={summary.status === "warning"}
+            />
           </li>
         );
       })}

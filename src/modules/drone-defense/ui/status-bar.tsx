@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  AimOutlined,
-  DollarOutlined,
-  PlayCircleOutlined,
-  RadarChartOutlined,
-  SafetyCertificateOutlined,
-  ThunderboltOutlined,
-} from "@ant-design/icons";
+import { Icon } from "@/shared/ui/fortis";
 import { scenarioLabels, type DefenseStats, type ScenarioId } from "../domain/prototype-types";
 import styles from "./drone-defense-prototype.module.css";
 
@@ -32,32 +25,32 @@ export function StatusBar({
         <span>›</span>
       </button>
       <div className={styles.metric}>
-        <SafetyCertificateOutlined />
+        <Icon decorative name="asset.protection" />
         <strong>{stats.protectedObjects}/{stats.protectedObjectsTotal}</strong>
         <span>Защищено объектов</span>
       </div>
       <div className={styles.metric}>
-        <RadarChartOutlined />
+        <Icon decorative name="asset.detection" />
         <strong>{stats.perimeterCoveredPercent}%</strong>
         <span>Периметр перекрыт</span>
       </div>
       <div className={styles.metric}>
-        <ThunderboltOutlined />
+        <Icon decorative name="metric.response" />
         <strong>{stats.attacksRepelled}/{stats.attacksTotal}</strong>
         <span>Отражено атак</span>
       </div>
       <div className={styles.metric}>
-        <AimOutlined />
+        <Icon decorative name="asset.interceptor" />
         <strong>{stats.residualRiskPercent}%</strong>
         <span>Остаточный риск</span>
       </div>
       <div className={styles.metric}>
-        <DollarOutlined />
+        <Icon decorative name="metric.cost" />
         <strong>{stats.capexMln}</strong>
         <span>CAPEX, млн ₽</span>
       </div>
       <button className={styles.simulationButton} type="button" onClick={onToggleDemo}>
-        <PlayCircleOutlined />
+        <Icon decorative name={demoMode ? "action.pause" : "action.play"} />
         {demoMode ? "Остановить сценарий" : "Запустить сценарий"}
       </button>
     </footer>

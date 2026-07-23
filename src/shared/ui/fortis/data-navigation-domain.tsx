@@ -1,5 +1,5 @@
 "use client";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import { Button, Status } from "./core";
 import { Icon } from "./icon";
 
@@ -12,8 +12,111 @@ export function SuccessState({ action, description, title }: { action?: ReactNod
 export function Navigation({ currentId, items }: { currentId: string; items: { href: string; id: string; label: string }[] }) { return <nav aria-label="Навигация проекта" className="fortis-navigation">{items.map((item) => <a aria-current={currentId === item.id ? "page" : undefined} href={item.href} key={item.id}>{item.label}</a>)}</nav>; }
 export function Breadcrumbs({ items }: { items: { href?: string; label: string }[] }) { return <nav aria-label="Хлебные крошки"><ol className="fortis-breadcrumbs">{items.map((item, index) => <li key={item.label}>{item.href ? <a href={item.href}>{item.label}</a> : <span aria-current="page">{item.label}</span>}{index < items.length - 1 ? <span aria-hidden="true"> / </span> : null}</li>)}</ol></nav>; }
 export function PageHeader({ actions, description, eyebrow, title }: { actions?: ReactNode; description?: string; eyebrow?: string; title: string }) { return <header className="fortis-page-header">{eyebrow ? <span className="fortis-mono">{eyebrow}</span> : null}<h1>{title}</h1>{description ? <p>{description}</p> : null}{actions ? <div className="fortis-page-header__actions">{actions}</div> : null}</header>; }
-export function AssetCard({ meta, onSelect, selected, status, title }: { meta: string; onSelect?: () => void; selected?: boolean; status?: ReactNode; title: string }) { return <article className="fortis-card" data-selected={selected || undefined}><div className="fortis-card__title"><strong>{title}</strong>{status}</div><span>{meta}</span>{onSelect ? <Button onClick={onSelect} variant="secondary">Выбрать</Button> : null}</article>; }
-export function EchelonTreeItem({ count, label, level, onSelect, selected, warning }: { count: string | number; label: string; level: "L1" | "L2" | "L3" | "L4" | "A"; onSelect?: () => void; selected?: boolean; warning?: boolean }) { const colors = { A: "var(--fortis-cyan-500)", L1: "var(--fortis-blue-500)", L2: "var(--fortis-cyan-500)", L3: "var(--fortis-violet-500)", L4: "var(--fortis-amber-600)" }; return <button aria-selected={selected ?? false} className="fortis-tree-item" data-selected={selected || undefined} data-warning={warning || undefined} onClick={onSelect} role="treeitem" style={{ "--fortis-level": colors[level] } as CSSProperties} type="button"><span><span className="fortis-badge" data-tone="neutral">{level}</span> {label}</span><span className="fortis-mono">{count}{warning ? " !" : ""}</span></button>; }
+type AssetCardProps = Omit<HTMLAttributes<HTMLElement>, "title"> & {
+  actions?: ReactNode;
+  children?: ReactNode;
+  disabled?: boolean;
+  leading?: ReactNode;
+  meta: string;
+  onSelect?: () => void;
+  selected?: boolean;
+  status?: ReactNode;
+  title: string;
+  warning?: boolean;
+};
+
+export function AssetCard({
+  actions,
+  children,
+  className,
+  disabled,
+  leading,
+  meta,
+  onSelect,
+  selected,
+  status,
+  title,
+  warning,
+  ...props
+}: AssetCardProps) {
+  return (
+    <article
+      className={`fortis-card ${className ?? ""}`}
+      data-disabled={disabled || undefined}
+      data-selected={selected || undefined}
+      data-warning={warning || undefined}
+      {...props}
+    >
+      <div className="fortis-card__title">
+        <span className="fortis-card__identity">{leading}<strong>{title}</strong></span>
+        {status}
+      </div>
+      <span>{meta}</span>
+      {children ? <div className="fortis-card__content">{children}</div> : null}
+      {actions ?? (onSelect ? <Button disabled={disabled} onClick={onSelect} variant="secondary">Выбрать</Button> : null)}
+    </article>
+  );
+}
+
+type EchelonTreeItemProps = {
+  color?: string;
+  count: string | number;
+  current?: boolean;
+  detail?: string;
+  disabled?: boolean;
+  hidden?: boolean;
+  label: string;
+  level: string;
+  onSelect?: () => void;
+  pattern?: "solid" | "dashed" | "dotted";
+  selected?: boolean;
+  warning?: boolean;
+};
+
+export function EchelonTreeItem({
+  color,
+  count,
+  current,
+  detail,
+  disabled,
+  hidden,
+  label,
+  level,
+  onSelect,
+  pattern = "solid",
+  selected,
+  warning,
+}: EchelonTreeItemProps) {
+  const colors: Record<string, string> = {
+    A: "var(--fortis-cyan-500)",
+    L1: "var(--fortis-blue-500)",
+    L2: "var(--fortis-cyan-500)",
+    L3: "var(--fortis-violet-500)",
+    L4: "var(--fortis-amber-600)",
+  };
+  return (
+    <button
+      aria-current={current ? "true" : undefined}
+      aria-selected={selected ?? false}
+      className="fortis-tree-item"
+      data-hidden={hidden || undefined}
+      data-pattern={pattern}
+      data-selected={selected || undefined}
+      data-warning={warning || undefined}
+      disabled={disabled}
+      onClick={onSelect}
+      role="treeitem"
+      style={{ "--fortis-level": color ?? colors[level] ?? "var(--fortis-blue-500)" } as CSSProperties}
+      type="button"
+    >
+      <span className="fortis-tree-item__copy">
+        <span><span className="fortis-badge" data-tone="neutral">{level}</span> {label}</span>
+        {detail ? <small>{detail}</small> : null}
+      </span>
+      <span className="fortis-mono">{count}{warning ? " !" : ""}</span>
+    </button>
+  );
+}
 export function BudgetMetric({ comparison, label, status = "neutral", value }: { comparison?: string; label: string; status?: "neutral" | "warning" | "danger"; value: string }) { return <section className="fortis-metric"><span>{label}</span><strong className="fortis-metric__value">{value}</strong>{comparison ? <Status label={comparison} tone={status === "danger" ? "danger" : status === "warning" ? "warning" : "neutral"} /> : null}</section>; }
 export function CoverageStatus({ entries }: { entries: { label: string; pattern: "solid" | "dashed" | "dotted"; value: string }[] }) { const colors = ["var(--fortis-blue-500)", "var(--fortis-cyan-500)", "var(--fortis-violet-500)", "var(--fortis-amber-600)"]; return <section className="fortis-card">{entries.map((entry, index) => <div className="fortis-coverage-row" key={entry.label}><span><i className="fortis-line-key" data-pattern={entry.pattern} style={{ "--fortis-level": colors[index] } as CSSProperties} /> {entry.label}</span><strong className="fortis-mono">{entry.value}</strong></div>)}</section>; }
 export function WarningStack({ warnings }: { warnings: { action?: ReactNode; detail: string; title: string }[] }) { return <section className="fortis-warning-stack">{warnings.map((warning) => <div className="fortis-card__title" key={warning.title}><span><strong>{warning.title}</strong><br /><small>{warning.detail}</small></span>{warning.action}</div>)}</section>; }

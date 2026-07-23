@@ -4,7 +4,10 @@ import { readFileSync } from "node:fs";
 const gisBoardSource = readFileSync("src/modules/drone-defense/ui/gis-board.tsx", "utf8");
 
 assert(
-  gisBoardSource.includes('aria-label="Приблизить карту"') && gisBoardSource.includes('aria-label="Отдалить карту"'),
+  gisBoardSource.includes('icon="map.zoom-in"') &&
+    gisBoardSource.includes('label="Приблизить карту"') &&
+    gisBoardSource.includes('icon="map.zoom-out"') &&
+    gisBoardSource.includes('label="Отдалить карту"'),
   "GisBoard must expose clickable map zoom controls",
 );
 assert(
@@ -13,7 +16,7 @@ assert(
 );
 assert(
   gisBoardSource.includes("const deckControllerOptions") &&
-    gisBoardSource.includes("scrollZoom: { speed: 0.00125, smooth: true }") &&
+    gisBoardSource.includes("scrollZoom: { speed: 0.00125 / 3, smooth: true }") &&
     gisBoardSource.includes("controller={deckControllerOptions}"),
   "GisBoard must slow down touchpad wheel zoom through explicit deck.gl controller options",
 );

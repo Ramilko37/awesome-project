@@ -10,8 +10,14 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
-import { AlertTriangle, Info, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  Button,
+  Checkbox,
+  IconButton,
+  InlineMessage,
+  Input,
+  Select,
+} from "@/shared/ui/fortis";
 import {
   buildMogCoverageInputMap,
   buildMogCostSummary,
@@ -91,29 +97,29 @@ function Stepper({
 }) {
   return (
     <div className={styles.prototypeCounter}>
-      <button
-        type="button"
+      <IconButton
+        className={styles.prototypeCounterButton}
+        icon="minus"
+        label={`${ariaLabel}: уменьшить`}
         onClick={onDecrease}
         disabled={value <= 0}
-        aria-label={`${ariaLabel}: уменьшить`}
-        className={styles.prototypeCounterButton}
-      >
-        −
-      </button>
+        size="sm"
+        variant="quiet"
+      />
       <output
         aria-label={`${ariaLabel}: текущее значение`}
         className={styles.prototypeCounterValue}
       >
         {value}
       </output>
-      <button
-        type="button"
-        onClick={onIncrease}
-        aria-label={`${ariaLabel}: увеличить`}
+      <IconButton
         className={styles.prototypeCounterButton}
-      >
-        +
-      </button>
+        icon="action.add"
+        label={`${ariaLabel}: увеличить`}
+        onClick={onIncrease}
+        size="sm"
+        variant="quiet"
+      />
     </div>
   );
 }
@@ -527,14 +533,14 @@ export function MogCompositionEditor({
                 {draft.postType} · {layerLabel} · {formatMogMoney(costSummary.baseMln)}
               </p>
             </div>
-            <button
-              type="button"
+            <IconButton
+              className="shrink-0"
+              icon="action.close"
+              label="Закрыть редактор МОГ"
               onClick={handleCancel}
-              className={`${styles.prototypeIconButton} shrink-0`}
-              aria-label="Закрыть редактор МОГ"
-            >
-              <X className="h-4 w-4" />
-            </button>
+              size="sm"
+              variant="quiet"
+            />
           </div>
         </header>
 
@@ -542,60 +548,43 @@ export function MogCompositionEditor({
           <div className={styles.prototypeDrawerStack}>
             <EditorSection title="Основные параметры" eyebrow="Пост и контекст">
               <div className="grid gap-4">
-                <label className={styles.prototypeLabel}>
-                  Тип поста
-                  <select
-                    value={draft.postType}
-                    onChange={(event) => applyDraft((current) => ({ ...current, postType: event.target.value }))}
-                    className={styles.prototypeSelect}
-                  >
-                    {MOG_POST_TYPE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {formatMogOption(option)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <Select
+                  label="Тип поста"
+                  onChange={(event) => applyDraft((current) => ({ ...current, postType: event.target.value }))}
+                  options={MOG_POST_TYPE_OPTIONS.map((option) => ({
+                    label: formatMogOption(option),
+                    value: option.value,
+                  }))}
+                  value={draft.postType}
+                />
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className={styles.prototypeLabel}>
-                    Количество личного состава
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        inputMode="numeric"
-                        value={draft.personnelCount}
-                        onChange={(event) =>
-                          applyDraft((current) => ({
-                            ...current,
-                            personnelCount: sanitizeMogCountInput(event.target.value),
-                          }))
-                        }
-                        className={`${styles.prototypeField} pr-14`}
-                      />
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
-                        чел.
-                      </span>
-                    </div>
-                    <FieldError message={errors.personnelCount} />
-                  </label>
+                  <Input
+                    inputMode="numeric"
+                    invalid={Boolean(errors.personnelCount)}
+                    label="Количество личного состава, чел."
+                    message={errors.personnelCount}
+                    min={0}
+                    onChange={(event) =>
+                      applyDraft((current) => ({
+                        ...current,
+                        personnelCount: sanitizeMogCountInput(event.target.value),
+                      }))
+                    }
+                    step={1}
+                    type="number"
+                    value={draft.personnelCount}
+                  />
 
-                  <label className={styles.prototypeLabel}>
-                    Подотчётность
-                    <select
-                      value={draft.accountability}
-                      onChange={(event) => applyDraft((current) => ({ ...current, accountability: event.target.value }))}
-                      className={styles.prototypeSelect}
-                    >
-                      {MOG_ACCOUNTABILITY_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {formatMogOption(option)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <Select
+                    label="Подотчётность"
+                    onChange={(event) => applyDraft((current) => ({ ...current, accountability: event.target.value }))}
+                    options={MOG_ACCOUNTABILITY_OPTIONS.map((option) => ({
+                      label: formatMogOption(option),
+                      value: option.value,
+                    }))}
+                    value={draft.accountability}
+                  />
                 </div>
               </div>
             </EditorSection>
@@ -680,31 +669,17 @@ export function MogCompositionEditor({
                         <div className={styles.prototypeMeta}>
                           Кол-во: <span className="font-semibold text-slate-700">{quantity}</span>
                         </div>
-                        <label
-                          className={cn(
-                            styles.prototypeButton,
-                            "min-h-9 cursor-pointer px-3",
-                            isActive && "bg-white",
-                            !isActive && "bg-white text-slate-700",
-                            isDisabled && "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400",
-                          )}
-                          style={!isDisabled && isActive ? { borderColor: color.stroke, color: color.stroke } : undefined}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isActive}
-                            disabled={isDisabled}
-                            onChange={() => handleCoverageToggle(weapon.id)}
-                            className="h-4 w-4 rounded border-slate-300 accent-slate-900"
-                          />
-                          <span>{isActive ? "Покрытие на карте" : "Показать покрытие"}</span>
-                        </label>
+                        <Checkbox
+                          checked={isActive}
+                          disabled={isDisabled}
+                          label={isActive ? "Покрытие на карте" : "Показать покрытие"}
+                          onCheckedChange={() => handleCoverageToggle(weapon.id)}
+                        />
                       </div>
 
                       {!isDisabled ? (
                         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                          <label className={styles.prototypeLabel}>
-                            Азимут
+                          <div>
                             <div className={styles.mogAzimuthControl}>
                               <MogAzimuthDial
                                 value={dialAzimuth}
@@ -712,34 +687,24 @@ export function MogCompositionEditor({
                                 weaponLabel={weapon.label}
                                 onChange={(nextAzimuth) => handleWeaponAzimuthDialChange(weapon.id, nextAzimuth)}
                               />
-                              <div className={cn(styles.mogAzimuthInput, "relative")}>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={359}
-                                  step={1}
-                                  inputMode="numeric"
-                                  value={azimuthInputValue}
-                                  onChange={(event) => handleWeaponAzimuthInput(weapon.id, event.target.value)}
-                                  onBlur={() => commitWeaponAzimuthInput(weapon.id)}
-                                  className={cn(
-                                    styles.prototypeField,
-                                    "pr-10",
-                                    errors.weaponCoverageAzimuth[weapon.id]
-                                      ? "border-rose-300 focus:border-rose-400"
-                                      : "border-slate-200 focus:border-blue-300",
-                                  )}
-                                />
-                                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
-                                  °
-                                </span>
-                              </div>
+                              <Input
+                                className={styles.mogAzimuthInput}
+                                inputMode="numeric"
+                                invalid={Boolean(errors.weaponCoverageAzimuth[weapon.id])}
+                                label="Азимут, °"
+                                max={359}
+                                message={errors.weaponCoverageAzimuth[weapon.id]}
+                                min={0}
+                                onBlur={() => commitWeaponAzimuthInput(weapon.id)}
+                                onChange={(event) => handleWeaponAzimuthInput(weapon.id, event.target.value)}
+                                step={1}
+                                type="number"
+                                value={azimuthInputValue}
+                              />
                             </div>
-                            <FieldError message={errors.weaponCoverageAzimuth[weapon.id]} />
-                          </label>
+                          </div>
 
-                          <label className={styles.prototypeLabel}>
-                            Сектор
+                          <div>
                             <div className={styles.mogAzimuthControl}>
                               <MogSectorDial
                                 value={dialSector}
@@ -747,31 +712,22 @@ export function MogCompositionEditor({
                                 weaponLabel={weapon.label}
                                 onChange={(nextSector) => handleWeaponSectorDialChange(weapon.id, nextSector)}
                               />
-                              <div className={cn(styles.mogSectorInput, "relative")}>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={360}
-                                  step={1}
-                                  inputMode="numeric"
-                                  value={sectorInputValue}
-                                  onChange={(event) => handleWeaponSectorInput(weapon.id, event.target.value)}
-                                  onBlur={() => commitWeaponSectorInput(weapon.id)}
-                                  className={cn(
-                                    styles.prototypeField,
-                                    "pr-10",
-                                    errors.weaponCoverageSectorWidthDeg[weapon.id]
-                                      ? "border-rose-300 focus:border-rose-400"
-                                      : "border-slate-200 focus:border-blue-300",
-                                  )}
-                                />
-                                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
-                                  °
-                                </span>
-                              </div>
+                              <Input
+                                className={styles.mogSectorInput}
+                                inputMode="numeric"
+                                invalid={Boolean(errors.weaponCoverageSectorWidthDeg[weapon.id])}
+                                label="Сектор, °"
+                                max={360}
+                                message={errors.weaponCoverageSectorWidthDeg[weapon.id]}
+                                min={1}
+                                onBlur={() => commitWeaponSectorInput(weapon.id)}
+                                onChange={(event) => handleWeaponSectorInput(weapon.id, event.target.value)}
+                                step={1}
+                                type="number"
+                                value={sectorInputValue}
+                              />
                             </div>
-                            <FieldError message={errors.weaponCoverageSectorWidthDeg[weapon.id]} />
-                          </label>
+                          </div>
                         </div>
                       ) : null}
 
@@ -847,31 +803,27 @@ export function MogCompositionEditor({
         </div>
 
         <footer className={styles.prototypeDrawerFooter}>
-          <div className={`${styles.prototypeNotice} flex items-start gap-2`}>
-            {hasErrors ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" /> : <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />}
-            <p>
-              {hasErrors
-                ? "Исправьте ошибки в форме, прежде чем сохранять объект."
-                : "Каждое покрытие на карте обновляется сразу со своим азимутом и сектором. Сохранение фиксирует текущую конфигурацию, отмена возвращает исходный вариант."}
-            </p>
-          </div>
+          <InlineMessage tone={hasErrors ? "error" : "info"}>
+            {hasErrors
+              ? "Исправьте ошибки в форме, прежде чем сохранять объект."
+              : "Каждое покрытие на карте обновляется сразу со своим азимутом и сектором. Сохранение фиксирует текущую конфигурацию, отмена возвращает исходный вариант."}
+          </InlineMessage>
 
           <div className="mt-4 flex gap-3">
-            <button
-              type="button"
+            <Button
+              className="flex-1"
               onClick={handleCancel}
-              className={`${styles.prototypeButton} flex-1 px-4`}
+              variant="secondary"
             >
               Отмена
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              className="flex-1"
               onClick={handleSave}
               disabled={hasErrors || !isDirty}
-              className={`${styles.prototypeButtonPrimary} flex-1 px-4`}
             >
               Сохранить изменения
-            </button>
+            </Button>
           </div>
         </footer>
       </aside>

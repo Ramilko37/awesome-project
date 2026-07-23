@@ -1,13 +1,8 @@
 "use client";
 
-import {
-  BorderOuterOutlined,
-  ApartmentOutlined,
-  DeploymentUnitOutlined,
-  GatewayOutlined,
-} from "@ant-design/icons";
 import { useMemo } from "react";
 import { DefenseAssetCard, type PlacementMode } from "./defense-asset-card";
+import { Button, Icon, Search } from "@/shared/ui/fortis";
 import styles from "./drone-defense-prototype.module.css";
 import { useDefenseStudioStore } from "../domain/use-defense-studio-store";
 import type { DefenseAssetKind } from "@/shared/types/drone-defense";
@@ -27,15 +22,15 @@ const placementModeByKind: Record<DefenseAssetKind, PlacementMode> = {
 function getAssetIcon(kind: DefenseAssetKind) {
   switch (kind) {
     case "operator_substation":
-      return <ApartmentOutlined />;
+      return <Icon decorative name="asset.command-center" />;
     case "scaffolding":
-      return <DeploymentUnitOutlined />;
+      return <Icon decorative name="asset.infrastructure" />;
     case "fbs_enclosure":
-      return <GatewayOutlined />;
+      return <Icon decorative name="asset.protection" />;
     case "perimeter_barrier":
-      return <BorderOuterOutlined />;
+      return <Icon decorative name="asset.protection" />;
     case "cable_mesh":
-      return <BorderOuterOutlined />;
+      return <Icon decorative name="asset.network" />;
   }
 }
 
@@ -76,11 +71,9 @@ export function AssetsPanel({
       
       {/* Поиск */}
       <div className={styles.searchRow}>
-        <span>🔍</span>
-        <input
-          type="text"
+        <Search
+          label="Поиск средств защиты"
           placeholder="Поиск средств защиты..."
-          aria-label="Поиск"
         />
       </div>
 
@@ -120,9 +113,9 @@ export function AssetsPanel({
         </p>
       </div>
       {placingKind ? (
-        <button className={styles.performanceButton} type="button" onClick={onCancelPlacement}>
+        <Button className={styles.performanceButton} onClick={onCancelPlacement} variant="secondary">
           Отменить размещение
-        </button>
+        </Button>
       ) : null}
     </aside>
   );

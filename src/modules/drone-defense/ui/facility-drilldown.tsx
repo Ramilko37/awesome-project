@@ -1,14 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  CompassOutlined,
-  ControlOutlined,
-  DragOutlined,
-  EyeOutlined,
-  SearchOutlined,
-} from "@ant-design/icons";
-import { message } from "antd";
+import { Icon, Toast } from "@/shared/ui/fortis";
 import type { Configuration, DefenseAssetKind, DefenseScenarioId, Placement } from "@/shared/types/drone-defense";
 import {
   kindLabel,
@@ -47,6 +40,10 @@ const cameraPresetLabels: Record<CameraPresetId, string> = {
 
 const threatStatusSequence: ThreatStatus[] = ["detected", "tracking", "neutralized", "breach"];
 type ViewMode = "scene3d" | "hex";
+type DrilldownNotice = {
+  text: string;
+  tone: "info" | "success";
+};
 
 const viewModeLabels: Record<ViewMode, string> = {
   scene3d: "3D-карта",
@@ -84,8 +81,12 @@ export function FacilityDrilldown({
   const [placingKind, setPlacingKind] = useState<DefenseAssetKind | null>(null);
   const [placementPoint, setPlacementPoint] = useState<[number, number, number]>([0, 0, 0]);
   const localPlacementSeqRef = useRef(0);
-  const [messageApi, contextHolder] = message.useMessage();
+  const [notice, setNotice] = useState<DrilldownNotice | null>(null);
   const objects = useMemo(() => sceneObjectsFromConfiguration(configuration), [configuration]);
+  const notify = useCallback((tone: DrilldownNotice["tone"], text: string) => {
+    setNotice({ text, tone });
+  }, []);
+  const dismissNotice = useCallback(() => setNotice(null), []);
 
   const selectedObject = useMemo(() => objects.find((item) => item.id === selectedId) ?? null, [objects, selectedId]);
   const selectedPlantObject = useMemo(
@@ -126,14 +127,14 @@ export function FacilityDrilldown({
     if (placement) {
       onLocalPlacementUpsert(placement);
     }
-    messageApi.success(`${kindLabel[kind]} добавлен на карту`);
+    notify("success", `${kindLabel[kind]} добавлен на карту`);
   };
 
   const startPlacing = (kind: DefenseAssetKind) => {
     setDemoMode(false);
     setPlacingKind(kind);
     setSelectedId(null);
-    messageApi.info(`Режим размещения: ${kindLabel[kind]}`);
+    notify("info", `Режим размещения: ${kindLabel[kind]}`);
   };
 
   const placePendingObject = () => {
@@ -147,7 +148,7 @@ export function FacilityDrilldown({
     const objectToDelete = objects.find((item) => item.id === selectedId);
     if (!objectToDelete) return;
     if (!isLocalPlacementId(objectToDelete.id)) {
-      messageApi.info("Базовые элементы удалять нельзя. Доступно удаление только локально добавленных.");
+      notify("info", "Базовые элементы удалять нельзя. Доступно удаление только локально добавленных.");
       return;
     }
     setPlantConnections((prev) =>
@@ -156,8 +157,8 @@ export function FacilityDrilldown({
     onLocalPlacementRemove(objectToDelete.id);
     setSelectedId(null);
     const removedLabel = objectToDelete.label;
-    messageApi.info(`${removedLabel} удален`);
-  }, [messageApi, objects, onLocalPlacementRemove, selectedId]);
+    notify("info", `${removedLabel} удален`);
+  }, [notify, objects, onLocalPlacementRemove, selectedId]);
 
   const duplicateSelected = () => {
     if (!selectedObject) return;
@@ -182,11 +183,11 @@ export function FacilityDrilldown({
     setPlacingKind(null);
     setViewMode(mode);
     if (mode === "hex") {
-      messageApi.info("Гексокарта: размещение и покрытие по ячейкам");
+      notify("info", "Гексокарта: размещение и покрытие по ячейкам");
       return;
     }
     requestCameraPreset("overview");
-    messageApi.info("3D-карта: возвращен детальный режим площадки");
+    notify("info", "3D-карта: возвращен детальный режим площадки");
   };
 
   const applyScenarioManually = (id: DefenseScenarioId) => {
@@ -223,7 +224,15 @@ export function FacilityDrilldown({
 
   return (
     <main className={`${styles.page} ${styles.pageDark}`.trim()}>
-      {contextHolder}
+      {notice ? (
+        <div className="fortis-drilldown-toast">
+          <Toast
+            message={notice.text}
+            onClose={dismissNotice}
+            tone={notice.tone}
+          />
+        </div>
+      ) : null}
 
       <Topbar
         scenario={scenario}
@@ -277,7 +286,7 @@ export function FacilityDrilldown({
             <div className={styles.cameraPresetBar} aria-label="Ракурсы камеры">
               {(Object.keys(cameraPresetLabels) as CameraPresetId[]).map((id) => (
                 <button key={id} type="button" onClick={() => requestCameraPreset(id)}>
-                  <EyeOutlined />
+                  <Icon decorative name="action.visibility-on" />
                   {cameraPresetLabels[id]}
                 </button>
               ))}
@@ -299,10 +308,10 @@ export function FacilityDrilldown({
             <strong>{configuration.placements.length} placements</strong>
           </div>
           <div className={styles.controlLegend}>
-            <span><CompassOutlined /> {viewMode === "hex" ? "Обзор ЛКМ" : "Орбита ЛКМ"}</span>
-            <span><DragOutlined /> {viewMode === "hex" ? "Смещение ПКМ" : "Панорама ПКМ"}</span>
-            <span><SearchOutlined /> {viewMode === "hex" ? "Масштаб колёсом" : "Масштаб колесом"}</span>
-            <span><ControlOutlined /> {viewMode === "hex" ? "Привязка к гексам" : "Перемещение объектов"}</span>
+            <span><Icon decorative name="navigation.scenario" /> {viewMode === "hex" ? "Обзор ЛКМ" : "Орбита ЛКМ"}</span>
+            <span><Icon decorative name="map.pan" /> {viewMode === "hex" ? "Смещение ПКМ" : "Панорама ПКМ"}</span>
+            <span><Icon decorative name="map.zoom-in" /> {viewMode === "hex" ? "Масштаб колёсом" : "Масштаб колесом"}</span>
+            <span><Icon decorative name="map.coordinates" /> {viewMode === "hex" ? "Привязка к гексам" : "Перемещение объектов"}</span>
           </div>
         </section>
 
