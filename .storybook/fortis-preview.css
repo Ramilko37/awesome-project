@@ -1,0 +1,12 @@
+@import "tailwindcss";
+@import "../src/shared/ui/fortis/tokens.css";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+  }
+}

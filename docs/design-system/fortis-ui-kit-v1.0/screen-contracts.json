@@ -1,0 +1,341 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "meta": {
+    "name": "Fortis GIS Workspace Screen Contracts",
+    "version": "1.0.0",
+    "status": "implementation-ready-design-contract",
+    "language": "ru-RU",
+    "sourcePrototype": "gis-workspace-flow.html",
+    "componentSource": "component-contracts.json",
+    "tokenSource": "design-tokens.json"
+  },
+  "evidenceBoundary": {
+    "verified": [
+      "Frontend uses Next.js 16, React 19, Tailwind 4, Radix/shadcn, Ant Design, lucide-react, @ant-design/icons, MapLibre/deck.gl and Zustand.",
+      "GisBoard receives selectedLayerId and selected placement callbacks.",
+      "EchelonObjectsList uses project-driven selectedPlacementId and selectPlacedObject.",
+      "useDefenseVariantsStore exposes saveStatus idle|saving|error and conflictState after a version conflict.",
+      "VariantsModal exposes the existing safe action «Перезагрузить актуальную версию»."
+    ],
+    "partiallyVerified": [
+      "Ant Modal supplies an overlay implementation, but the Fortis focus-return and visual contract is not integration-tested.",
+      "Map keyboard support is button-based for controls and markers; a complete roving marker model is not verified in React.",
+      "PropertiesPanel displays selected object details, but final editable ObjectInspector validation is not verified."
+    ],
+    "notVerified": [
+      "Offline queue/local-copy persistence and reconnection policy.",
+      "Optimistic save acknowledgement protocol and backend payloads.",
+      "Coverage validation thresholds and blocking/non-blocking classification.",
+      "Storybook, screen-reader behavior, real 200% browser zoom and final overlay provider ownership."
+    ]
+  },
+  "regions": {
+    "AppHeader": {
+      "components": ["Navigation", "PageHeader", "SaveIndicator", "VersionIndicator", "DropdownMenu"],
+      "responsive": {
+        "1440": "Brand, project name, workspace label, VersionIndicator, SaveIndicator, Inspector action and Save action visible.",
+        "1280": "Same composition; secondary project actions may enter DropdownMenu.",
+        "1024": "SideNavigation trigger appears; product/project title remains; Inspector and Save stay directly available.",
+        "768": "Two-row wrapping is allowed; project title, compact SaveIndicator, Inspector and Save remain visible; secondary actions move to overflow.",
+        "720": "Project title may truncate visually with full accessible name; state text and primary Save remain; no icon-only replacement."
+      }
+    },
+    "SideNavigation": {
+      "components": ["Navigation", "Drawer"],
+      "responsive": {
+        "1440": "Docked 224px navigation.",
+        "1280": "Docked at and above 1280 only.",
+        "1024": "Collapsed into a labelled Menu button; opens Drawer.",
+        "768": "Drawer, full-height, modal focus contract.",
+        "720": "Drawer width min(320px, 100vw); background inert."
+      }
+    },
+    "ProjectTree": {
+      "components": ["Search", "EchelonTreeItem", "EmptyState", "LoadingState", "Drawer"],
+      "responsive": {
+        "1440": "Docked 240–272px left column.",
+        "1280": "Docked 240px left column.",
+        "1024": "Docked 240px; inspector is not docked.",
+        "768": "Left Drawer opened by «Структура»; selected echelon/object remain in ContextBar while closed.",
+        "720": "Same Drawer contract; tree labels wrap and indentation is capped."
+      }
+    },
+    "MapCanvas": {
+      "components": ["MapCanvas", "Button", "Status", "LoadingState", "EmptyState", "ErrorState"],
+      "responsive": {
+        "1440": "Flexible center region, minimum 480px.",
+        "1280": "Flexible center region between tree and inspector.",
+        "1024": "Flexible region beside ProjectTree; inspector overlays as Drawer.",
+        "768": "Primary full-width workspace region; minimum height 520px.",
+        "720": "Primary full-width region; local map overflow/gesture area allowed, page overflow forbidden."
+      }
+    },
+    "MapToolbar": {
+      "components": ["Button", "SegmentedControl", "DropdownMenu"],
+      "responsive": {
+        "1440": "All primary tools visible, 44px default target.",
+        "1280": "Secondary tools may move to DropdownMenu.",
+        "1024": "Primary tools visible; toolbar may locally scroll horizontally.",
+        "768": "Single horizontal row with local overflow; text labels remain.",
+        "720": "40px compact minimum or 44px default; no clipped labels."
+      }
+    },
+    "ObjectInspector": {
+      "components": ["ObjectInspector", "Drawer", "Input", "CoverageStatus", "BudgetMetric", "WarningStack", "SaveIndicator"],
+      "responsive": {
+        "1440": "Docked 320–360px right column.",
+        "1280": "Docked 320px at and above 1280.",
+        "1024": "Modal Drawer from right, 420–480px.",
+        "768": "Right Drawer width min(448px, 100vw).",
+        "720": "Full-width Drawer; sticky header/footer; focus trap and restore focus."
+      }
+    },
+    "WarningStack": {
+      "components": ["WarningStack", "Alert", "InlineMessage"],
+      "responsive": {
+        "1440": "Inside inspector; one primary warning plus secondary list.",
+        "1280": "Inside inspector; no overlap with map tools.",
+        "1024": "Inside inspector Drawer; compact summary also appears in ContextBar.",
+        "768": "ContextBar shows count/severity text; full warnings in Drawer.",
+        "720": "Single column; actions remain 44px."
+      }
+    },
+    "BudgetMetric": {
+      "components": ["BudgetMetric"],
+      "responsive": {
+        "1440": "Full metric in inspector.",
+        "1280": "Full metric in inspector.",
+        "1024": "Full metric in Drawer.",
+        "768": "Value and remaining budget stack; no truncation.",
+        "720": "Number may wrap before currency label; accessible name remains complete."
+      }
+    },
+    "SaveIndicator": {
+      "components": ["SaveIndicator", "Status", "Toast"],
+      "responsive": {
+        "1440": "Header label + timestamp/detail.",
+        "1280": "Header label; detail may hide.",
+        "1024": "Header label and ContextBar redundancy.",
+        "768": "Compact text label remains visible; never color-only.",
+        "720": "State text remains; timestamp hides first."
+      }
+    },
+    "VersionIndicator": {
+      "components": ["VersionIndicator", "DropdownMenu"],
+      "responsive": {
+        "1440": "Version + current/draft status.",
+        "1280": "Version visible; history moves to overflow.",
+        "1024": "Version remains in ContextBar/header.",
+        "768": "Compact `v12` with accessible current-state label.",
+        "720": "Never replaced by color or hidden when conflict is active."
+      }
+    }
+  },
+  "states": [
+    {
+      "id": "initial-loading",
+      "userGoal": "Открыть проект «Завод Альфа» и понять, что данные загружаются.",
+      "trigger": "Route entry or explicit retry.",
+      "visualChange": "AppHeader remains; ProjectTree, MapCanvas and Inspector show structure-preserving LoadingState.",
+      "availableActions": ["Cancel navigation through browser history if available"],
+      "disabledActions": ["Select echelon", "Select object", "Edit", "Save"],
+      "focusDestination": "GIS Workspace heading; loading does not steal focus.",
+      "keyboardBehavior": "Tab reaches only available navigation; skeletons are not focusable.",
+      "announcement": {"politeness": "polite", "text": "Загружаем проект «Завод Альфа»."},
+      "recoveryPath": "On failure transition to blocking-error; on success transition to default-workspace or empty-project.",
+      "components": ["AppHeader", "Navigation", "LoadingState", "SaveIndicator"],
+      "semanticTokens": ["semantic.light.background.canvas", "semantic.light.background.surface", "semantic.light.text.secondary", "semantic.light.status.info.text", "motion.enter"]
+    },
+    {
+      "id": "empty-project",
+      "userGoal": "Понять, почему карта пуста, и начать структуру проекта.",
+      "trigger": "Loaded project has no echelons/assets.",
+      "visualChange": "Tree and map show coordinated EmptyState; no fabricated coverage/budget values.",
+      "availableActions": ["Добавить эшелон", "Импортировать структуру"],
+      "disabledActions": ["Open inspector", "Save unchanged project"],
+      "focusDestination": "EmptyState heading after route result is announced.",
+      "keyboardBehavior": "Tab reaches the two next-step actions in DOM order.",
+      "announcement": {"politeness": "polite", "text": "В проекте пока нет эшелонов и объектов."},
+      "recoveryPath": "Create/import data, then transition to default-workspace.",
+      "components": ["ProjectTree", "MapCanvas", "EmptyState", "Button"],
+      "semanticTokens": ["semantic.light.background.surface", "semantic.light.text.primary", "semantic.light.text.secondary", "semantic.light.border.default"]
+    },
+    {
+      "id": "default-workspace",
+      "userGoal": "Осмотреть проект и выбрать рабочий эшелон.",
+      "trigger": "Project loaded with data and no current selection.",
+      "visualChange": "Map and ProjectTree populated; ContextBar says «Эшелон не выбран · Объект не выбран».",
+      "availableActions": ["Select echelon", "Search tree", "Use map toolbar"],
+      "disabledActions": ["Open inspector", "Save when no edits"],
+      "focusDestination": "ProjectTree first item when user opens structure; otherwise workspace heading.",
+      "keyboardBehavior": "Tree uses roving focus; map toolbar uses arrow keys; markers are reachable after toolbar.",
+      "announcement": {"politeness": "polite", "text": "Проект загружен. Выберите эшелон."},
+      "recoveryPath": "Select L2 to continue.",
+      "components": ["AppHeader", "ProjectTree", "MapCanvas", "MapToolbar", "SaveIndicator", "VersionIndicator"],
+      "semanticTokens": ["semantic.light.background.canvas", "semantic.light.background.surface", "themes.darkMap.background", "semantic.light.text.primary", "semantic.light.text.secondary"]
+    },
+    {
+      "id": "echelon-selected",
+      "userGoal": "Сфокусироваться на L2 и его объектах.",
+      "trigger": "Select L2 in ProjectTree or a corresponding map layer control.",
+      "visualChange": "L2 receives selected structure; unrelated map objects de-emphasize; ContextBar names L2.",
+      "availableActions": ["Select МОГ — пост №1", "Show all echelons", "Inspect coverage summary"],
+      "disabledActions": ["Edit object until selected"],
+      "focusDestination": "Activated L2 tree item remains focused.",
+      "keyboardBehavior": "ArrowRight expands L2; ArrowDown reaches first visible child.",
+      "announcement": {"politeness": "polite", "text": "Выбран эшелон L2, Ближняя зона, 9 объектов."},
+      "recoveryPath": "Select another echelon or clear selection.",
+      "components": ["EchelonTreeItem", "MapCanvas", "CoverageStatus", "Status"],
+      "semanticTokens": ["semantic.light.background.selected", "semantic.light.border.selected", "gisDataRoles.echelonL2", "semantic.light.text.primary"]
+    },
+    {
+      "id": "object-selected",
+      "userGoal": "Связать объект в дереве и на карте перед редактированием.",
+      "trigger": "Select «МОГ — пост №1» from tree or map marker.",
+      "visualChange": "The same object is selected in both surfaces; ContextBar names L2 and MOG-001; Inspector action enables.",
+      "availableActions": ["Open ObjectInspector", "Locate object", "Select another object"],
+      "disabledActions": ["Save until a value changes"],
+      "focusDestination": "Originating tree item or map marker remains focused.",
+      "keyboardBehavior": "Arrow keys move among tree items or map markers within their own roving group; Enter opens inspector.",
+      "announcement": {"politeness": "polite", "text": "Выбран объект «МОГ — пост №1», эшелон L2."},
+      "recoveryPath": "Clear selection or select another object.",
+      "components": ["EchelonTreeItem", "MapCanvas", "AssetCard", "Status"],
+      "semanticTokens": ["semantic.light.background.selected", "semantic.light.border.selected", "themes.darkMap.selectedObject", "semantic.light.focus.ring"]
+    },
+    {
+      "id": "inspector-opened",
+      "userGoal": "Проверить и изменить параметры выбранного объекта.",
+      "trigger": "Open Inspector action, Enter on selected object, or explicit details action.",
+      "visualChange": "ObjectInspector is docked >=1280 and a modal Drawer below 1280; coverage, budget and warnings are visible.",
+      "availableActions": ["Edit radius", "Review warnings", "Save"],
+      "disabledActions": ["Save before a change"],
+      "focusDestination": "Inspector heading in Drawer mode; first editable field after explicit Edit action.",
+      "keyboardBehavior": "Drawer traps Tab; Escape closes when clean; closing restores focus to opener.",
+      "announcement": {"politeness": "polite", "text": "Инспектор объекта «МОГ — пост №1» открыт."},
+      "recoveryPath": "Close inspector to return to selected map object.",
+      "components": ["ObjectInspector", "Drawer", "Input", "CoverageStatus", "BudgetMetric", "WarningStack"],
+      "semanticTokens": ["semantic.light.background.surface", "semantic.light.border.default", "semantic.light.text.primary", "semantic.light.text.secondary", "component.overlay.elevation"]
+    },
+    {
+      "id": "validation-warning",
+      "userGoal": "Исправить рискованное значение или осознанно продолжить с неблокирующим предупреждением.",
+      "trigger": "Changed radius is outside the recommended range but remains technically valid.",
+      "visualChange": "Field gets warning description; WarningStack primary item and ContextBar count update; Save remains available only for non-blocking warning.",
+      "availableActions": ["Исправить значение", "Сохранить с предупреждением when policy allows", "Показать сектор"],
+      "disabledActions": ["Save when validation is blocking"],
+      "focusDestination": "Changed field remains focused; failed submit focuses first blocking invalid field.",
+      "keyboardBehavior": "Error summary links focus the field; no warning steals focus while typing.",
+      "announcement": {"politeness": "polite", "text": "Предупреждение: покрытие северного сектора снизится до 71 процента."},
+      "recoveryPath": "Restore recommended value or confirm allowed warning and save.",
+      "components": ["Input", "InlineMessage", "WarningStack", "Alert", "CoverageStatus"],
+      "semanticTokens": ["semantic.light.status.warning.text", "semantic.light.status.warning.surface", "semantic.light.status.warning.text", "semantic.light.text.primary"]
+    },
+    {
+      "id": "saving",
+      "userGoal": "Понимать, что изменения приняты интерфейсом и ожидают подтверждения.",
+      "trigger": "Valid Save action.",
+      "visualChange": "SaveIndicator becomes saving; Save and conflicting edits disable; selected context stays visible.",
+      "availableActions": ["Continue reading", "Cancel only if implementation supports cancellation"],
+      "disabledActions": ["Save again", "Switch version", "Destructive edit"],
+      "focusDestination": "Save button retains focus; state change does not move focus.",
+      "keyboardBehavior": "Repeated Enter/Space does not submit again.",
+      "announcement": {"politeness": "polite", "text": "Сохраняем изменения."},
+      "recoveryPath": "Confirmed response → saved; validation response → validation-warning; 409 → version-conflict; network failure → offline-local-copy or blocking-error per approved policy.",
+      "components": ["Button", "SaveIndicator", "LoadingState"],
+      "semanticTokens": ["component.saveIndicator.saving", "semantic.light.state.disabledOpacity", "semantic.light.text.secondary", "motion.enter"]
+    },
+    {
+      "id": "saved",
+      "userGoal": "Получить подтверждение, что серверная версия обновлена.",
+      "trigger": "Confirmed save acknowledgement.",
+      "visualChange": "SaveIndicator says saved with version/timestamp; dirty marker clears; one Toast may confirm.",
+      "availableActions": ["Continue editing", "Open version history"],
+      "disabledActions": ["Save again until next change"],
+      "focusDestination": "Focus remains on Save or the next user-selected control.",
+      "keyboardBehavior": "No modal or forced focus.",
+      "announcement": {"politeness": "polite", "text": "Проект сохранён. Версия 13."},
+      "recoveryPath": "Next edit returns to inspector-opened with dirty state.",
+      "components": ["SaveIndicator", "VersionIndicator", "Toast", "SuccessState"],
+      "semanticTokens": ["component.saveIndicator.saved", "semantic.light.status.success.text", "semantic.light.status.success.surface"]
+    },
+    {
+      "id": "version-conflict",
+      "userGoal": "Сравнить локальные и серверные изменения и выбрать безопасное продолжение.",
+      "trigger": "Confirmed version conflict (frontend currently maps 409 to conflictState).",
+      "visualChange": "Persistent Alert and SaveIndicator conflict state; VersionIndicator exposes local v12/server v13; compare Modal opens on request.",
+      "availableActions": ["Сравнить версии", "Загрузить серверную v13", "Сохранить локальную копию"],
+      "disabledActions": ["Overwrite without explicit conflict resolution", "Regular Save"],
+      "focusDestination": "Conflict Alert heading/action; compare Modal focuses title then safe action.",
+      "keyboardBehavior": "Modal traps focus; Escape closes comparison without resolving; focus returns to Compare button.",
+      "announcement": {"politeness": "assertive", "text": "Конфликт версий. Серверная версия 13 новее локальной версии 12."},
+      "recoveryPath": "Load server version or preserve local work as a new copy; never silently overwrite.",
+      "components": ["Alert", "SaveIndicator", "VersionIndicator", "Modal", "Table", "Button"],
+      "semanticTokens": ["component.saveIndicator.conflict", "semantic.light.status.warning.text", "semantic.light.status.warning.surface", "semantic.light.overlay.backdrop"]
+    },
+    {
+      "id": "offline-local-copy",
+      "userGoal": "Не потерять изменения без сети и понять, что они ещё не подтверждены сервером.",
+      "trigger": "Connectivity loss before or during save; exact persistence mechanism not verified.",
+      "visualChange": "SaveIndicator says offline/local copy; VersionIndicator marks local; persistent InlineMessage explains pending sync.",
+      "availableActions": ["Continue locally if policy allows", "Проверить соединение", "Export local copy if implemented"],
+      "disabledActions": ["Claim server-saved", "Version switch requiring network"],
+      "focusDestination": "Current control remains focused; explicit retry keeps focus on retry button.",
+      "keyboardBehavior": "Offline announcement occurs once per transition, not on every keystroke.",
+      "announcement": {"politeness": "assertive", "text": "Нет соединения. Изменения сохранены только в локальной копии."},
+      "recoveryPath": "On reconnect revalidate against server version; transition to saved or version-conflict.",
+      "components": ["SaveIndicator", "VersionIndicator", "InlineMessage", "Button"],
+      "semanticTokens": ["component.saveIndicator.offline", "semantic.light.status.danger.text", "semantic.light.status.danger.surface", "semantic.light.text.primary"]
+    },
+    {
+      "id": "blocking-error",
+      "userGoal": "Понять сбой и безопасно повторить загрузку или вернуться.",
+      "trigger": "Project/map data cannot load or unrecoverable operation fails.",
+      "visualChange": "Map/content region shows ErrorState; header and project identity remain; stale calculations are not presented as current.",
+      "availableActions": ["Повторить", "Вернуться к проектам", "Показать технический код without raw stack"],
+      "disabledActions": ["Edit", "Save", "Resolve using stale values"],
+      "focusDestination": "ErrorState heading receives programmatic focus after announcement.",
+      "keyboardBehavior": "Tab reaches retry then navigation; no focus enters inert failed region.",
+      "announcement": {"politeness": "assertive", "text": "Не удалось загрузить GIS Workspace."},
+      "recoveryPath": "Retry → initial-loading; leave → project list.",
+      "components": ["ErrorState", "Alert", "Button", "AppHeader"],
+      "semanticTokens": ["semantic.light.status.danger.text", "semantic.light.status.danger.surface", "semantic.light.background.surface", "semantic.light.focus.ring"]
+    }
+  ],
+  "transitions": [
+    {"from": "initial-loading", "event": "LOAD_SUCCESS_WITH_DATA", "to": "default-workspace"},
+    {"from": "initial-loading", "event": "LOAD_SUCCESS_EMPTY", "to": "empty-project"},
+    {"from": "initial-loading", "event": "LOAD_FAILURE", "to": "blocking-error"},
+    {"from": "empty-project", "event": "STRUCTURE_CREATED", "to": "default-workspace"},
+    {"from": "default-workspace", "event": "SELECT_ECHELON_L2", "to": "echelon-selected"},
+    {"from": "echelon-selected", "event": "SELECT_OBJECT_MOG_001", "to": "object-selected"},
+    {"from": "object-selected", "event": "OPEN_INSPECTOR", "to": "inspector-opened"},
+    {"from": "inspector-opened", "event": "CHANGE_PARAMETER_WARNING", "to": "validation-warning"},
+    {"from": "inspector-opened", "event": "SAVE_VALID", "to": "saving"},
+    {"from": "validation-warning", "event": "FIX_OR_CONFIRM", "to": "saving"},
+    {"from": "saving", "event": "SAVE_CONFIRMED", "to": "saved"},
+    {"from": "saving", "event": "VERSION_CONFLICT", "to": "version-conflict"},
+    {"from": "saving", "event": "CONNECTION_LOST", "to": "offline-local-copy"},
+    {"from": "saving", "event": "UNRECOVERABLE_FAILURE", "to": "blocking-error"},
+    {"from": "version-conflict", "event": "LOAD_SERVER_VERSION", "to": "default-workspace"},
+    {"from": "version-conflict", "event": "SAVE_LOCAL_COPY", "to": "saved"},
+    {"from": "offline-local-copy", "event": "RECONNECT_NO_CONFLICT", "to": "saved"},
+    {"from": "offline-local-copy", "event": "RECONNECT_WITH_CONFLICT", "to": "version-conflict"},
+    {"from": "blocking-error", "event": "RETRY", "to": "initial-loading"}
+  ],
+  "interactionContracts": {
+    "selectionSync": "One selectedObjectId drives ProjectTree, MapCanvas and ObjectInspector. Selection origin retains focus; visual selection is mirrored without moving focus.",
+    "dirtyState": "A committed field change sets dirty=true. SaveIndicator must not show saved while dirty or pending.",
+    "save": "UI may show saving immediately, but saved is only rendered after confirmed acknowledgement. Backend request shape is intentionally unspecified.",
+    "overlays": "Modal and modal Drawer make background inert, trap Tab/Shift+Tab, close on Escape when dismissal is safe and return focus to the opener.",
+    "liveRegions": "Routine loading/selection/save uses one polite region; conflict/offline/blocking error uses one assertive announcement per transition. Visible Alert text is not repeatedly mirrored by multiple live regions.",
+    "tabOrder": ["Skip/navigation", "AppHeader project controls", "ProjectTree trigger/tree", "ContextBar", "MapToolbar", "Map markers", "Warning summary", "Inspector or Inspector trigger", "Inspector fields/actions"],
+    "treeKeyboard": "Roving tabindex; Up/Down visible nodes, Right expand/child, Left collapse/parent, Home/End, typeahead, Enter activate, Space select when selection is separate.",
+    "mapKeyboard": "Toolbar uses roving focus with Left/Right/Home/End. Marker buttons use a separate roving group; Enter selects/opens, Escape returns to toolbar/context only when a transient map mode is active.",
+    "reducedMotion": "Disable smooth scrolling, spinner rotation and drawer/modal transitions; preserve immediate state changes and static loading text."
+  },
+  "density": {
+    "compact": "40px controls/rows; body text >=14px; metadata >=12px; intended for pointer-dense desktop only.",
+    "default": "44px controls/rows; required baseline for GIS and touch-capable layouts.",
+    "comfortable": "52px controls/rows; more spacing without hiding data or changing information hierarchy."
+  }
+}

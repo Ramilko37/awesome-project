@@ -1,0 +1,118 @@
+{
+  "meta": {
+    "name": "Fortis Design System",
+    "version": "1.0.0",
+    "status": "final",
+    "sources": ["index.html", "ui-kit.html", "gis-workspace-flow.html", "screen-contracts.json"],
+    "frontendContext": {
+      "verified": true,
+      "framework": "Next.js 16.2.5 / React 19.2.4",
+      "styling": "Tailwind CSS 4.2.4 + CSS Modules + CSS custom properties",
+      "primitiveLayer": "Radix/shadcn with CVA; Ant Design also present",
+      "canonicalIconLibrary": "lucide-react",
+      "iconMigrationRisk": "drone-defense currently mixes @ant-design/icons and lucide-react"
+    },
+    "aliasSyntax": "{path.to.token}",
+    "rule": "Component tokens reference semantic tokens; only primitive tokens contain literal color values."
+  },
+  "primitive": {
+    "color": {
+      "neutral": {
+        "0": "#ffffff",
+        "25": "#fbfcfd",
+        "50": "#f6f8fa",
+        "100": "#edf1f4",
+        "200": "#dce2e7",
+        "300": "#c4cdd5",
+        "400": "#8b98a5",
+        "500": "#64717d",
+        "600": "#48545f",
+        "700": "#313b44",
+        "800": "#202930",
+        "900": "#10171d"
+      },
+      "blue": { "50": "#edf5fc", "100": "#d9ebf8", "500": "#2176a8", "600": "#155f8d", "700": "#104c72" },
+      "cyan": { "500": "#178a9d" },
+      "green": { "50": "#ecf7f1", "600": "#24704c" },
+      "amber": { "50": "#fff7e8", "600": "#936200" },
+      "danger": { "50": "#fff1f1", "600": "#a23d43" },
+      "violet": { "500": "#6f6aa8" },
+      "map": { "background": "#16232b", "grid": "#2d3b44", "land": "#23323a", "road": "#6b7a83", "label": "#d5e0e5", "labelStrong": "#ffffff" },
+      "overlay": { "backdrop": "rgb(16 23 29 / 46%)" }
+    },
+    "fontFamily": {
+      "sans": "IBM Plex Sans, Segoe UI, system-ui, sans-serif",
+      "mono": "IBM Plex Mono, SFMono-Regular, Consolas, monospace"
+    },
+    "fontWeight": { "regular": 400, "medium": 500, "semibold": 650, "bold": 700 },
+    "fontSize": { "11": "0.6875rem", "12": "0.75rem", "13": "0.8125rem", "14": "0.875rem", "16": "1rem", "19": "1.1875rem", "24": "1.5rem", "28": "1.75rem", "44": "2.75rem", "76": "4.75rem" },
+    "lineHeight": { "tight": 1.05, "heading": 1.2, "body": 1.5, "relaxed": 1.6 },
+    "spacing": { "0": "0", "0.5": "0.125rem", "1": "0.25rem", "2": "0.5rem", "3": "0.75rem", "4": "1rem", "5": "1.25rem", "6": "1.5rem", "8": "2rem", "10": "2.5rem", "12": "3rem" },
+    "size": { "controlCompact": "2.5rem", "controlDefault": "2.75rem", "controlComfortable": "3.25rem", "iconSm": "1rem", "iconMd": "1.25rem", "panelInspector": "20rem", "drawer": "28rem", "modal": "32rem" },
+    "radius": { "sm": "0.25rem", "md": "0.375rem", "lg": "0.625rem", "pill": "999px" },
+    "border": { "widthDefault": "1px", "widthEmphasis": "2px", "styleDefault": "solid", "styleContractSlot": "dashed" },
+    "elevation": { "none": "none", "overlay": "0 0.75rem 2rem rgb(16 23 29 / 12%), 0 0.125rem 0.375rem rgb(16 23 29 / 8%)" },
+    "motion": { "durationExit": "140ms", "durationEnter": "200ms", "easingStandard": "cubic-bezier(0.23, 1, 0.32, 1)" },
+    "zIndex": { "base": 0, "sticky": 60, "dropdown": 70, "popover": 80, "modal": 100, "toast": 120 }
+  },
+  "semantic": {
+    "light": {
+      "background": { "canvas": "{primitive.color.neutral.50}", "surface": "{primitive.color.neutral.0}", "subtle": "{primitive.color.neutral.25}", "muted": "{primitive.color.neutral.100}", "selected": "{primitive.color.blue.50}" },
+      "text": { "primary": "{primitive.color.neutral.900}", "secondary": "{primitive.color.neutral.600}", "muted": "{primitive.color.neutral.500}", "onAction": "{primitive.color.neutral.0}", "link": "{primitive.color.blue.700}" },
+      "border": { "default": "{primitive.color.neutral.200}", "strong": "{primitive.color.neutral.300}", "interactive": "{primitive.color.neutral.400}", "selected": "{primitive.color.blue.600}" },
+      "action": { "primary": "{primitive.color.blue.600}", "primaryHover": "{primitive.color.blue.700}", "secondary": "{primitive.color.neutral.0}", "quietHover": "{primitive.color.neutral.100}" },
+      "focus": { "ring": "{primitive.color.blue.500}", "ringOffset": "{primitive.color.neutral.0}" },
+      "overlay": { "backdrop": "{primitive.color.overlay.backdrop}" },
+      "status": {
+        "success": { "text": "{primitive.color.green.600}", "surface": "{primitive.color.green.50}" },
+        "warning": { "text": "{primitive.color.amber.600}", "surface": "{primitive.color.amber.50}" },
+        "danger": { "text": "{primitive.color.danger.600}", "surface": "{primitive.color.danger.50}" },
+        "info": { "text": "{primitive.color.blue.700}", "surface": "{primitive.color.blue.50}" }
+      },
+      "state": { "disabledOpacity": 0.44, "hoverSurface": "{primitive.color.neutral.50}", "activeInset": "{primitive.color.blue.600}", "invalid": "{primitive.color.danger.600}", "loading": "{primitive.color.blue.600}" }
+    }
+  },
+  "component": {
+    "button": { "height": "{densityModes.active.controlHeight}", "radius": "{primitive.radius.md}", "primaryBackground": "{semantic.light.action.primary}", "primaryHoverBackground": "{semantic.light.action.primaryHover}", "secondaryBackground": "{semantic.light.action.secondary}", "border": "{semantic.light.border.strong}", "focusRing": "{semantic.light.focus.ring}" },
+    "iconButton": { "size": "{densityModes.active.controlHeight}", "iconSize": "{primitive.size.iconSm}", "radius": "{primitive.radius.md}", "iconColor": "{semantic.light.text.secondary}", "focusRing": "{semantic.light.focus.ring}" },
+    "field": { "height": "{densityModes.active.controlHeight}", "radius": "{primitive.radius.md}", "surface": "{semantic.light.background.surface}", "border": "{semantic.light.border.strong}", "hoverBorder": "{semantic.light.border.interactive}", "invalidBorder": "{semantic.light.state.invalid}" },
+    "navigationItem": { "height": "{densityModes.active.controlHeight}", "defaultText": "{semantic.light.text.secondary}", "hoverSurface": "{semantic.light.state.hoverSurface}", "activeSurface": "{semantic.light.background.selected}", "activeText": "{semantic.light.text.link}", "activeBorder": "{semantic.light.border.selected}", "focusRing": "{semantic.light.focus.ring}" },
+    "table": { "rowHeight": "{densityModes.active.rowHeight}", "headerSurface": "{semantic.light.background.subtle}", "rowHoverSurface": "{semantic.light.state.hoverSurface}", "rowSelectedSurface": "{semantic.light.background.selected}", "rowSelectedBorder": "{semantic.light.border.selected}" },
+    "overlay": { "surface": "{semantic.light.background.surface}", "border": "{semantic.light.border.default}", "backdrop": "{semantic.light.overlay.backdrop}", "radius": "{primitive.radius.lg}", "elevation": "{primitive.elevation.overlay}", "zIndex": "{primitive.zIndex.modal}" },
+    "mapToolbar": { "height": "{densityModes.active.controlHeight}", "surface": "{semantic.light.background.surface}", "text": "{semantic.light.text.secondary}", "activeSurface": "{semantic.light.background.selected}", "activeText": "{semantic.light.text.link}" },
+    "saveIndicator": { "text": "{semantic.light.text.secondary}", "dirty": "{semantic.light.status.warning.text}", "saving": "{semantic.light.status.info.text}", "saved": "{semantic.light.status.success.text}", "conflict": "{semantic.light.status.warning.text}", "offline": "{semantic.light.status.danger.text}" },
+    "warningStack": { "surface": "{semantic.light.background.surface}", "primarySurface": "{semantic.light.status.warning.surface}", "primaryText": "{semantic.light.status.warning.text}", "border": "{semantic.light.border.default}" }
+  },
+  "typography": {
+    "body": { "family": "{primitive.fontFamily.sans}", "size": "{primitive.fontSize.16}", "lineHeight": "{primitive.lineHeight.body}", "weight": "{primitive.fontWeight.regular}" },
+    "documentation": { "family": "{primitive.fontFamily.sans}", "size": "{primitive.fontSize.14}", "lineHeight": "{primitive.lineHeight.body}", "weight": "{primitive.fontWeight.regular}" },
+    "caption": { "family": "{primitive.fontFamily.sans}", "size": "{primitive.fontSize.14}", "lineHeight": "{primitive.lineHeight.body}", "weight": "{primitive.fontWeight.regular}" },
+    "specLabel": { "family": "{primitive.fontFamily.mono}", "size": "{primitive.fontSize.12}", "lineHeight": "{primitive.lineHeight.body}", "weight": "{primitive.fontWeight.semibold}" },
+    "data": { "family": "{primitive.fontFamily.mono}", "size": "{primitive.fontSize.13}", "lineHeight": "{primitive.lineHeight.heading}", "weight": "{primitive.fontWeight.semibold}", "features": ["tabular-nums"] },
+    "heading": { "family": "{primitive.fontFamily.sans}", "weight": "{primitive.fontWeight.semibold}", "lineHeight": "{primitive.lineHeight.tight}" }
+  },
+  "spacing": { "baseline": "{primitive.spacing.2}", "micro": "{primitive.spacing.1}", "controlInline": "{primitive.spacing.3}", "component": "{primitive.spacing.4}", "group": "{primitive.spacing.6}", "section": "{primitive.spacing.8}" },
+  "sizes": { "control": { "compact": "{primitive.size.controlCompact}", "default": "{primitive.size.controlDefault}", "comfortable": "{primitive.size.controlComfortable}" }, "minimumPointerTarget": "{primitive.size.controlDefault}", "minimumCompactTarget": "{primitive.size.controlCompact}" },
+  "radii": { "control": "{primitive.radius.md}", "panel": "{primitive.radius.lg}", "badge": "{primitive.radius.sm}", "pill": "{primitive.radius.pill}" },
+  "borders": { "default": "{primitive.border.widthDefault} {primitive.border.styleDefault} {semantic.light.border.default}", "strong": "{primitive.border.widthDefault} {primitive.border.styleDefault} {semantic.light.border.strong}", "selected": "{primitive.border.widthDefault} {primitive.border.styleDefault} {semantic.light.border.selected}" },
+  "elevation": { "inline": "{primitive.elevation.none}", "overlay": "{primitive.elevation.overlay}" },
+  "motion": { "enter": "{primitive.motion.durationEnter}", "exit": "{primitive.motion.durationExit}", "easing": "{primitive.motion.easingStandard}", "reducedMotion": "set animation and transition durations to 0.01ms; preserve state changes" },
+  "zIndex": { "sticky": "{primitive.zIndex.sticky}", "dropdown": "{primitive.zIndex.dropdown}", "popover": "{primitive.zIndex.popover}", "modal": "{primitive.zIndex.modal}", "toast": "{primitive.zIndex.toast}" },
+  "densityModes": {
+    "compact": { "controlHeight": "{primitive.size.controlCompact}", "rowHeight": "{primitive.size.controlCompact}", "contentScale": 0.875, "minimumTextSize": "{primitive.fontSize.13}", "minimumLabelSize": "{primitive.fontSize.12}" },
+    "default": { "controlHeight": "{primitive.size.controlDefault}", "rowHeight": "{primitive.size.controlDefault}", "contentScale": 1, "minimumTextSize": "{primitive.fontSize.14}", "minimumLabelSize": "{primitive.fontSize.12}" },
+    "comfortable": { "controlHeight": "{primitive.size.controlComfortable}", "rowHeight": "{primitive.size.controlComfortable}", "contentScale": 1.125, "minimumTextSize": "{primitive.fontSize.14}", "minimumLabelSize": "{primitive.fontSize.13}" },
+    "active": { "controlHeight": "{densityModes.default.controlHeight}", "rowHeight": "{densityModes.default.rowHeight}" }
+  },
+  "gisDataRoles": {
+    "echelonL1": { "color": "{primitive.color.blue.500}", "pattern": "solid", "label": "L1 · Периметр" },
+    "echelonL2": { "color": "{primitive.color.cyan.500}", "pattern": "dashed", "label": "L2 · Ближняя зона" },
+    "echelonL3": { "color": "{primitive.color.violet.500}", "pattern": "dotted", "label": "L3 · Средняя зона" },
+    "echelonL4": { "color": "{primitive.color.amber.600}", "pattern": "dashed", "label": "L4 · Внешняя зона" },
+    "rule": "Color is always paired with a label and line/pattern treatment."
+  },
+  "themes": {
+    "light": { "canvas": "{semantic.light.background.canvas}", "surface": "{semantic.light.background.surface}", "text": "{semantic.light.text.primary}", "mutedText": "{semantic.light.text.secondary}", "border": "{semantic.light.border.default}", "accent": "{semantic.light.action.primary}" },
+    "darkMap": { "scope": "map canvas only", "background": "{primitive.color.map.background}", "grid": "{primitive.color.map.grid}", "land": "{primitive.color.map.land}", "road": "{primitive.color.map.road}", "label": "{primitive.color.map.label}", "selectedObject": "{primitive.color.cyan.500}", "overlaySurface": "{semantic.light.background.surface}", "overlayText": "{semantic.light.text.primary}" }
+  }
+}

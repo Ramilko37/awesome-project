@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fortis UI Kit — GIS Workspace</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --n-0: #ffffff;
+      --n-25: #fbfcfd;
+      --n-50: #f6f8fa;
+      --n-100: #edf1f4;
+      --n-200: #dce2e7;
+      --n-300: #c4cdd5;
+      --n-400: #8b98a5;
+      --n-500: #64717d;
+      --n-600: #48545f;
+      --n-700: #313b44;
+      --n-800: #202930;
+      --n-900: #10171d;
+      --blue-50: #edf5fc;
+      --blue-100: #d9ebf8;
+      --blue-500: #2176a8;
+      --blue-600: #155f8d;
+      --blue-700: #104c72;
+      --cyan-500: #178a9d;
+      --green-50: #ecf7f1;
+      --green-600: #24704c;
+      --amber-50: #fff7e8;
+      --amber-600: #936200;
+      --danger-50: #fff1f1;
+      --danger-600: #a23d43;
+      --violet-500: #6f6aa8;
+      --map-bg: #16232b;
+      --map-grid: #2d3b44;
+      --map-land: #23323a;
+      --map-road: #6b7a83;
+      --bg: var(--n-50);
+      --surface: var(--n-0);
+      --surface-subtle: var(--n-25);
+      --fg: var(--n-900);
+      --fg-secondary: var(--n-600);
+      --fg-muted: var(--n-500);
+      --border: var(--n-200);
+      --border-strong: var(--n-300);
+      --accent: var(--blue-600);
+      --accent-hover: var(--blue-700);
+      --focus: #0a78b9;
+      --font-ui: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+      --font-data: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      --space-1: .25rem;
+      --space-2: .5rem;
+      --space-3: .75rem;
+      --space-4: 1rem;
+      --space-5: 1.25rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --space-10: 2.5rem;
+      --radius-1: .25rem;
+      --radius-2: .375rem;
+      --radius-3: .625rem;
+      --control-h: 2.75rem;
+      --row-h: 2.75rem;
+      --overlay-shadow: 0 .75rem 2rem rgb(16 23 29 / 12%), 0 .125rem .375rem rgb(16 23 29 / 8%);
+      --overlay-backdrop: rgb(16 23 29 / 46%);
+      --ease-out: cubic-bezier(.23, 1, .32, 1);
+      --motion-enter: 200ms;
+      --motion-exit: 140ms;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; min-width: 20rem; background: var(--bg); color: var(--fg); font: 400 1rem/1.5 var(--font-ui); letter-spacing: -.005em; }
+    body[data-density="compact"] { --control-h: 2.5rem; --row-h: 2.5rem; }
+    body[data-density="comfortable"] { --control-h: 3.25rem; --row-h: 3.25rem; }
+    button, input, textarea, select { font: inherit; }
+    button, input, textarea, select, a, [tabindex] { outline: 0; }
+    :focus-visible { outline: .1875rem solid var(--focus); outline-offset: .125rem; }
+    a { color: inherit; }
+    button { color: inherit; }
+    [hidden] { display: none !important; }
+    .mono, .metric-value, .data-table, .token-value { font-family: var(--font-data); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+    .sr-only { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    .muted { color: var(--fg-muted); }
+    .small { font-size: .875rem; }
+    .caption { color: var(--fg-secondary); font-size: .875rem; line-height: 1.45; }
+
+    .app-header { position: sticky; inset-block-start: 0; z-index: 60; min-height: 4rem; display: flex; align-items: center; gap: var(--space-4); padding: .625rem 1rem; background: color-mix(in srgb, var(--surface) 96%, transparent); border-bottom: 1px solid var(--border); backdrop-filter: blur(.75rem); }
+    .brand { display: flex; align-items: center; gap: .625rem; min-width: 10.5rem; }
+    .brand-mark { inline-size: 1.75rem; block-size: 1.75rem; display: grid; place-items: center; border-radius: var(--radius-2); background: var(--n-900); color: var(--n-0); font: 700 .75rem/1 var(--font-data); }
+    .brand strong { display: block; font-size: .875rem; letter-spacing: .03em; }
+    .brand span { display: block; color: var(--fg-muted); font-size: .6875rem; }
+    .header-path { flex: 1; min-width: 0; overflow: hidden; color: var(--fg-secondary); font-size: .8125rem; text-overflow: ellipsis; white-space: nowrap; }
+    .header-actions, .toolbar, .cluster { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+
+    .shell { display: grid; grid-template-columns: 1fr; }
+    .docs-nav { display: none; position: sticky; inset-block-start: 4rem; align-self: start; block-size: calc(100vh - 4rem); overflow: auto; padding: 1.25rem .75rem; border-right: 1px solid var(--border); background: var(--surface-subtle); }
+    .nav-label { margin: .75rem .625rem .375rem; color: var(--fg-muted); font: 600 .6875rem/1.3 var(--font-data); letter-spacing: .08em; text-transform: uppercase; }
+    .nav-list { margin: 0; padding: 0; display: grid; gap: .125rem; list-style: none; }
+    .nav-link { min-height: 2.5rem; display: flex; align-items: center; gap: .625rem; padding: .5rem .625rem; border: 1px solid transparent; border-radius: var(--radius-2); color: var(--fg-secondary); text-decoration: none; font-size: .875rem; transition: background var(--motion-exit) var(--ease-out), border-color var(--motion-exit) var(--ease-out), color var(--motion-exit) var(--ease-out); }
+    .nav-link:hover { background: var(--n-100); color: var(--fg); }
+    .nav-link.active { border-color: var(--blue-100); background: var(--blue-50); color: var(--blue-700); box-shadow: inset .1875rem 0 var(--accent); font-weight: 650; }
+    .nav-link:focus-visible { border-color: var(--focus); background: var(--surface); color: var(--fg); box-shadow: none; }
+    .nav-link.active:focus-visible { background: var(--blue-50); box-shadow: inset .1875rem 0 var(--accent); }
+    .nav-index { color: var(--n-400); font: .6875rem/1 var(--font-data); }
+
+    main { min-width: 0; padding: 1.5rem 1rem 5rem; }
+    .content { width: min(100%, 92rem); margin-inline: auto; }
+    .section { padding: 2.5rem 0; border-bottom: 1px solid var(--border); scroll-margin-top: 5rem; }
+    .section:last-child { border-bottom: 0; }
+    .section-head { max-width: 66rem; margin-bottom: 1.5rem; display: grid; gap: .5rem; }
+    .eyebrow { margin: 0; color: var(--accent); font: 650 .75rem/1.3 var(--font-data); letter-spacing: .08em; text-transform: uppercase; }
+    h1, h2, h3, h4, p { text-wrap: pretty; }
+    h1 { max-width: 19ch; margin: 0; font-size: clamp(2.25rem, 5vw, 4.75rem); line-height: .98; letter-spacing: -.055em; font-weight: 650; }
+    h2 { margin: 0; font-size: clamp(1.75rem, 3vw, 2.75rem); line-height: 1.05; letter-spacing: -.04em; font-weight: 650; }
+    h3 { margin: 0; font-size: 1rem; line-height: 1.3; }
+    h4 { margin: 0; font-size: .875rem; }
+    .lede { max-width: 72ch; margin: .25rem 0 0; color: var(--fg-secondary); font-size: clamp(1rem, 1.4vw, 1.1875rem); }
+    .hero { min-height: min(32rem, calc(100vh - 6rem)); display: grid; align-content: center; gap: 2rem; }
+    .hero-meta { display: grid; grid-template-columns: 1fr; gap: .75rem; padding-top: 1.25rem; border-top: 1px solid var(--border-strong); }
+    .hero-stat { display: grid; gap: .125rem; }
+    .hero-stat strong { font: 650 1rem/1.2 var(--font-data); }
+    .hero-stat span { color: var(--fg-muted); font-size: .75rem; }
+
+    .grid-2, .grid-3, .grid-4, .component-grid, .domain-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+    .panel, .component-card { min-width: 0; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-3); }
+    .panel-head { min-height: 3rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; border-bottom: 1px solid var(--border); }
+    .panel-title { font-size: .8125rem; font-weight: 650; }
+    .panel-meta { color: var(--fg-secondary); font: .75rem/1.3 var(--font-data); letter-spacing: .05em; text-transform: uppercase; }
+    .panel-body { padding: 1rem; }
+    .component-card { display: grid; }
+    .component-demo { min-height: 12rem; padding: 1rem; display: grid; align-content: center; gap: 1rem; background: var(--surface); }
+    .component-spec { padding: 1rem; display: grid; gap: .875rem; border-top: 1px solid var(--border); background: var(--surface-subtle); }
+    .spec-row { display: grid; grid-template-columns: 6rem minmax(0, 1fr); gap: .875rem; font-size: .875rem; line-height: 1.5; }
+    .spec-row dt { color: var(--fg-secondary); font: 600 .75rem/1.5 var(--font-data); letter-spacing: .04em; text-transform: uppercase; }
+    .spec-row dd { margin: 0; color: var(--fg-secondary); }
+    .component-list { margin: 0; padding-left: 1.15rem; display: grid; gap: .75rem; color: var(--fg-secondary); font-size: .875rem; line-height: 1.5; }
+    .component-list b { color: var(--fg); }
+
+    .swatches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+    .swatch { min-height: 6rem; padding: .75rem; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); border-radius: var(--radius-2); background: var(--swatch); color: var(--swatch-text, var(--fg)); }
+    .swatch strong { font-size: .75rem; }
+    .swatch span { font: .6875rem/1.3 var(--font-data); opacity: .76; }
+    .neutral-ramp { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-2); }
+    .neutral { min-height: 4.75rem; padding: .5rem; display: flex; align-items: flex-end; background: var(--c); color: var(--t, var(--fg)); font: .625rem/1 var(--font-data); }
+    .data-colors { display: grid; gap: .5rem; }
+    .data-color { min-height: 2.75rem; display: grid; grid-template-columns: 2rem 1fr auto; align-items: center; gap: .75rem; font-size: .8125rem; }
+    .line-key { width: 2rem; border-top: .25rem solid var(--c); }
+    .line-key.dashed { border-top-style: dashed; }
+    .line-key.dotted { border-top-style: dotted; }
+    .type-sample { padding: .75rem 0; border-bottom: 1px solid var(--border); }
+    .type-sample:last-child { border-bottom: 0; }
+    .type-meta { display: flex; justify-content: space-between; color: var(--fg-muted); font: .6875rem/1.3 var(--font-data); }
+    .type-display { font-size: clamp(2rem, 4vw, 3.75rem); line-height: 1; letter-spacing: -.05em; font-weight: 650; }
+    .type-data { font: 650 1.5rem/1.2 var(--font-data); }
+    .token-table { width: 100%; border-collapse: collapse; font-size: .8125rem; }
+    .token-table th, .token-table td { padding: .625rem .75rem; border-bottom: 1px solid var(--border); text-align: left; }
+    .token-table th { color: var(--fg-secondary); font: 600 .75rem/1.25 var(--font-data); letter-spacing: .05em; text-transform: uppercase; }
+    .token-table tr:last-child td { border-bottom: 0; }
+    .state-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+    .state-token { min-height: 4.5rem; padding: .625rem; display: grid; align-content: space-between; border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface); font-size: .75rem; }
+    .state-token.demo-hover { border-color: var(--n-400); background: var(--n-50); }
+    .state-token.demo-active { box-shadow: inset 0 0 0 2px var(--accent); }
+    .state-token.demo-disabled { opacity: .44; }
+    .state-token.demo-invalid { border-color: var(--danger-600); }
+    .state-token.demo-loading::after { content: "Загрузка"; color: var(--accent); font: .6875rem/1 var(--font-data); }
+
+    .btn, .icon-btn, .tab, .segment, .menu-item, .page-btn, .text-action { appearance: none; border: 1px solid transparent; cursor: pointer; transition: background var(--motion-exit) var(--ease-out), border-color var(--motion-exit) var(--ease-out), color var(--motion-exit) var(--ease-out), transform var(--motion-exit) var(--ease-out); }
+    .btn { min-height: var(--control-h); padding: .55rem .875rem; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; border-radius: var(--radius-2); font-size: .8125rem; font-weight: 650; white-space: nowrap; }
+    .btn:active, .icon-btn:active, .page-btn:active { transform: translateY(.0625rem); }
+    .btn-primary { background: var(--accent); color: var(--n-0); }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary, .icon-btn, .page-btn { background: var(--surface); border-color: var(--border-strong); color: var(--fg); }
+    .btn-secondary:hover, .icon-btn:hover, .page-btn:hover { background: var(--n-50); border-color: var(--n-400); }
+    .btn-quiet, .text-action { background: transparent; color: var(--fg-secondary); }
+    .btn-quiet:hover, .text-action:hover { background: var(--n-100); color: var(--fg); }
+    .btn-danger { background: var(--danger-50); border-color: color-mix(in srgb, var(--danger-600) 22%, white); color: var(--danger-600); }
+    .btn[disabled], .icon-btn[disabled] { opacity: .44; cursor: not-allowed; transform: none; }
+    .btn-loading::before { content: ""; inline-size: .75rem; block-size: .75rem; border: .125rem solid color-mix(in srgb, currentColor 35%, transparent); border-top-color: currentColor; border-radius: 50%; animation: spin .8s linear infinite; }
+    .icon-btn { inline-size: var(--control-h); block-size: var(--control-h); display: inline-grid; place-items: center; border-radius: var(--radius-2); font: 650 .6875rem/1 var(--font-data); }
+    .text-action { min-height: var(--control-h); padding: .5rem .625rem; border-radius: var(--radius-2); font-size: .75rem; }
+    @keyframes spin { to { transform: rotate(1turn); } }
+
+    .field-stack { display: grid; gap: .875rem; }
+    .field { display: grid; gap: .375rem; }
+    .field-label { color: var(--fg-secondary); font-size: .75rem; font-weight: 650; }
+    .field-control { position: relative; }
+    .input, .textarea, .select { width: 100%; min-height: var(--control-h); border: 1px solid var(--border-strong); border-radius: var(--radius-2); background: var(--surface); color: var(--fg); padding: .55rem .75rem; font-size: .8125rem; transition: border-color var(--motion-exit) var(--ease-out), box-shadow var(--motion-exit) var(--ease-out); }
+    .textarea { min-height: 6.5rem; resize: vertical; }
+    .input:hover, .textarea:hover, .select:hover { border-color: var(--n-400); }
+    .input:focus, .textarea:focus, .select:focus { border-color: var(--focus); box-shadow: 0 0 0 .1875rem color-mix(in srgb, var(--focus) 18%, transparent); }
+    .input:disabled, .textarea:disabled, .select:disabled { background: var(--n-100); color: var(--fg-muted); cursor: not-allowed; }
+    [aria-invalid="true"] { border-color: var(--danger-600); }
+    .field-help { margin: 0; color: var(--fg-secondary); font-size: .8125rem; line-height: 1.4; }
+    .field-error { color: var(--danger-600); }
+    .search { padding-left: 4.25rem; }
+    .search-label { position: absolute; left: .75rem; top: 50%; transform: translateY(-50%); color: var(--fg-muted); font: .6875rem/1 var(--font-data); pointer-events: none; }
+    .choice-list { display: grid; gap: .5rem; }
+    .choice { min-height: var(--control-h); display: flex; align-items: center; gap: .625rem; font-size: .8125rem; cursor: pointer; }
+    .choice input { inline-size: 1.125rem; block-size: 1.125rem; accent-color: var(--accent); }
+    .switch { position: relative; inline-size: 2.5rem !important; block-size: 1.5rem !important; appearance: none; border-radius: 999px; background: var(--n-300); transition: background var(--motion-exit) var(--ease-out); }
+    .switch::after { content: ""; position: absolute; inset-block-start: .1875rem; inset-inline-start: .1875rem; inline-size: 1.125rem; block-size: 1.125rem; border-radius: 50%; background: white; box-shadow: 0 1px 2px rgb(16 23 29 / 20%); transition: transform var(--motion-enter) var(--ease-out); }
+    .switch:checked { background: var(--accent); }
+    .switch:checked::after { transform: translateX(1rem); }
+
+    .tabs { min-height: 2.75rem; display: flex; align-items: end; gap: 1.25rem; overflow-x: auto; border-bottom: 1px solid var(--border); }
+    .tab { min-height: 2.75rem; padding: .5rem 0; background: transparent; border: 0; border-bottom: .125rem solid transparent; color: var(--fg-muted); font-size: .8125rem; white-space: nowrap; }
+    .tab[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--fg); font-weight: 650; }
+    .tab-panel { padding-top: 1rem; font-size: .8125rem; }
+    .segmented { width: fit-content; display: inline-flex; padding: .1875rem; border-radius: var(--radius-2); background: var(--n-100); }
+    .segment { min-height: 2.25rem; padding: .35rem .7rem; border: 0; border-radius: var(--radius-1); background: transparent; color: var(--fg-secondary); font-size: .75rem; }
+    .segment[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgb(16 23 29 / 9%); }
+    .chip-row { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+    .badge, .tag, .status { min-height: 1.75rem; display: inline-flex; align-items: center; gap: .375rem; padding: .25rem .5rem; font-size: .75rem; font-weight: 600; line-height: 1.25; }
+    .badge { border-radius: var(--radius-1); background: var(--n-100); color: var(--fg-secondary); }
+    .tag { border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); color: var(--fg-secondary); }
+    .status { padding-inline: 0; color: var(--fg-secondary); }
+    .sign, .icon-slot { inline-size: 1rem; block-size: 1rem; flex: 0 0 1rem; display: inline-block; border: 1px dashed currentColor; border-radius: .1875rem; font-size: 0; vertical-align: -.125rem; }
+    .success { color: var(--green-600); }
+    .warning { color: var(--amber-600); }
+    .danger { color: var(--danger-600); }
+    .badge.success { background: var(--green-50); }
+    .badge.warning { background: var(--amber-50); }
+    .badge.danger { background: var(--danger-50); }
+
+    .alert, .inline-message { display: grid; grid-template-columns: 1.25rem minmax(0, 1fr) auto; align-items: start; gap: .75rem; border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface); font-size: .875rem; }
+    .alert { padding: .875rem; }
+    .inline-message { padding: .625rem .75rem; }
+    .alert.info, .inline-message.info { border-color: var(--blue-100); background: var(--blue-50); }
+    .alert.warn, .inline-message.warn { border-color: color-mix(in srgb, var(--amber-600) 26%, white); background: var(--amber-50); }
+    .alert.error { border-color: color-mix(in srgb, var(--danger-600) 24%, white); background: var(--danger-50); }
+    .alert-title { font-weight: 650; }
+    .alert p, .inline-message p { margin: .125rem 0 0; color: var(--fg-secondary); }
+    .feedback-stack { display: grid; gap: .5rem; }
+    .tooltip-wrap, .overlay-wrap { position: relative; display: inline-flex; }
+    .tooltip { position: absolute; z-index: 30; inset-inline-start: 50%; inset-block-end: calc(100% + .5rem); transform: translate(-50%, .25rem); opacity: 0; pointer-events: none; padding: .45rem .6rem; border-radius: var(--radius-1); background: var(--n-900); color: white; font-size: .75rem; line-height: 1.35; white-space: nowrap; transition: opacity var(--motion-enter) var(--ease-out), transform var(--motion-enter) var(--ease-out); }
+    .tooltip-wrap:hover .tooltip, .tooltip-wrap:focus-within .tooltip { opacity: 1; transform: translate(-50%, 0); }
+    .menu, .popover { position: absolute; z-index: 35; inset-block-start: calc(100% + .375rem); inset-inline-end: 0; min-width: 14rem; padding: .375rem; visibility: hidden; opacity: 0; transform: translateY(-.25rem); border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface); box-shadow: var(--overlay-shadow); transition: opacity var(--motion-enter) var(--ease-out), transform var(--motion-enter) var(--ease-out), visibility 0s linear var(--motion-enter); }
+    .menu.open, .popover.open { visibility: visible; opacity: 1; transform: translateY(0); transition-delay: 0s; }
+    .menu-item { width: 100%; min-height: 2.5rem; padding: .5rem .625rem; display: flex; align-items: center; justify-content: space-between; gap: .75rem; border: 0; border-radius: var(--radius-1); background: transparent; text-align: left; font-size: .875rem; }
+    .menu-item:hover, .menu-item:focus-visible { background: var(--n-100); }
+    .menu-key { color: var(--fg-muted); font: .6875rem/1 var(--font-data); }
+    .popover { width: 18rem; padding: 1rem; }
+    .popover p { margin: .375rem 0 .75rem; color: var(--fg-secondary); font-size: .75rem; }
+
+    .table-shell { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface); }
+    .data-table { width: 100%; min-width: 44rem; border-collapse: collapse; font-size: .8125rem; }
+    .data-table th, .data-table td { height: var(--row-h); padding: .625rem .75rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+    .data-table th { background: var(--n-25); color: var(--fg-secondary); font-size: .75rem; letter-spacing: .05em; text-transform: uppercase; }
+    .data-table th button { width: 100%; padding: .25rem 0; border: 0; background: transparent; color: inherit; text-align: inherit; text-transform: inherit; cursor: pointer; }
+    .data-table th button [aria-hidden="true"] { display: none; }
+    .data-table th[aria-sort="ascending"] button::after { content: " · по возр."; color: var(--accent); }
+    .data-table th[aria-sort="descending"] button::after { content: " · по убыв."; color: var(--accent); }
+    .data-table tbody tr { cursor: pointer; }
+    .data-table tbody tr:hover { background: var(--n-25); }
+    .data-table tbody tr.selected { background: var(--blue-50); box-shadow: inset .1875rem 0 var(--accent); }
+    .data-table tbody tr.warning-row { background: var(--amber-50); }
+    .data-table tbody tr.disabled-row { opacity: .5; cursor: not-allowed; }
+    .data-table tbody tr:last-child td { border-bottom: 0; }
+    .num { text-align: right !important; font-variant-numeric: tabular-nums; }
+    .pagination { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: .75rem; }
+    .page-list { display: flex; gap: .25rem; }
+    .page-btn { min-width: var(--control-h); min-height: var(--control-h); border-radius: var(--radius-2); font-size: .75rem; }
+    .page-btn[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: white; }
+
+    .state-grid { display: grid; grid-template-columns: 1fr; gap: .75rem; }
+    .state-card { min-height: 12rem; padding: 1rem; display: grid; align-content: center; justify-items: center; gap: .5rem; border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface); text-align: center; }
+    .state-card p { max-width: 32ch; margin: 0; color: var(--fg-secondary); font-size: .875rem; }
+    .state-symbol { min-height: 2rem; display: inline-flex; align-items: center; padding: .25rem .625rem; border: 1px solid var(--border-strong); border-radius: 999px; font: 650 .75rem/1 var(--font-data); }
+    .skeleton { width: 100%; max-width: 10rem; display: grid; gap: .5rem; }
+    .skeleton span { height: .625rem; border-radius: .125rem; background: linear-gradient(90deg, var(--n-100), var(--n-200), var(--n-100)); background-size: 200% 100%; animation: shimmer 1.7s linear infinite; }
+    .skeleton span:nth-child(2) { width: 72%; }
+    .skeleton span:nth-child(3) { width: 86%; }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
+    .breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; color: var(--fg-muted); font-size: .75rem; }
+    .breadcrumb a { color: var(--accent); text-decoration: none; }
+    .page-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border); }
+    .page-header h3 { font-size: 1.5rem; letter-spacing: -.025em; }
+    .local-nav { display: flex; flex-wrap: wrap; gap: .25rem; padding: .25rem; border-radius: var(--radius-2); background: var(--n-100); }
+
+    .tree { display: grid; gap: .25rem; }
+    .tree-item { width: 100%; min-height: var(--row-h); padding: .45rem .625rem; display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: center; gap: .5rem; border: 1px solid transparent; border-radius: var(--radius-2); background: transparent; text-align: left; font-size: .875rem; cursor: pointer; }
+    .tree-item:hover { background: var(--n-50); }
+    .tree-item.selected { border-color: var(--accent); background: var(--blue-50); box-shadow: inset .1875rem 0 var(--accent); font-weight: 650; }
+    .tree-item.warning-item { color: var(--amber-600); }
+    .tree-child { padding-left: 1.25rem; }
+    .level-tag { width: 1.75rem; height: 1.375rem; display: grid; place-items: center; border-radius: .1875rem; background: color-mix(in srgb, var(--level) 14%, white); color: color-mix(in srgb, var(--level) 78%, black); font: 700 .6875rem/1 var(--font-data); }
+    .tree-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .asset-card { padding: 1rem; display: grid; gap: .875rem; border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface); }
+    .asset-head { display: flex; align-items: start; justify-content: space-between; gap: .75rem; }
+    .asset-title { font-size: .875rem; font-weight: 650; }
+    .asset-meta { margin-top: .2rem; color: var(--fg-secondary); font-size: .75rem; }
+    .asset-data { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+    .datum { padding-top: .625rem; border-top: 1px solid var(--border); }
+    .datum span { display: block; color: var(--fg-secondary); font-size: .75rem; }
+    .datum strong { font: 650 .8125rem/1.3 var(--font-data); }
+    .budget-metric { padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface); }
+    .metric-value { margin-top: .25rem; font-size: clamp(1.35rem, 3vw, 1.75rem); font-weight: 650; line-height: 1.15; overflow-wrap: anywhere; }
+    .metric-delta { margin-top: .375rem; color: var(--green-600); font: .75rem/1.2 var(--font-data); }
+    .progress { height: .375rem; margin-top: .75rem; overflow: hidden; border-radius: 999px; background: var(--n-100); }
+    .progress span { display: block; width: var(--value); height: 100%; background: var(--accent); }
+    .coverage-list, .warning-stack { display: grid; gap: .5rem; }
+    .coverage-row { min-height: 2.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: .8125rem; }
+    .warning-card { min-height: 3.25rem; padding: .625rem .75rem; display: grid; grid-template-columns: 1.25rem minmax(0, 1fr) auto; align-items: center; gap: .625rem; border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface); font-size: .8125rem; }
+    .save-indicator { min-height: 2rem; display: inline-flex; align-items: center; gap: .5rem; color: var(--fg-secondary); font-size: .8125rem; }
+    .version-indicator { display: inline-flex; align-items: center; gap: .5rem; padding: .375rem .625rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font: .75rem/1 var(--font-data); }
+    .inspector-card { background: var(--surface); }
+    .inspector-section { padding: .875rem 1rem; border-bottom: 1px solid var(--border); }
+    .inspector-section:last-child { border-bottom: 0; }
+    .property-grid { margin-top: .625rem; display: grid; grid-template-columns: 1fr auto; gap: .5rem; font-size: .8125rem; }
+
+    .workspace { min-height: 46rem; overflow: hidden; border: 1px solid var(--border-strong); border-radius: var(--radius-3); background: var(--surface); }
+    .workspace-top { min-height: 3.5rem; display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .5rem .75rem; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .workspace-title { min-width: 0; display: flex; align-items: center; gap: .625rem; font-size: .8125rem; }
+    .workspace-title strong, .workspace-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .workspace-title span { color: var(--fg-muted); }
+    .workspace-actions { display: flex; align-items: center; gap: .5rem; }
+    .workspace-body { display: grid; grid-template-columns: 1fr; }
+    .workspace-tree { padding: .75rem; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .workspace-tree .tree { max-height: 15rem; overflow: auto; }
+    .map { position: relative; min-height: 32rem; overflow: hidden; background-color: var(--map-bg); background-image: linear-gradient(var(--map-grid) 1px, transparent 1px), linear-gradient(90deg, var(--map-grid) 1px, transparent 1px); background-size: 2rem 2rem; }
+    .map::before { content: ""; position: absolute; inset: 13% 12% 17% 8%; background: var(--map-land); border: 1px solid #40515b; clip-path: polygon(4% 18%, 24% 6%, 44% 19%, 67% 8%, 91% 24%, 96% 53%, 82% 84%, 50% 93%, 21% 79%, 7% 55%); }
+    .road { position: absolute; height: 1px; background: var(--map-road); opacity: .55; transform-origin: 0 0; }
+    .road-a { width: 72%; left: 8%; top: 65%; transform: rotate(-13deg); }
+    .road-b { width: 50%; left: 37%; top: 15%; transform: rotate(61deg); }
+    .coverage-ring { position: absolute; left: 48%; top: 50%; width: min(16rem, 48vw); aspect-ratio: 1; transform: translate(-50%, -50%); border: .125rem dashed var(--cyan-500); border-radius: 50%; box-shadow: inset 0 0 0 4rem rgb(23 138 157 / 7%); }
+    .coverage-ring::before { content: "L2 · 3,2 км"; position: absolute; top: -.75rem; left: 50%; transform: translateX(-50%); padding: .2rem .4rem; background: var(--map-bg); color: #bde6eb; font: .6875rem/1 var(--font-data); white-space: nowrap; }
+    .facility { position: absolute; left: 48%; top: 50%; width: 5.25rem; height: 3.5rem; transform: translate(-50%, -50%); display: grid; place-items: center; border: 1px solid #a8bac4; background: #293941; color: white; font: .6875rem/1.2 var(--font-data); text-align: center; }
+    .map-pin { position: absolute; width: 2.75rem; height: 2.75rem; display: grid; place-items: center; border: .125rem solid white; border-radius: 50%; background: var(--blue-500); color: white; font: 700 .75rem/1 var(--font-data); cursor: pointer; box-shadow: 0 .125rem .5rem rgb(0 0 0 / 30%); }
+    .map-pin.selected { border-color: white; box-shadow: 0 0 0 .1875rem var(--cyan-500), 0 .25rem .75rem rgb(0 0 0 / 38%); }
+    .pin-a { left: 36%; top: 38%; }
+    .pin-b { left: 61%; top: 34%; background: var(--violet-500); }
+    .pin-c { left: 57%; top: 68%; background: var(--amber-600); }
+    .map-tools { position: absolute; top: .75rem; left: .75rem; max-width: calc(100% - 1.5rem); display: flex; flex-wrap: wrap; gap: .25rem; padding: .25rem; border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface); box-shadow: var(--overlay-shadow); }
+    .map-tool { min-height: var(--control-h); padding: .5rem .75rem; border: 0; border-radius: var(--radius-1); background: transparent; color: var(--fg-secondary); font-size: .8125rem; font-weight: 600; cursor: pointer; }
+    .map-tool:hover, .map-tool.active { background: var(--blue-50); color: var(--blue-700); }
+    .map-scale { position: absolute; left: .875rem; bottom: .875rem; width: 5rem; padding-bottom: .25rem; border-bottom: .125rem solid #d5e0e5; color: #d5e0e5; font: .6875rem/1 var(--font-data); }
+    .map-warning { position: absolute; right: .75rem; bottom: .75rem; width: min(20rem, calc(100% - 1.5rem)); padding: 1rem; border: 2px solid color-mix(in srgb, var(--amber-600) 48%, white); border-radius: var(--radius-2); background: rgb(255 247 232 / 98%); box-shadow: var(--overlay-shadow); font-size: .875rem; }
+    .map-warning .status { font-size: .875rem; }
+    .workspace-inspector { display: none; border-top: 1px solid var(--border); background: var(--surface); }
+    .workspace-inspector .budget-metric { margin: .75rem; }
+    .state-simulator { padding: 1rem; display: grid; gap: 1rem; border: 1px dashed var(--border-strong); border-radius: var(--radius-3); background: var(--n-100); }
+    .simulator-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: .75rem; }
+    .simulator-kicker { color: var(--accent); font: 650 .75rem/1.3 var(--font-data); letter-spacing: .06em; text-transform: uppercase; }
+    .simulator-preview { min-height: 4rem; display: flex; align-items: center; padding: .75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface); }
+    .icon-contract { display: grid; gap: .5rem; }
+    .icon-contract-row { min-height: 2.5rem; display: grid; grid-template-columns: minmax(7rem, .8fr) minmax(8rem, 1fr) minmax(0, 1.4fr); align-items: center; gap: .75rem; padding: .5rem 0; border-bottom: 1px solid var(--border); font-size: .8125rem; }
+    .icon-contract-row:last-child { border-bottom: 0; }
+    .flow-model { display: grid; gap: .75rem; }
+    .flow-track { display: grid; grid-template-columns: 1fr; gap: .5rem; }
+    .flow-step { min-height: 5rem; padding: .75rem; display: grid; align-content: space-between; gap: .375rem; border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface); }
+    .flow-step strong { font-size: .8125rem; }
+    .flow-step span { color: var(--fg-secondary); font-size: .75rem; }
+    .flow-step.branch { border-color: color-mix(in srgb, var(--amber-600) 36%, white); background: var(--amber-50); }
+    .responsive-contract { display: grid; gap: .75rem; }
+
+    .modal-backdrop, .drawer-backdrop { position: fixed; inset: 0; z-index: 100; visibility: hidden; opacity: 0; background: var(--overlay-backdrop); transition: opacity var(--motion-exit) var(--ease-out), visibility 0s linear var(--motion-exit); }
+    .modal-backdrop { display: grid; place-items: center; padding: 1rem; }
+    .modal-backdrop.open, .drawer-backdrop.open { visibility: visible; opacity: 1; transition-delay: 0s; }
+    .modal { width: min(32rem, 100%); overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-3); background: var(--surface); box-shadow: var(--overlay-shadow); transform: translateY(.5rem) scale(.98); transition: transform var(--motion-enter) var(--ease-out); }
+    .modal-backdrop.open .modal { transform: translateY(0) scale(1); }
+    .modal-head, .modal-foot { padding: 1rem; display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+    .modal-head { border-bottom: 1px solid var(--border); }
+    .modal-body { padding: 1rem; }
+    .modal-foot { justify-content: flex-end; border-top: 1px solid var(--border); }
+    .drawer-backdrop { display: flex; justify-content: flex-end; }
+    .drawer { width: min(28rem, 100%); height: 100%; overflow: auto; background: var(--surface); box-shadow: var(--overlay-shadow); transform: translateX(100%); transition: transform var(--motion-enter) var(--ease-out); }
+    .drawer-backdrop.open .drawer { transform: translateX(0); }
+    .toast { position: fixed; right: 1rem; bottom: 1rem; z-index: 120; width: min(24rem, calc(100% - 2rem)); padding: .875rem; display: grid; grid-template-columns: 1.25rem minmax(0, 1fr); gap: .75rem; border-radius: var(--radius-2); background: var(--n-900); color: white; box-shadow: var(--overlay-shadow); font-size: .875rem; opacity: 0; transform: translateY(1rem); pointer-events: none; transition: opacity var(--motion-enter) var(--ease-out), transform var(--motion-enter) var(--ease-out); }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+    @media (min-width: 40rem) {
+      main { padding-inline: 1.5rem; }
+      .hero-meta { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .swatches { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .grid-2, .component-grid, .domain-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-4, .state-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .state-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .flow-track { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (min-width: 48rem) {
+      .app-header { padding-inline: 1.5rem; }
+      .component-card.wide { grid-column: 1 / -1; }
+      .component-card.wide { grid-template-columns: minmax(0, 1.25fr) minmax(18rem, .75fr); }
+      .component-card.wide .component-spec { border-top: 0; border-left: 1px solid var(--border); }
+      .workspace-tree .tree { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .state-simulator { grid-template-columns: minmax(18rem, .9fr) minmax(20rem, 1.1fr); align-items: center; }
+      .simulator-head { grid-column: 1 / -1; }
+    }
+    @media (min-width: 64rem) {
+      main { padding: 2rem 2rem 6rem; }
+      .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .state-strip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+      .workspace-body { grid-template-columns: 14rem minmax(0, 1fr); }
+      .workspace-tree { border-right: 1px solid var(--border); border-bottom: 0; }
+      .workspace-tree .tree { grid-template-columns: 1fr; max-height: none; }
+    }
+    @media (min-width: 80rem) {
+      .shell { grid-template-columns: 13.5rem minmax(0, 1fr); }
+      .docs-nav { display: block; }
+      .workspace-body { grid-template-columns: 15rem minmax(0, 1fr) 20rem; }
+      .workspace-inspector { grid-column: auto; display: block; border-top: 0; border-left: 1px solid var(--border); }
+      .workspace-inspector > * { border-right: 0; }
+      .flow-track { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+    @media (min-width: 90rem) {
+      .domain-grid { grid-template-columns: repeat(4, minmax(17rem, 1fr)); }
+    }
+    @media (max-width: 47.99rem) {
+      .header-path { display: none; }
+      .header-actions .btn-secondary { display: none; }
+      .workspace-top { align-items: flex-start; flex-wrap: wrap; }
+      .workspace-title { flex: 1 1 12rem; }
+      .workspace-title > span:not(.version-indicator) { display: none; }
+      .workspace-actions { width: 100%; justify-content: space-between; flex-wrap: wrap; }
+      .workspace-actions .save-indicator { display: inline-flex; }
+      .workspace-actions .btn-secondary { display: inline-flex; }
+      .map-tools { flex-wrap: nowrap; overflow-x: auto; }
+      .map-warning { bottom: 3.75rem; }
+      .data-table { min-width: 38rem; }
+    }
+    @media (min-width: 48rem) and (max-width: 63.99rem) {
+      .workspace-title > span:not(.brand-mark) { display: none; }
+    }
+    @media (min-width: 48rem) and (max-width: 79.99rem) { .header-path { display: none; } }
+  </style>
+</head>
+<body data-density="default">
+  <header class="app-header" data-od-id="ui-kit-header">
+    <div class="brand" data-od-id="fortis-brand"><span class="brand-mark" aria-hidden="true">FT</span><div><strong>FORTIS</strong><span>UI Kit / v1.0 Final</span></div></div>
+    <div class="header-path">Design System / Production UI Kit / v1.0 final</div>
+    <div class="header-actions">
+      <span class="version-indicator"><span class="sign success" data-icon="CircleCheck" aria-hidden="true"></span> v1.0</span>
+      <button class="btn btn-secondary" id="densityButton" type="button" data-od-id="density-toggle">Плотность: стандарт</button>
+      <div class="overlay-wrap">
+        <button class="btn btn-quiet" id="headerMenuButton" type="button" aria-haspopup="menu" aria-expanded="false">Действия</button>
+        <div class="menu" id="headerMenu" role="menu"><button class="menu-item" role="menuitem" type="button" data-toast="Токены скопированы">Скопировать токены <span class="menu-key">Ctrl C</span></button><button class="menu-item" role="menuitem" type="button" data-toast="Спецификация подготовлена">Экспортировать спецификацию</button><button class="menu-item" role="menuitem" type="button">Открыть журнал изменений</button></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="docs-nav" aria-label="Разделы UI-kit" data-od-id="ui-kit-navigation">
+      <p class="nav-label">Система</p>
+      <ul class="nav-list"><li><a class="nav-link active" href="#overview" aria-current="location"><span class="nav-index">00</span> Обзор</a></li><li><a class="nav-link" href="#foundations"><span class="nav-index">01</span> Foundations</a></li><li><a class="nav-link" href="#actions"><span class="nav-index">02</span> Actions</a></li><li><a class="nav-link" href="#forms"><span class="nav-index">03</span> Forms</a></li><li><a class="nav-link" href="#selection"><span class="nav-index">04</span> Selection</a></li><li><a class="nav-link" href="#feedback"><span class="nav-index">05</span> Feedback</a></li><li><a class="nav-link" href="#data"><span class="nav-index">06</span> Data</a></li><li><a class="nav-link" href="#navigation"><span class="nav-index">07</span> Navigation</a></li><li><a class="nav-link" href="#domain"><span class="nav-index">08</span> Domain</a></li><li><a class="nav-link" href="#gis-workspace"><span class="nav-index">09</span> GIS Workspace</a></li><li><a class="nav-link" href="#product-patterns"><span class="nav-index">10</span> Product Patterns</a></li><li><a class="nav-link" href="#system-state-simulator"><span class="nav-index">11</span> State simulator</a></li></ul>
+      <p class="nav-label">Контракт</p>
+      <ul class="nav-list"><li><span class="nav-link"><span class="nav-index">AA</span> WCAG</span></li><li><span class="nav-link"><span class="nav-index">44</span> target</span></li><li><span class="nav-link"><span class="nav-index">08</span> baseline</span></li></ul>
+    </nav>
+
+    <main data-od-id="ui-kit-main"><div class="content">
+      <section class="section hero" id="overview" data-od-id="overview-section">
+        <div><p class="eyebrow">Fortis Design Language / v1.0 Final</p><h1 data-od-id="overview-title">Рабочие компоненты для сложных решений.</h1><p class="lede">Системный UI-kit переносит утверждённый визуальный язык Fortis из концепции в повторяемые токены, состояния и интерактивные компоненты. Эталонный GIS Workspace подтверждает систему в связном продуктовом потоке.</p></div>
+        <div class="hero-meta"><div class="hero-stat"><strong>40 / 44 / 52</strong><span>Высоты контролов</span></div><div class="hero-stat"><strong>140 / 200 ms</strong><span>Выход и вход</span></div><div class="hero-stat"><strong>Light panels</strong><span>Тёмная только карта</span></div></div>
+      </section>
+
+      <section class="section" id="foundations" data-od-id="foundations-section">
+        <div class="section-head"><p class="eyebrow">01 / Foundations</p><h2 data-od-id="foundations-title">Семантический слой над базовыми значениями</h2><p class="lede">Компоненты используют роли canvas, surface, text, border, action и status. GIS-цвета кодируют эшелоны только вместе с подписью и типом линии.</p></div>
+        <div class="grid-2">
+          <article class="panel" data-od-id="semantic-colors"><header class="panel-head"><span class="panel-title">Semantic colors</span><span class="panel-meta">canonical</span></header><div class="panel-body swatches"><div class="swatch" style="--swatch:var(--bg)"><strong>canvas</strong><span>#F6F8FA</span></div><div class="swatch" style="--swatch:var(--surface)"><strong>surface</strong><span>#FFFFFF</span></div><div class="swatch" style="--swatch:var(--fg);--swatch-text:white"><strong>text.primary</strong><span>#10171D</span></div><div class="swatch" style="--swatch:var(--fg-secondary);--swatch-text:white"><strong>text.secondary</strong><span>#48545F</span></div><div class="swatch" style="--swatch:var(--border)"><strong>border</strong><span>#DCE2E7</span></div><div class="swatch" style="--swatch:var(--accent);--swatch-text:white"><strong>action.primary</strong><span>#155F8D</span></div></div></article>
+          <article class="panel" data-od-id="neutral-scale"><header class="panel-head"><span class="panel-title">Neutral scale</span><span class="panel-meta">cold / 11</span></header><div class="panel-body"><div class="neutral-ramp" aria-label="Нейтральная шкала"><span class="neutral" style="--c:var(--n-0)">0</span><span class="neutral" style="--c:var(--n-25)">25</span><span class="neutral" style="--c:var(--n-50)">50</span><span class="neutral" style="--c:var(--n-100)">100</span><span class="neutral" style="--c:var(--n-200)">200</span><span class="neutral" style="--c:var(--n-300)">300</span><span class="neutral" style="--c:var(--n-400);--t:white">400</span><span class="neutral" style="--c:var(--n-500);--t:white">500</span><span class="neutral" style="--c:var(--n-600);--t:white">600</span><span class="neutral" style="--c:var(--n-700);--t:white">700</span><span class="neutral" style="--c:var(--n-900);--t:white">900</span></div><p class="caption">Холодный ряд связывает экранные панели, карту и печатные расчёты.</p></div></article>
+        </div>
+        <div class="grid-3" style="margin-top:1rem">
+          <article class="panel" data-od-id="gis-data-colors"><header class="panel-head"><span class="panel-title">GIS / data colors</span><span class="panel-meta">color + pattern</span></header><div class="panel-body data-colors"><div class="data-color"><span class="line-key" style="--c:var(--blue-500)"></span><span>L1 · Периметр</span><span class="mono">#2176A8</span></div><div class="data-color"><span class="line-key dashed" style="--c:var(--cyan-500)"></span><span>L2 · Ближняя зона</span><span class="mono">#178A9D</span></div><div class="data-color"><span class="line-key dotted" style="--c:var(--violet-500)"></span><span>L3 · Средняя зона</span><span class="mono">#6F6AA8</span></div><div class="data-color"><span class="line-key dashed" style="--c:var(--amber-600)"></span><span>L4 · Внешняя зона</span><span class="mono">#936200</span></div></div></article>
+          <article class="panel" data-od-id="typography-tokens"><header class="panel-head"><span class="panel-title">Typography</span><span class="panel-meta">Plex pairing</span></header><div class="panel-body"><div class="type-sample"><div class="type-meta"><span>Display / Sans</span><span>650</span></div><div class="type-display">Завод Альфа</div></div><div class="type-sample"><div class="type-meta"><span>Body / Sans</span><span>16 / 24</span></div><div>Проверка покрытия северного сектора.</div></div><div class="type-sample"><div class="type-meta"><span>Data / Mono</span><span>tabular</span></div><div class="type-data">₽ 184 760 000</div></div><p class="caption">IBM Plex Sans + IBM Plex Mono с системными fallback.</p></div></article>
+          <article class="panel" data-od-id="shape-motion-density"><header class="panel-head"><span class="panel-title">Space · shape · motion</span><span class="panel-meta">8 px baseline</span></header><div class="panel-body"><table class="token-table"><tbody><tr><td>Space</td><td class="token-value">4 / 8 / 16 / 24 / 32</td></tr><tr><td>Control</td><td class="token-value">40 / 44 / 52</td></tr><tr><td>Radius</td><td class="token-value">4 / 6 / 10</td></tr><tr><td>Border</td><td class="token-value">1px semantic</td></tr><tr><td>Elevation</td><td class="token-value">overlay only</td></tr><tr><td>Motion</td><td class="token-value">140 / 200 ms</td></tr><tr><td>Density</td><td class="token-value">compact / default / comfortable</td></tr></tbody></table></div></article>
+        </div>
+        <article class="panel" style="margin-top:1rem" data-od-id="interaction-state-tokens"><header class="panel-head"><span class="panel-title">Interaction state contract</span><span class="panel-meta">visible before action</span></header><div class="panel-body state-strip"><span class="state-token"><strong>Default</strong><span class="mono">surface / border</span></span><span class="state-token demo-hover"><strong>Hover</strong><span class="mono">n-50 / n-400</span></span><span class="state-token demo-active"><strong>Active</strong><span class="mono">accent inset</span></span><span class="state-token"><strong>Focus</strong><span class="mono">3px focus ring</span></span><span class="state-token demo-disabled"><strong>Disabled</strong><span class="mono">44% opacity</span></span><span class="state-token demo-invalid"><strong>Invalid</strong><span class="mono">danger + text</span></span><span class="state-token demo-loading"><strong>Loading</strong></span></div></article>
+      </section>
+
+      <section class="section" id="actions" data-od-id="actions-section">
+        <div class="section-head"><p class="eyebrow">02 / Actions</p><h2>Действия с ясной иерархией</h2><p class="lede">Один primary на рабочую область. IconButton использует подтверждённый frontend-контракт Lucide с semantic names; если графика не обязательна, действие сохраняет полный текстовый label.</p></div>
+        <div class="component-grid">
+          <article class="component-card" data-od-id="button-component"><header class="panel-head"><span class="panel-title">Button</span><span class="panel-meta">action</span></header><div class="component-demo"><div class="toolbar"><button class="btn btn-primary" type="button" data-toast="Проект сохранён">Сохранить проект</button><button class="btn btn-secondary" type="button">Сравнить версии</button><button class="btn btn-quiet" type="button">Отмена</button><button class="btn btn-danger" type="button">Удалить расчёт</button></div><div class="toolbar"><button class="btn btn-primary btn-loading" type="button" aria-busy="true">Сохраняем</button><button class="btn btn-primary" type="button" disabled>Недоступно</button></div></div><dl class="component-spec"><div class="spec-row"><dt>Anatomy</dt><dd>Root · Label · optional LeadingContent · Spinner</dd></div><div class="spec-row"><dt>Size</dt><dd>40 compact · 44 default · 52 comfortable</dd></div><div class="spec-row"><dt>Variants</dt><dd>primary · secondary · quiet · danger; default / hover / active / focus / disabled / loading</dd></div><div class="spec-row"><dt>Usage</dt><dd>Primary — одно ключевое действие; danger всегда называет необратимый результат.</dd></div><div class="spec-row"><dt>A11y</dt><dd>Нативный button; busy через aria-busy; disabled не заменять только цветом.</dd></div></dl></article>
+          <article class="component-card" data-od-id="icon-button-component"><header class="panel-head"><span class="panel-title">IconButton + Icon contract</span><span class="panel-meta">lucide-react</span></header><div class="component-demo"><div class="toolbar"><span class="tooltip-wrap"><button class="icon-btn" type="button" aria-label="Центрировать карту"><span class="icon-slot" data-icon="LocateFixed" aria-hidden="true"></span></button><span class="tooltip" role="tooltip">Центрировать карту</span></span><span class="tooltip-wrap"><button class="icon-btn" type="button" aria-label="Открыть дополнительные действия"><span class="icon-slot" data-icon="Ellipsis" aria-hidden="true"></span></button><span class="tooltip" role="tooltip">Дополнительные действия</span></span><button class="icon-btn" type="button" aria-label="Недоступное действие" disabled><span class="icon-slot" data-icon="LocateFixed" aria-hidden="true"></span></button></div><div class="icon-contract" aria-label="Semantic icon names"><div class="icon-contract-row"><strong>action.locate</strong><span class="mono">LocateFixed</span><span>Карта и выбранный объект</span></div><div class="icon-contract-row"><strong>action.more</strong><span class="mono">Ellipsis</span><span>Дополнительные команды</span></div><div class="icon-contract-row"><strong>status.warning</strong><span class="mono">TriangleAlert</span><span>Всегда рядом с текстом</span></div></div><p class="caption">Слоты намеренно не рисуют заменители: React-реализация подключает компоненты из <span class="mono">lucide-react</span>. Существующие Ant icons мигрируют по semantic mapping.</p></div><dl class="component-spec"><div class="spec-row"><dt>Anatomy</dt><dd>Root · Icon semantic slot · Tooltip</dd></div><div class="spec-row"><dt>Size</dt><dd>40 / 44 / 52, glyph 16–20</dd></div><div class="spec-row"><dt>Variants</dt><dd>default · selected · danger; все action states</dd></div><div class="spec-row"><dt>Usage</dt><dd>Только знакомое повторяемое действие; иначе использовать Button с текстом.</dd></div><div class="spec-row"><dt>A11y</dt><dd>Иконка aria-hidden; обязательный aria-label и tooltip; не меньше 44 px в default.</dd></div></dl></article>
+        </div>
+      </section>
+
+      <section class="section" id="forms" data-od-id="forms-section">
+        <div class="section-head"><p class="eyebrow">03 / Forms</p><h2>Ввод с предсказуемой валидацией</h2><p class="lede">Label остаётся видимым, help и error занимают одно место в потоке, а invalid-состояние всегда содержит объяснение.</p></div>
+        <div class="component-grid">
+          <article class="component-card wide" data-od-id="text-fields-components"><div><header class="panel-head"><span class="panel-title">Input · Textarea · Select · Search</span><span class="panel-meta">field family</span></header><div class="component-demo"><form class="field-stack" id="validationForm" novalidate><label class="field"><span class="field-label">Название объекта</span><input class="input" name="name" value="Завод Альфа" autocomplete="off"><span class="field-help">До 80 знаков; используется в отчётах.</span></label><label class="field"><span class="field-label">Комментарий к версии</span><textarea class="textarea" name="comment">Уточнено покрытие северного сектора.</textarea></label><label class="field"><span class="field-label">Сценарий расчёта</span><select class="select" name="scenario"><option>Базовый · L1–L4</option><option>Расширенный · L1–L5</option></select></label><label class="field"><span class="field-label">Поиск по активам</span><span class="field-control"><span class="search-label">Поиск</span><input class="input search" name="search" placeholder="МОГ, РЛС, пост"></span></label><label class="field"><span class="field-label">Лимит бюджета, ₽</span><input class="input mono" id="budgetInput" name="budget" inputmode="numeric" value="120 000 000" aria-describedby="budgetHelp"><span class="field-help" id="budgetHelp">Не меньше стоимости конфигурации: 184 760 000 ₽.</span></label><div><button class="btn btn-primary" type="submit">Проверить форму</button></div></form></div></div><div class="component-spec"><ul class="component-list"><li><b>Input</b> — Label · Control · Help/Error; 40/44/52; text/number/readonly/disabled/invalid; один факт в поле; label + describedby.</li><li><b>Textarea</b> — Label · Control · Counter/Help; min 104 px; default/readonly/disabled/invalid; для многострочного контекста; resize vertical.</li><li><b>Select</b> — Label · Trigger · Native list; 40/44/52; default/disabled/invalid; до 15 стабильных вариантов; нативная клавиатура.</li><li><b>Search</b> — Label · SearchControl · ResultsStatus; 40/44/52; empty/filled/loading/no-results; задержка запросов; объявлять число результатов через live-region.</li></ul></div></article>
+          <article class="component-card" data-od-id="choice-components"><header class="panel-head"><span class="panel-title">Checkbox · Radio · Switch</span><span class="panel-meta">choice</span></header><div class="component-demo"><div class="choice-list"><label class="choice"><input type="checkbox" checked> Показывать зоны покрытия</label><label class="choice"><input type="checkbox"> Показывать архивные активы</label><label class="choice"><input type="radio" name="calculation" checked> Текущая версия</label><label class="choice"><input type="radio" name="calculation"> Сравнение с v11</label><label class="choice"><input class="switch" type="checkbox" role="switch" checked> Автосохранение проекта</label></div></div><div class="component-spec"><ul class="component-list"><li><b>Checkbox</b> — Input · Label · optional Help; 44 target; checked/unchecked/mixed/disabled/invalid; независимый выбор; native input.</li><li><b>Radio</b> — Group · Items · Help; 44 target; selected/default/disabled; один вариант из 2–7; fieldset/legend в формах.</li><li><b>Switch</b> — Control · Label · State; 44 target; on/off/disabled; немедленное изменение настройки; role=switch и явная подпись.</li></ul></div></article>
+        </div>
+      </section>
+
+      <section class="section" id="selection" data-od-id="selection-section">
+        <div class="section-head"><p class="eyebrow">04 / Selection</p><h2>Выбор, фильтрация и компактная семантика</h2></div>
+        <div class="component-grid">
+          <article class="component-card" data-od-id="tabs-segmented-components"><header class="panel-head"><span class="panel-title">Tabs · Segmented Control</span><span class="panel-meta">view selection</span></header><div class="component-demo"><div data-tabs><div class="tabs" role="tablist" aria-label="Раздел актива"><button class="tab" role="tab" aria-selected="true" aria-controls="tab-object" id="tab-object-control">Объект</button><button class="tab" role="tab" aria-selected="false" aria-controls="tab-echelons" id="tab-echelons-control" tabindex="-1">Эшелоны</button><button class="tab" role="tab" aria-selected="false" aria-controls="tab-cost" id="tab-cost-control" tabindex="-1">Стоимость</button></div><div class="tab-panel" id="tab-object" role="tabpanel" aria-labelledby="tab-object-control">МОГ — пост №1 · MOG-001 · активен</div><div class="tab-panel" id="tab-echelons" role="tabpanel" aria-labelledby="tab-echelons-control" hidden>L2 · Ближняя зона · радиус 3,2 км</div><div class="tab-panel" id="tab-cost" role="tabpanel" aria-labelledby="tab-cost-control" hidden>12 480 000 ₽ · включая установку</div></div><div class="segmented" role="group" aria-label="Представление данных"><button class="segment" type="button" aria-pressed="true">Схема</button><button class="segment" type="button" aria-pressed="false">Таблица</button><button class="segment" type="button" aria-pressed="false">Сравнение</button></div></div><div class="component-spec"><ul class="component-list"><li><b>Tabs</b> — Tablist · Tab · Panel; 44 px; default/active/disabled/overflow; разделы одного контекста; стрелки, Home/End и связанный panel.</li><li><b>Segmented Control</b> — Group · Segments; 40/44/52; 2–4 mutually exclusive views; не использовать как глобальную навигацию; aria-pressed.</li></ul></div></article>
+          <article class="component-card" data-od-id="badge-status-tag-components"><header class="panel-head"><span class="panel-title">Badge · Status · Tag</span><span class="panel-meta">metadata</span></header><div class="component-demo"><div class="chip-row"><span class="badge">4 актива</span><span class="badge success"><span class="sign" data-icon="CircleCheck" aria-hidden="true"></span> Сохранено</span><span class="badge warning"><span class="sign" data-icon="TriangleAlert" aria-hidden="true"></span> 2 предупреждения</span><span class="badge danger"><span class="sign" data-icon="CircleX" aria-hidden="true"></span> Ошибка связи</span></div><div class="chip-row"><span class="status success"><span class="sign" data-icon="CircleCheck" aria-hidden="true"></span> Покрытие рассчитано</span><span class="tag">L2 · Ближняя зона</span><button class="tag" type="button">Версия v12</button></div></div><div class="component-spec"><ul class="component-list"><li><b>Badge</b> — Container · Label · optional Sign; 26 px; neutral/success/warning/danger; короткий счётчик/статус; цвет + текст + знак.</li><li><b>Status</b> — Sign · StateLabel · optional Detail; inline; info/success/warning/error/loading; текущее состояние процесса; role=status для изменений.</li><li><b>Tag</b> — Label · optional Remove; 26 px; static/selectable/removable; классификация и фильтры; button только если интерактивен.</li></ul></div></article>
+        </div>
+      </section>
+
+      <section class="section" id="feedback" data-od-id="feedback-section">
+        <div class="section-head"><p class="eyebrow">05 / Feedback + overlays</p><h2>Сообщения не теряют контекст</h2><p class="lede">Alert живёт в потоке, Inline Message рядом с причиной, Toast подтверждает завершённое действие. Тень используется только у overlays.</p></div>
+        <div class="component-grid">
+          <article class="component-card" data-od-id="alert-toast-inline-components"><header class="panel-head"><span class="panel-title">Alert · Toast · Inline Message</span><span class="panel-meta">feedback</span></header><div class="component-demo feedback-stack"><div class="alert info"><span class="sign" data-icon="Info" aria-hidden="true"></span><div><div class="alert-title">Версия 12 готова к проверке</div><p>Расчёт обновлён после изменения радиуса L2.</p></div><button class="btn btn-quiet" type="button">Открыть</button></div><div class="inline-message warn"><span class="sign" data-icon="TriangleAlert" aria-hidden="true"></span><div><strong>Покрытие северного сектора — 71%</strong><p>Ниже принятого порога 85%.</p></div><button class="text-action" type="button">Показать</button></div><button class="btn btn-secondary" type="button" data-toast="Версия 13 сохранена · 14:36">Показать Toast</button></div><div class="component-spec"><ul class="component-list"><li><b>Alert</b> — Sign · Title · Message · Action; info/success/warning/error; блокирующий контекст; role=alert только для срочного.</li><li><b>Toast</b> — Sign · Message · optional Action; до 6 c; success/info/error; подтверждение фонового действия; polite live-region и не единственный канал ошибки.</li><li><b>Inline Message</b> — Sign · Text · Action; compact; info/warning/error; рядом с источником; не перекрывает контент.</li></ul></div></article>
+          <article class="component-card" data-od-id="tooltip-menu-popover-components"><header class="panel-head"><span class="panel-title">Tooltip · Dropdown Menu · Popover</span><span class="panel-meta">overlay</span></header><div class="component-demo"><div class="toolbar"><span class="tooltip-wrap"><button class="btn btn-secondary" type="button">Покрытие</button><span class="tooltip" role="tooltip">Показывает долю защищённой площади</span></span><span class="overlay-wrap"><button class="btn btn-secondary" id="menuButton" type="button" aria-haspopup="menu" aria-expanded="false">Действия</button><span class="menu" id="actionMenu" role="menu"><button class="menu-item" role="menuitem" type="button">Создать версию <span class="menu-key">Ctrl S</span></button><button class="menu-item" role="menuitem" type="button">Экспортировать PDF</button><button class="menu-item" role="menuitem" type="button">Архивировать проект</button></span></span><span class="overlay-wrap"><button class="btn btn-secondary" id="popoverButton" type="button" aria-expanded="false">О расчёте</button><span class="popover" id="costPopover"><strong>Стоимость конфигурации</strong><p>Цены II квартала 2026 года, монтаж и резерв включены.</p><span class="mono">184 760 000 ₽</span></span></span></div></div><div class="component-spec"><ul class="component-list"><li><b>Tooltip</b> — Anchor · Bubble; max 240 px; text only; объясняет краткое действие; hover + focus, не содержит интерактив.</li><li><b>Dropdown Menu</b> — Trigger · Menu · Items · shortcuts; overlay; default/hover/disabled/danger; вторичные команды; aria-haspopup, стрелки, Escape.</li><li><b>Popover</b> — Trigger · Surface · Content; 240–360 px; info/form; дополнительный контекст; управлять фокусом при интерактивном содержимом.</li></ul></div></article>
+          <article class="component-card wide" data-od-id="modal-drawer-components"><div><header class="panel-head"><span class="panel-title">Modal · Drawer</span><span class="panel-meta">blocking / contextual</span></header><div class="component-demo"><div class="toolbar"><button class="btn btn-primary" id="openModal" type="button">Открыть Modal</button><button class="btn btn-secondary" id="openDrawer" type="button">Открыть Drawer</button></div><p class="caption">Modal подтверждает ограниченную задачу. Drawer сохраняет контекст GIS и подходит для расширенного инспектора.</p></div></div><div class="component-spec"><ul class="component-list"><li><b>Modal</b> — Backdrop · Dialog · Header · Body · Footer; 480–640 px; default/danger/loading; короткая блокирующая задача; focus trap, Escape, restore focus, aria-modal.</li><li><b>Drawer</b> — Backdrop · Panel · Header · Body · Footer; 360–480 px; right/full at 768; подробный контекст без ухода; те же требования к фокусу и закрытию.</li></ul></div></article>
+        </div>
+      </section>
+
+      <section class="section" id="data" data-od-id="data-section">
+        <div class="section-head"><p class="eyebrow">06 / Data</p><h2>Табличная плотность без потери состояний</h2></div>
+        <article class="component-card wide" data-od-id="table-pagination-components"><div><header class="panel-head"><span class="panel-title">Table</span><span class="panel-meta">sortable / selectable</span></header><div class="component-demo"><div class="table-shell"><table class="data-table" id="assetTable"><thead><tr><th><button type="button" data-sort="name" aria-label="Сортировать по активу">Актив </button></th><th><button type="button" data-sort="level" aria-label="Сортировать по эшелону">Эшелон </button></th><th>Статус</th><th class="num"><button type="button" data-sort="cost" aria-label="Сортировать по стоимости">Стоимость, ₽ </button></th></tr></thead><tbody><tr tabindex="0" data-name="МОГ — пост №1" data-level="2" data-cost="12480000"><td>МОГ — пост №1</td><td>L2</td><td><span class="badge success"><span class="sign" data-icon="CircleCheck" aria-hidden="true"></span> В проекте</span></td><td class="num">12 480 000</td></tr><tr class="selected" tabindex="0" aria-selected="true" data-name="РЛС — север" data-level="3" data-cost="34700000"><td>РЛС — север</td><td>L3</td><td><span class="badge warning"><span class="sign" data-icon="TriangleAlert" aria-hidden="true"></span> Проверить</span></td><td class="num">34 700 000</td></tr><tr class="warning-row" tabindex="0" data-name="Пост наблюдения №4" data-level="1" data-cost="3900000"><td>Пост наблюдения №4</td><td>L1</td><td><span class="badge warning"><span class="sign" data-icon="TriangleAlert" aria-hidden="true"></span> Цена устарела</span></td><td class="num">3 900 000</td></tr><tr class="disabled-row" aria-disabled="true" data-name="Резервный ретранслятор" data-level="4" data-cost="8100000"><td>Резервный ретранслятор</td><td>L4</td><td><span class="badge">Недоступен</span></td><td class="num">8 100 000</td></tr></tbody></table></div><nav class="pagination" aria-label="Страницы таблицы"><span class="caption">1–4 из 21 актива</span><span class="page-list"><button class="page-btn" type="button" aria-label="Предыдущая страница" disabled>Назад</button><button class="page-btn" type="button" aria-current="page">1</button><button class="page-btn" type="button">2</button><button class="page-btn" type="button">3</button><button class="page-btn" type="button" aria-label="Следующая страница">Далее</button></span></nav></div></div><div class="component-spec"><ul class="component-list"><li><b>Table</b> — Caption · Header · SortControl · Rows · Cells · Selection; rows 40/44/52; default/hover/selected/warning/disabled/loading/empty; числовые колонки справа; th scope, aria-sort, keyboard-selectable rows.</li><li><b>Pagination</b> — Summary · Previous · Pages · Next; 44 targets; first/middle/last/loading; для известных страниц; nav label, aria-current и полные названия кнопок.</li></ul></div></article>
+      </section>
+
+      <section class="section" id="navigation" data-od-id="navigation-section">
+        <div class="section-head"><p class="eyebrow">07 / States + navigation</p><h2>Путь, заголовок и системный исход</h2></div>
+        <article class="component-card wide" data-od-id="navigation-components"><div><header class="panel-head"><span class="panel-title">Navigation · Breadcrumbs · Page Header</span><span class="panel-meta">wayfinding</span></header><div class="component-demo"><nav class="local-nav" aria-label="Навигация проекта"><button class="btn btn-quiet" type="button">Обзор</button><button class="btn btn-primary" type="button">GIS Workspace</button><button class="btn btn-quiet" type="button">Смета</button><button class="btn btn-quiet" type="button">Версии</button></nav><nav class="breadcrumb" aria-label="Хлебные крошки"><a href="#overview">Проекты</a><span>/</span><a href="#gis-workspace">Завод Альфа</a><span>/</span><span aria-current="page">GIS Workspace</span></nav><div class="page-header"><div><div class="caption">FP-ALPHA-012 · версия 12</div><h3>Завод Альфа</h3><p class="caption">21 актив · 4 эшелона · обновлено в 14:32</p></div><div class="toolbar"><button class="btn btn-secondary" type="button">Сравнить</button><button class="btn btn-primary" type="button">Сохранить версию</button></div></div></div></div><div class="component-spec"><ul class="component-list"><li><b>Navigation</b> — Container · Items · ActiveIndicator; 44 target; horizontal/sidebar/collapsed; верхнеуровневые области; nav landmark и текущий item.</li><li><b>Breadcrumbs</b> — Nav · Links · Current; compact; 2–5 уровней; показывают иерархию, не историю; aria-label и aria-current.</li><li><b>Page Header</b> — Context · Title · Meta · Actions; default/compact; начало task-area; один h1/h2 по уровню и логичный порядок фокуса.</li></ul></div></article>
+        <div class="state-grid" style="margin-top:1rem" data-od-id="system-state-components"><article class="state-card"><span class="state-symbol">Пусто</span><h3>Нет активов</h3><p>Добавьте первый актив в выбранный эшелон.</p><button class="btn btn-secondary" type="button">Открыть библиотеку</button></article><article class="state-card"><div class="skeleton" aria-label="Загрузка"><span></span><span></span><span></span></div><h3>Считаем покрытие</h3><p>Сопоставляем зоны и геометрию объекта.</p></article><article class="state-card"><span class="state-symbol danger">Ошибка</span><h3>Данные недоступны</h3><p>Проверьте соединение и повторите запрос.</p><button class="btn btn-secondary" type="button">Повторить</button></article><article class="state-card"><span class="state-symbol success">Готово</span><h3>Версия сохранена</h3><p>v12 · Андрей Морозов · 14:32</p><button class="btn btn-quiet" type="button">Сравнить</button></article></div>
+        <div class="component-spec" style="margin-top:1rem;border:1px solid var(--border);border-radius:var(--radius-2)"><ul class="component-list"><li><b>Empty</b> — Sign · Title · Guidance · CTA; initial/filtered/permission; объясняет следующий шаг; CTA конкретен.</li><li><b>Loading</b> — Progress/Skeleton · Label; inline/section/page; сохраняет геометрию; aria-busy и live status.</li><li><b>Error</b> — Sign · Title · Cause · Recovery; recoverable/blocking/offline; честная причина и действие; role=alert для нового сбоя.</li><li><b>Success</b> — Sign · Title · Result · Next step; inline/page; подтверждает завершение; фокус не переносится без причины.</li></ul></div>
+      </section>
+
+      <section class="section" id="domain" data-od-id="domain-section">
+        <div class="section-head"><p class="eyebrow">08 / Fortis domain components</p><h2>Предметная модель остаётся видимой</h2><p class="lede">Названия и слоты перенесены из утверждённого index.html; компоненты не пересобираются локально в каждом модуле.</p></div>
+        <div class="domain-grid">
+          <article class="component-card" data-od-id="asset-card-component"><header class="panel-head"><span class="panel-title">AssetCard</span><span class="panel-meta">entity</span></header><div class="component-demo"><div class="asset-card"><div class="asset-head"><div><div class="asset-title">МОГ — пост №1</div><div class="asset-meta">MOG-001 · L2 · Наземный пост</div></div><span class="badge success"><span class="sign" data-icon="CircleCheck" aria-hidden="true"></span> Активен</span></div><div class="asset-data"><div class="datum"><span>Стоимость</span><strong>₽ 12,48 млн</strong></div><div class="datum"><span>Состояние</span><strong>Готов</strong></div><div class="datum"><span>Версия</span><strong>v12</strong></div></div><button class="btn btn-secondary" type="button" data-open-inspector>Открыть инспектор</button></div></div><div class="component-spec"><div class="spec-row"><dt>Anatomy</dt><dd>Root · Header · Title · Meta · Status · Data · Actions</dd></div><div class="spec-row"><dt>Variants</dt><dd>default · selected · warning · disabled; compact/default</dd></div><div class="spec-row"><dt>Usage/a11y</dt><dd>Один инженерный актив; action получает полное имя объекта, status не только цветом.</dd></div></div></article>
+          <article class="component-card" data-od-id="echelon-tree-item-component"><header class="panel-head"><span class="panel-title">EchelonTreeItem</span><span class="panel-meta">navigation</span></header><div class="component-demo"><div class="tree"><button class="tree-item" type="button"><span class="level-tag" style="--level:var(--blue-500)">L1</span><span class="tree-title">Периметр объекта</span><span class="mono">6</span></button><button class="tree-item selected" type="button" aria-current="true"><span class="level-tag" style="--level:var(--cyan-500)">L2</span><span class="tree-title">Ближняя зона</span><span class="mono">9</span></button><button class="tree-item warning-item" type="button"><span class="level-tag" style="--level:var(--amber-600)">L4</span><span class="tree-title">Внешняя зона</span><span class="mono">2 !</span></button></div></div><div class="component-spec"><div class="spec-row"><dt>Anatomy</dt><dd>Toggle · LevelTag · Label · Count · Warning</dd></div><div class="spec-row"><dt>Variants</dt><dd>default · selected · expanded · warning · disabled</dd></div><div class="spec-row"><dt>Usage/a11y</dt><dd>44 px row; arrow-key tree navigation в production; aria-current для активного.</dd></div></div></article>
+          <article class="component-card" data-od-id="object-inspector-component"><header class="panel-head"><span class="panel-title">ObjectInspector</span><span class="panel-meta">context</span></header><div class="component-demo inspector-card"><div class="inspector-section"><div class="asset-head"><div><strong>МОГ — пост №1</strong><div class="caption">MOG-001 · наземный пост</div></div><span class="badge success">Активен</span></div></div><div class="inspector-section"><strong class="small">Размещение</strong><div class="property-grid"><span class="muted">Эшелон</span><span>L2 · Ближняя</span><span class="muted">Координаты</span><span class="mono">56.312 / 43.942</span><span class="muted">Азимут</span><span class="mono">42°</span></div></div></div><div class="component-spec"><div class="spec-row"><dt>Anatomy</dt><dd>Header · Section · PropertyGrid · Actions</dd></div><div class="spec-row"><dt>Variants</dt><dd>docked · overlay · readonly · editing</dd></div><div class="spec-row"><dt>Usage/a11y</dt><dd>Контекст выбранного объекта; заголовки секций и предсказуемый tab order.</dd></div></div></article>
+          <article class="component-card" data-od-id="budget-metric-component"><header class="panel-head"><span class="panel-title">BudgetMetric</span><span class="panel-meta">financial</span></header><div class="component-demo"><div class="budget-metric"><div class="caption">Стоимость конфигурации</div><div class="metric-value">₽ 184 760 000</div><div class="metric-delta">−6,2% к версии 11</div><div class="progress" aria-label="Использовано 92 процента лимита"><span style="--value:92%"></span></div><div class="caption" style="margin-top:.5rem">92% лимита · остаток ₽ 15,24 млн</div></div></div><div class="component-spec"><div class="spec-row"><dt>Anatomy</dt><dd>Label · Value · Delta · Context · Progress</dd></div><div class="spec-row"><dt>Variants</dt><dd>default · warning · negative · loading</dd></div><div class="spec-row"><dt>Usage/a11y</dt><dd>Валюта и период обязательны; mono tabular; progress имеет текстовый эквивалент.</dd></div></div></article>
+          <article class="component-card" data-od-id="coverage-status-component"><header class="panel-head"><span class="panel-title">CoverageStatus</span><span class="panel-meta">map data</span></header><div class="component-demo"><div class="coverage-list"><div class="coverage-row"><span><span class="line-key" style="--c:var(--blue-500);display:inline-block;margin-right:.5rem"></span>L1 · Периметр</span><strong class="mono">96%</strong></div><div class="coverage-row"><span><span class="line-key dashed" style="--c:var(--cyan-500);display:inline-block;margin-right:.5rem"></span>L2 · Ближняя</span><strong class="mono">87%</strong></div><div class="coverage-row"><span><span class="line-key dotted" style="--c:var(--violet-500);display:inline-block;margin-right:.5rem"></span>L3 · Средняя</span><strong class="mono">82%</strong></div><div class="inline-message warn"><span class="sign" data-icon="TriangleAlert" aria-hidden="true"></span><div><strong>Общее покрытие 87%</strong><p>Ниже цели на 3 п.п.</p></div></div></div></div><div class="component-spec"><div class="spec-row"><dt>Anatomy</dt><dd>LevelKey · Label · Value · ThresholdState</dd></div><div class="spec-row"><dt>Variants</dt><dd>good · below-target · unknown · recalculating</dd></div><div class="spec-row"><dt>Usage/a11y</dt><dd>Цвет + линия + подпись; процент объявляется вместе с уровнем и целью.</dd></div></div></article>
+          <article class="component-card" data-od-id="warning-stack-component"><header class="panel-head"><span class="panel-title">WarningStack</span><span class="panel-meta">prioritized</span></header><div class="component-demo"><div class="warning-stack"><div class="warning-card"><span class="sign warning" data-icon="TriangleAlert" aria-hidden="true"></span><span><strong>Северный сектор</strong><br><span class="muted">Покрытие 71%</span></span><button class="text-action" type="button">Показать</button></div><div class="warning-card"><span class="sign warning" data-icon="TriangleAlert" aria-hidden="true"></span><span><strong>2 устаревшие цены</strong><br><span class="muted">Старше 14 дней</span></span><button class="text-action" type="button">Проверить</button></div></div></div><div class="component-spec"><div class="spec-row"><dt>Anatomy</dt><dd>Priority · Sign · Title · Detail · Action</dd></div><div class="spec-row"><dt>Variants</dt><dd>warning · error · acknowledged · resolved</dd></div><div class="spec-row"><dt>Usage/a11y</dt><dd>Сортировка по влиянию; новый critical сообщает live, но не перехватывает фокус.</dd></div></div></article>
+          <article class="component-card" data-od-id="save-indicator-component"><header class="panel-head"><span class="panel-title">SaveIndicator</span><span class="panel-meta">system state</span></header><div class="component-demo"><div class="feedback-stack" id="saveIndicatorShowcase"><span class="save-indicator success"><span class="sign" data-icon="CircleCheck" aria-hidden="true"></span><span>Все изменения сохранены · 14:32</span></span><span class="save-indicator"><span class="btn-loading" aria-hidden="true"></span><span>Сохраняем изменения…</span></span><span class="save-indicator warning"><span class="sign" data-icon="TriangleAlert" aria-hidden="true"></span><span>Конфликт версии · сравнить</span></span><span class="save-indicator danger"><span class="sign" data-icon="CircleX" aria-hidden="true"></span><span>Офлайн · локальная копия</span></span></div></div><div class="component-spec"><div class="spec-row"><dt>Anatomy</dt><dd>Sign/Spinner · StateLabel · Timestamp · Version</dd></div><div class="spec-row"><dt>Variants</dt><dd>saved · saving · conflict · offline</dd></div><div class="spec-row"><dt>Usage/a11y</dt><dd>Всегда текстом; role=status и polite announcements без повторов.</dd></div></div></article>
+          <article class="component-card" data-od-id="version-indicator-component"><header class="panel-head"><span class="panel-title">VersionIndicator</span><span class="panel-meta">provenance</span></header><div class="component-demo"><div class="chip-row"><span class="version-indicator"><span class="sign success" data-icon="CircleCheck" aria-hidden="true"></span> v12 · текущая</span><span class="version-indicator"><span class="sign warning" data-icon="TriangleAlert" aria-hidden="true"></span> v11 · есть расхождения</span></div><p class="caption">Андрей Морозов · 22.07.2026, 14:32</p></div><div class="component-spec"><div class="spec-row"><dt>Anatomy</dt><dd>Version · State · Author · Timestamp</dd></div><div class="spec-row"><dt>Variants</dt><dd>current · draft · compared · conflict · archived</dd></div><div class="spec-row"><dt>Usage/a11y</dt><dd>Версия всегда рядом с автором/временем в детальном контексте; не полагаться на цвет.</dd></div></div></article>
+        </div>
+        <article class="panel" style="margin-top:1rem" data-od-id="domain-size-contract"><header class="panel-head"><span class="panel-title">Domain size contract</span><span class="panel-meta">per component</span></header><div class="table-shell" style="border:0;border-radius:0"><table class="token-table"><thead><tr><th>Component</th><th>Canonical size</th><th>Density behavior</th></tr></thead><tbody><tr><td>AssetCard</td><td class="mono">min 280 · padding 16</td><td>actions 40 / 44 / 52</td></tr><tr><td>EchelonTreeItem</td><td class="mono">row 40 / 44 / 52</td><td>level tag 28 × 22</td></tr><tr><td>ObjectInspector</td><td class="mono">docked 320 · drawer 448</td><td>section padding 14 / 16</td></tr><tr><td>BudgetMetric</td><td class="mono">min 240 · value 22–28</td><td>padding 12 / 16 / 20</td></tr><tr><td>CoverageStatus</td><td class="mono">row min 32 · key 32</td><td>compact labels remain visible</td></tr><tr><td>WarningStack</td><td class="mono">row min 52</td><td>action target 44 minimum</td></tr><tr><td>SaveIndicator</td><td class="mono">inline min 32</td><td>label never collapses to color</td></tr><tr><td>VersionIndicator</td><td class="mono">pill 32 · row 44</td><td>mono 11–12</td></tr></tbody></table></div></article>
+      </section>
+
+      <section class="section" id="gis-workspace" data-od-id="gis-workspace-section">
+        <div class="section-head"><p class="eyebrow">09 / Vertical slice</p><h2>GIS Workspace</h2><p class="lede">Вертикальный срез собран из компонентов выше: проектная навигация, EchelonTreeItem, карта, toolbar, ObjectInspector, WarningStack, BudgetMetric, SaveIndicator и VersionIndicator.</p></div>
+        <article class="workspace" data-od-id="gis-workspace">
+          <header class="workspace-top" id="gis-project-navigation" data-od-id="gis-project-navigation"><div class="workspace-title"><span class="brand-mark" aria-hidden="true">FT</span><strong>Завод Альфа</strong><span>/ GIS Workspace</span><span class="version-indicator">v12</span></div><div class="workspace-actions"><span class="save-indicator success" id="workspaceSaveState" role="status" aria-live="polite"><span class="sign" data-icon="CircleCheck" aria-hidden="true"></span><span>Сохранено</span></span><button class="btn btn-secondary" type="button" id="workspaceDrawerButton">Инспектор</button><button class="btn btn-primary" type="button" id="workspaceSaveButton">Сохранить</button></div></header>
+          <div class="workspace-body">
+            <aside class="workspace-tree" data-od-id="gis-echelons-tree"><label class="field"><span class="field-label">Структура проекта</span><span class="field-control"><span class="search-label">Поиск</span><input class="input search" placeholder="Актив или эшелон"></span></label><div class="tree" style="margin-top:.75rem"><button class="tree-item" type="button"><span class="level-tag" style="--level:var(--blue-500)">L1</span><span class="tree-title">Периметр</span><span class="mono">6</span></button><button class="tree-item selected" type="button" aria-current="true"><span class="level-tag" style="--level:var(--cyan-500)">L2</span><span class="tree-title">Ближняя зона</span><span class="mono">9</span></button><button class="tree-item" type="button"><span class="level-tag" style="--level:var(--violet-500)">L3</span><span class="tree-title">Средняя зона</span><span class="mono">4</span></button><button class="tree-item warning-item" type="button"><span class="level-tag" style="--level:var(--amber-600)">L4</span><span class="tree-title">Внешняя зона</span><span class="mono">2 !</span></button><button class="tree-item tree-child" type="button"><span class="level-tag" style="--level:var(--cyan-500)">A</span><span class="tree-title">МОГ — пост №1</span><span class="mono">M1</span></button></div></aside>
+            <div class="map" data-od-id="gis-map"><span class="road road-a"></span><span class="road road-b"></span><span class="coverage-ring"></span><span class="facility">ЗАВОД<br>АЛЬФА</span><button class="map-pin pin-a selected" type="button" aria-label="Выбран МОГ — пост №1" aria-pressed="true" data-open-inspector>M1</button><button class="map-pin pin-b" type="button" aria-label="Выбрать РЛС — север" aria-pressed="false">R2</button><button class="map-pin pin-c" type="button" aria-label="Выбрать пост наблюдения №4" aria-pressed="false">P4</button><div class="map-tools" role="toolbar" aria-label="Инструменты карты"><button class="map-tool active" type="button" aria-pressed="true">Выбор</button><button class="map-tool" type="button" aria-pressed="false">Перемещение</button><button class="map-tool" type="button" aria-pressed="false">Измерить</button><button class="map-tool" type="button" aria-pressed="false">Зона</button><button class="map-tool" type="button" aria-pressed="false">Заметка</button></div><span class="map-scale">500 м</span><div class="map-warning"><span class="status warning"><span class="sign" data-icon="TriangleAlert" aria-hidden="true"></span><strong>Главное предупреждение · покрытие 87%</strong></span><p style="margin:.25rem 0 0;color:var(--fg-secondary)">Северный сектор ниже цели на 14 п.п.</p><button class="text-action" type="button">Показать сектор</button></div></div>
+            <aside class="workspace-inspector" data-od-id="gis-object-inspector"><div class="inspector-section"><div class="asset-head"><div><strong>МОГ — пост №1</strong><div class="caption">MOG-001 · L2</div></div><span class="badge success"><span class="sign" data-icon="CircleCheck" aria-hidden="true"></span> Активен</span></div><div class="property-grid"><span class="muted">Координаты</span><span class="mono">56.312 / 43.942</span><span class="muted">Радиус</span><span class="mono">3,2 км</span><span class="muted">Азимут</span><span class="mono">42°</span></div></div><div class="budget-metric"><div class="caption">Стоимость конфигурации</div><div class="metric-value">₽ 184 760 000</div><div class="progress" aria-label="Использовано 92 процента лимита"><span style="--value:92%"></span></div><div class="caption" style="margin-top:.5rem">Остаток ₽ 15,24 млн</div></div><div class="inspector-section"><div class="warning-stack"><div class="warning-card"><span class="sign warning" data-icon="TriangleAlert" aria-hidden="true"></span><span><strong>Покрытие 71%</strong><br><span class="muted">Северный сектор</span></span><button class="text-action" type="button">Показать</button></div><div class="warning-card"><span class="sign warning" data-icon="TriangleAlert" aria-hidden="true"></span><span><strong>Цена устарела</strong><br><span class="muted">21 день</span></span><button class="text-action" type="button">Проверить</button></div></div></div></aside>
+          </div>
+        </article>
+      </section>
+
+      <section class="section" id="product-patterns" data-od-id="product-patterns-section">
+        <div class="section-head"><p class="eyebrow">10 / Product Patterns</p><h2>Одна модель экрана, двенадцать точных состояний.</h2><p class="lede">GIS Workspace не меняет анатомию между состояниями: ProjectTree, MapCanvas, ContextBar и ObjectInspector сохраняют места, а loading, selection, validation, save и recovery изменяют только доступность, сообщения и фокус.</p></div>
+        <div class="flow-model" data-od-id="gis-state-model">
+          <div class="flow-track">
+            <div class="flow-step"><strong>1 · Открыть проект</strong><span>initial loading → empty/default workspace</span></div>
+            <div class="flow-step"><strong>2 · Выбрать контекст</strong><span>L2 → МОГ — пост №1 → inspector</span></div>
+            <div class="flow-step"><strong>3 · Изменить и проверить</strong><span>dirty → validation warning → save</span></div>
+            <div class="flow-step branch"><strong>4 · Подтвердить или восстановить</strong><span>saved · conflict · offline · blocking error</span></div>
+          </div>
+          <article class="panel" data-od-id="screen-state-delta-table"><header class="panel-head"><span class="panel-title">Screen state deltas</span><span class="panel-meta">single state machine</span></header><div class="table-shell" style="border:0;border-radius:0"><table class="token-table"><thead><tr><th>State</th><th>Visible delta</th><th>Focus / announcement</th></tr></thead><tbody>
+            <tr><td>Initial loading</td><td>Структурные skeletons; действия selection/edit/save недоступны</td><td>Фокус остаётся на heading · polite loading</td></tr>
+            <tr><td>Empty project</td><td>Согласованные EmptyState в tree/map; без фальшивых метрик</td><td>Empty heading · polite result</td></tr>
+            <tr><td>Default workspace</td><td>Данные загружены; selection отсутствует</td><td>Tree first item · «Выберите эшелон»</td></tr>
+            <tr><td>Echelon selected</td><td>L2 выделен структурой; карта фильтрует объекты</td><td>Фокус остаётся на L2 · polite count</td></tr>
+            <tr><td>Object selected</td><td>MOG-001 синхронно выделен в tree/map; Inspector enabled</td><td>Фокус остаётся в источнике selection</td></tr>
+            <tr><td>Inspector opened</td><td>Docked ≥1280; modal Drawer ниже 1280</td><td>Drawer heading · trap / Escape / restore</td></tr>
+            <tr><td>Validation warning</td><td>Field + primary WarningStack; Save зависит от blocking policy</td><td>Field retains focus · polite warning</td></tr>
+            <tr><td>Saving / Saved</td><td>SaveIndicator saving → confirmed v13; повторный Save disabled</td><td>Фокус на Save · polite single announcement</td></tr>
+            <tr><td>Version conflict</td><td>Persistent Alert + compare Modal; overwrite disabled</td><td>Compare action/modal · assertive once</td></tr>
+            <tr><td>Offline / local copy</td><td>Text state + local VersionIndicator; server-saved запрещён</td><td>Current focus retained · assertive once</td></tr>
+            <tr><td>Blocking error</td><td>ErrorState replaces stale map/calculations; project identity remains</td><td>Error heading · assertive + retry</td></tr>
+          </tbody></table></div></article>
+          <article class="panel" data-od-id="responsive-region-contract"><header class="panel-head"><span class="panel-title">Responsive region contract</span><span class="panel-meta">1440 → 720 CSS px</span></header><div class="table-shell" style="border:0;border-radius:0"><table class="token-table"><thead><tr><th>Region</th><th>≥1280</th><th>1024</th><th>768 / 720</th></tr></thead><tbody>
+            <tr><td>AppHeader</td><td>Полный project context</td><td>Navigation collapsed; Save/Inspector direct</td><td>Wrap; secondary actions in overflow</td></tr>
+            <tr><td>SideNavigation</td><td>Docked</td><td>Drawer</td><td>Full-height Drawer</td></tr>
+            <tr><td>ProjectTree</td><td>Docked 240–272</td><td>Docked 240</td><td>Left Drawer; context remains visible</td></tr>
+            <tr><td>MapCanvas / Toolbar</td><td>Flexible center / full toolbar</td><td>Primary center / local toolbar scroll</td><td>Full width / 44 target, local overflow</td></tr>
+            <tr><td>ObjectInspector</td><td>Docked 320–360</td><td>Right Drawer 420–480</td><td>Full-width Drawer</td></tr>
+            <tr><td>Warnings / Budget</td><td>Full inspector content</td><td>Drawer + context summary</td><td>Single column; values never truncate</td></tr>
+            <tr><td>Save / Version</td><td>Label + detail</td><td>Label stays; detail may hide</td><td>Text state and version remain visible</td></tr>
+          </tbody></table></div></article>
+          <div class="toolbar"><a class="btn btn-primary" href="gis-workspace-flow.html" data-od-id="open-gis-flow">Открыть интерактивный GIS flow</a><span class="caption">Полные triggers, transitions, focus, keyboard, announcements и recovery actions — в screen-contracts.json.</span></div>
+        </div>
+      </section>
+
+      <section class="section" id="system-state-simulator" data-od-id="system-state-simulator-section">
+        <div class="section-head"><p class="eyebrow">11 / Demo tooling</p><h2>System state simulator</h2><p class="lede">Отдельный инструмент UI-kit проверяет четыре состояния SaveIndicator и не занимает место внутри продуктовой поверхности GIS Workspace.</p></div>
+        <div class="state-simulator" data-od-id="system-state-simulator">
+          <div class="simulator-head"><div><div class="simulator-kicker">UI-kit demo tool</div><h3>Состояние синхронизации проекта</h3></div><span class="caption">Управляет только preview ниже</span></div>
+          <div class="segmented" role="group" aria-label="Состояние SaveIndicator"><button class="segment save-demo" type="button" aria-pressed="true" data-save-state="saved">Saved</button><button class="segment save-demo" type="button" aria-pressed="false" data-save-state="saving">Saving</button><button class="segment save-demo" type="button" aria-pressed="false" data-save-state="conflict">Conflict</button><button class="segment save-demo" type="button" aria-pressed="false" data-save-state="offline">Offline</button></div>
+          <div class="simulator-preview"><span class="save-indicator success" id="simulatorSaveState" role="status" aria-live="polite"><span class="icon-slot" data-icon="CircleCheck" aria-hidden="true"></span><span>Все изменения сохранены · 14:32</span></span></div>
+        </div>
+      </section>
+    </div></main>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true"><section class="modal" data-od-id="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><header class="modal-head"><div><h3 id="modalTitle">Сохранить новую версию</h3><div class="caption">Завод Альфа · текущая версия 12</div></div><button class="btn btn-quiet" type="button" data-close-modal>Закрыть</button></header><div class="modal-body"><label class="field"><span class="field-label">Комментарий к версии</span><textarea class="textarea">Уточнено покрытие северного сектора.</textarea></label></div><footer class="modal-foot"><button class="btn btn-quiet" type="button" data-close-modal>Отмена</button><button class="btn btn-primary" type="button" id="confirmModal">Сохранить версию 13</button></footer></section></div>
+  <div class="drawer-backdrop" id="drawerBackdrop" aria-hidden="true"><aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle"><header class="modal-head"><div><h3 id="drawerTitle">Object Inspector</h3><div class="caption">МОГ — пост №1 · MOG-001</div></div><button class="btn btn-quiet" type="button" data-close-drawer>Закрыть</button></header><div class="inspector-section"><strong>Размещение</strong><div class="property-grid"><span class="muted">Эшелон</span><span>L2 · Ближняя зона</span><span class="muted">Координаты</span><span class="mono">56.312 / 43.942</span><span class="muted">Азимут</span><span class="mono">42°</span></div></div><div class="inspector-section"><strong>Покрытие</strong><div class="property-grid"><span class="muted">Радиус</span><span class="mono">3,2 км</span><span class="muted">Вклад</span><span class="mono">+7,4 п.п.</span></div></div><div class="inspector-section"><strong>Стоимость</strong><div class="metric-value">₽ 12 480 000</div><p class="caption">Включая установку · цена от 04.07.2026</p></div><footer class="modal-foot"><button class="btn btn-secondary" type="button" data-close-drawer>Отмена</button><button class="btn btn-primary" type="button" data-toast="Параметры актива обновлены">Изменить параметры</button></footer></aside></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"><span class="sign" data-icon="CircleCheck" aria-hidden="true"></span><span id="toastText">Действие выполнено</span></div>
+  <div class="sr-only" id="searchStatus" aria-live="polite"></div>
+
+  <script>
+    const body = document.body;
+    const requestedDensity = new URLSearchParams(window.location.search).get('density');
+    if (['compact', 'default', 'comfortable'].includes(requestedDensity)) body.dataset.density = requestedDensity;
+    document.querySelectorAll('.sign').forEach(slot => {
+      const iconName = slot.dataset.icon || 'Info';
+      slot.dataset.icon = iconName;
+      slot.textContent = '';
+      slot.setAttribute('aria-hidden', 'true');
+      slot.title = `Lucide: ${iconName}`;
+    });
+    const densityButton = document.getElementById('densityButton');
+    const densities = ['default', 'compact', 'comfortable'];
+    const densityLabels = { default: 'стандарт', compact: 'компактная', comfortable: 'комфортная' };
+    densityButton.addEventListener('click', () => {
+      const next = densities[(densities.indexOf(body.dataset.density) + 1) % densities.length];
+      body.dataset.density = next;
+      densityButton.textContent = `Плотность: ${densityLabels[next]}`;
+    });
+
+    let toastTimer;
+    const toast = document.getElementById('toast');
+    function showToast(message) {
+      document.getElementById('toastText').textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 3200);
+    }
+    document.addEventListener('click', event => {
+      const trigger = event.target.closest('[data-toast]');
+      if (trigger) showToast(trigger.dataset.toast);
+    });
+
+    const overlays = [];
+    function bindOverlay(buttonId, overlayId) {
+      const button = document.getElementById(buttonId);
+      const overlay = document.getElementById(overlayId);
+      const control = { button, overlay };
+      overlays.push(control);
+      button.addEventListener('click', event => {
+        event.stopPropagation();
+        const willOpen = !overlay.classList.contains('open');
+        overlays.forEach(item => { item.overlay.classList.remove('open'); item.button.setAttribute('aria-expanded', 'false'); });
+        overlay.classList.toggle('open', willOpen);
+        button.setAttribute('aria-expanded', String(willOpen));
+        if (willOpen && overlay.matches('[role="menu"]')) overlay.querySelector('[role="menuitem"]')?.focus();
+      });
+    }
+    bindOverlay('headerMenuButton', 'headerMenu');
+    bindOverlay('menuButton', 'actionMenu');
+    bindOverlay('popoverButton', 'costPopover');
+    document.addEventListener('click', event => {
+      if (!event.target.closest('.overlay-wrap')) overlays.forEach(item => { item.overlay.classList.remove('open'); item.button.setAttribute('aria-expanded', 'false'); });
+    });
+
+    document.querySelectorAll('[data-tabs]').forEach(widget => {
+      const tabs = [...widget.querySelectorAll('[role="tab"]')];
+      function activate(tab) {
+        tabs.forEach(item => {
+          const selected = item === tab;
+          item.setAttribute('aria-selected', String(selected));
+          item.tabIndex = selected ? 0 : -1;
+          document.getElementById(item.getAttribute('aria-controls')).hidden = !selected;
+        });
+        tab.focus();
+      }
+      tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => activate(tab));
+        tab.addEventListener('keydown', event => {
+          let next = null;
+          if (event.key === 'ArrowRight') next = tabs[(index + 1) % tabs.length];
+          if (event.key === 'ArrowLeft') next = tabs[(index - 1 + tabs.length) % tabs.length];
+          if (event.key === 'Home') next = tabs[0];
+          if (event.key === 'End') next = tabs[tabs.length - 1];
+          if (next) { event.preventDefault(); activate(next); }
+        });
+      });
+    });
+    document.querySelectorAll('.segmented, .map-tools').forEach(group => {
+      group.addEventListener('click', event => {
+        const button = event.target.closest('.segment, .map-tool');
+        if (!button) return;
+        group.querySelectorAll('.segment, .map-tool').forEach(item => { item.setAttribute('aria-pressed', 'false'); item.classList.remove('active'); });
+        button.setAttribute('aria-pressed', 'true');
+        button.classList.add('active');
+      });
+    });
+
+    const budgetInput = document.getElementById('budgetInput');
+    budgetInput.setAttribute('aria-invalid', 'true');
+    document.getElementById('budgetHelp').classList.add('field-error');
+    document.getElementById('validationForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const value = Number(budgetInput.value.replace(/\D/g, ''));
+      const invalid = value < 184760000;
+      budgetInput.setAttribute('aria-invalid', String(invalid));
+      document.getElementById('budgetHelp').classList.toggle('field-error', invalid);
+      if (invalid) {
+        document.getElementById('budgetHelp').textContent = 'Лимит ниже стоимости конфигурации на 64 760 000 ₽.';
+        budgetInput.focus();
+      } else {
+        document.getElementById('budgetHelp').textContent = 'Лимит принят. Остаток будет рассчитан после сохранения.';
+        showToast('Форма проверена · ошибок нет');
+      }
+    });
+
+    const table = document.getElementById('assetTable');
+    const tbody = table.querySelector('tbody');
+    function selectRow(row) {
+      if (!row || row.classList.contains('disabled-row')) return;
+      tbody.querySelectorAll('tr').forEach(item => { item.classList.remove('selected'); item.removeAttribute('aria-selected'); });
+      row.classList.add('selected');
+      row.setAttribute('aria-selected', 'true');
+    }
+    tbody.addEventListener('click', event => selectRow(event.target.closest('tr')));
+    tbody.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectRow(event.target.closest('tr')); }
+    });
+    let sortDirection = 1;
+    table.querySelectorAll('[data-sort]').forEach(button => button.addEventListener('click', () => {
+      const key = button.dataset.sort;
+      const rows = [...tbody.rows];
+      rows.sort((a, b) => {
+        const av = key === 'name' ? a.dataset[key] : Number(a.dataset[key]);
+        const bv = key === 'name' ? b.dataset[key] : Number(b.dataset[key]);
+        return String(av).localeCompare(String(bv), 'ru', { numeric: true }) * sortDirection;
+      });
+      sortDirection *= -1;
+      rows.forEach(row => tbody.append(row));
+      table.querySelectorAll('th').forEach(th => th.removeAttribute('aria-sort'));
+      button.closest('th').setAttribute('aria-sort', sortDirection === -1 ? 'ascending' : 'descending');
+    }));
+
+    document.querySelectorAll('.page-btn:not([disabled])').forEach(button => button.addEventListener('click', () => {
+      if (/^\d+$/.test(button.textContent.trim())) {
+        document.querySelectorAll('.page-btn').forEach(item => item.removeAttribute('aria-current'));
+        button.setAttribute('aria-current', 'page');
+      }
+    }));
+    document.querySelectorAll('.tree').forEach(tree => tree.addEventListener('click', event => {
+      const item = event.target.closest('.tree-item');
+      if (!item) return;
+      tree.querySelectorAll('.tree-item').forEach(row => { row.classList.remove('selected'); row.removeAttribute('aria-current'); });
+      item.classList.add('selected');
+      item.setAttribute('aria-current', 'true');
+    }));
+    document.querySelectorAll('.map-pin').forEach(pin => pin.addEventListener('click', () => {
+      document.querySelectorAll('.map-pin').forEach(item => { item.classList.remove('selected'); item.setAttribute('aria-pressed', 'false'); });
+      pin.classList.add('selected');
+      pin.setAttribute('aria-pressed', 'true');
+    }));
+
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const drawerBackdrop = document.getElementById('drawerBackdrop');
+    const inertWhileDialogOpen = [...body.children].filter(node => !node.classList.contains('modal-backdrop') && !node.classList.contains('drawer-backdrop') && node.tagName !== 'SCRIPT');
+    let returnFocus = null;
+    function openDialog(backdrop, opener) {
+      returnFocus = opener;
+      backdrop.classList.add('open');
+      backdrop.setAttribute('aria-hidden', 'false');
+      body.style.overflow = 'hidden';
+      inertWhileDialogOpen.forEach(node => { node.inert = true; });
+      backdrop.querySelector('button, input, textarea, select')?.focus();
+    }
+    function closeDialog(backdrop) {
+      backdrop.classList.remove('open');
+      backdrop.setAttribute('aria-hidden', 'true');
+      body.style.overflow = '';
+      inertWhileDialogOpen.forEach(node => { node.inert = false; });
+      returnFocus?.focus();
+    }
+    function trapDialogFocus(event, backdrop) {
+      if (event.key !== 'Tab' || !backdrop.classList.contains('open')) return;
+      const focusable = [...backdrop.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter(item => item.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+    document.getElementById('openModal').addEventListener('click', event => openDialog(modalBackdrop, event.currentTarget));
+    document.getElementById('openDrawer').addEventListener('click', event => openDialog(drawerBackdrop, event.currentTarget));
+    document.getElementById('workspaceDrawerButton').addEventListener('click', event => openDialog(drawerBackdrop, event.currentTarget));
+    document.querySelectorAll('[data-open-inspector]').forEach(button => button.addEventListener('click', event => openDialog(drawerBackdrop, event.currentTarget)));
+    document.querySelectorAll('[data-close-modal]').forEach(button => button.addEventListener('click', () => closeDialog(modalBackdrop)));
+    document.querySelectorAll('[data-close-drawer]').forEach(button => button.addEventListener('click', () => closeDialog(drawerBackdrop)));
+    modalBackdrop.addEventListener('click', event => { if (event.target === modalBackdrop) closeDialog(modalBackdrop); });
+    drawerBackdrop.addEventListener('click', event => { if (event.target === drawerBackdrop) closeDialog(drawerBackdrop); });
+    document.getElementById('confirmModal').addEventListener('click', () => { closeDialog(modalBackdrop); showToast('Версия 13 сохранена · 14:36'); });
+
+    const workspaceSaveState = document.getElementById('workspaceSaveState');
+    const simulatorSaveState = document.getElementById('simulatorSaveState');
+    const saveStates = {
+      saved: ['success', 'CircleCheck', 'Все изменения сохранены · 14:32'],
+      saving: ['', 'LoaderCircle', 'Сохраняем изменения…'],
+      conflict: ['warning', 'TriangleAlert', 'Конфликт версии · сравнить'],
+      offline: ['danger', 'CloudOff', 'Офлайн · локальная копия']
+    };
+    function setSaveState(target, name) {
+      const [tone, icon, label] = saveStates[name];
+      target.className = `save-indicator ${tone}`;
+      target.innerHTML = name === 'saving' ? '<span class="btn-loading" aria-hidden="true"></span><span>Сохраняем изменения…</span>' : `<span class="icon-slot" data-icon="${icon}" aria-hidden="true" title="Lucide: ${icon}"></span><span>${label}</span>`;
+    }
+    document.querySelectorAll('.save-demo').forEach(button => button.addEventListener('click', () => setSaveState(simulatorSaveState, button.dataset.saveState)));
+    document.getElementById('workspaceSaveButton').addEventListener('click', () => {
+      setSaveState(workspaceSaveState, 'saving');
+      setTimeout(() => { setSaveState(workspaceSaveState, 'saved'); showToast('Версия 13 сохранена · 14:36'); }, 900);
+    });
+
+    document.addEventListener('keydown', event => {
+      trapDialogFocus(event, modalBackdrop);
+      trapDialogFocus(event, drawerBackdrop);
+      const menu = event.target.closest('[role="menu"]');
+      if (menu && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault();
+        const items = [...menu.querySelectorAll('[role="menuitem"]:not([disabled])')];
+        const current = Math.max(0, items.indexOf(document.activeElement));
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : event.key === 'ArrowDown' ? (current + 1) % items.length : (current - 1 + items.length) % items.length;
+        items[next]?.focus();
+      }
+      if (event.key !== 'Escape') return;
+      const openOverlayControl = overlays.find(item => item.overlay.classList.contains('open'));
+      overlays.forEach(item => { item.overlay.classList.remove('open'); item.button.setAttribute('aria-expanded', 'false'); });
+      openOverlayControl?.button.focus();
+      if (modalBackdrop.classList.contains('open')) closeDialog(modalBackdrop);
+      if (drawerBackdrop.classList.contains('open')) closeDialog(drawerBackdrop);
+    });
+
+    const sections = [...document.querySelectorAll('.section')];
+    const navLinks = [...document.querySelectorAll('.nav-link[href^="#"]')];
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      navLinks.forEach(link => {
+        const active = link.getAttribute('href') === `#${visible.target.id}`;
+        link.classList.toggle('active', active);
+        if (active) link.setAttribute('aria-current', 'location');
+        else link.removeAttribute('aria-current');
+      });
+    }, { rootMargin: '-20% 0px -65% 0px', threshold: [0, .2, .5] });
+    sections.forEach(section => observer.observe(section));
+    window.addEventListener('load', () => {
+      const anchor = document.getElementById(window.location.hash.slice(1));
+      if (!anchor) return;
+      const alignAnchor = () => {
+        const anchorTop = anchor.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo(0, Math.max(0, anchorTop - 12));
+      };
+      requestAnimationFrame(alignAnchor);
+      setTimeout(alignAnchor, 250);
+    }, { once: true });
+  </script>
+</body>
+</html>
