@@ -6,6 +6,7 @@ import {
   Badge,
   Button,
   EchelonTreeItem,
+  EmptyState,
   Icon,
   IconButton,
   InlineMessage,
@@ -13,6 +14,7 @@ import {
   Select,
   Status,
 } from "@/shared/ui/fortis";
+import { prototypeRu } from "@/shared/config/prototype-ru";
 import type { DefenseAsset, DefenseProject, PlacedDefenseObject } from "@/shared/types/defense-project";
 
 type GisProjectTreeProps = {
@@ -24,7 +26,7 @@ type GisProjectTreeProps = {
 };
 
 function objectLabel(object: PlacedDefenseObject, assets: DefenseAsset[]) {
-  return object.name ?? assets.find((asset) => asset.id === object.assetId)?.name ?? "Средство защиты";
+  return object.name ?? assets.find((asset) => asset.id === object.assetId)?.name ?? prototypeRu.tree.fallbackObject;
 }
 
 function formatObjectCount(count: number) {
@@ -44,20 +46,20 @@ export function GisProjectTree({ activeLayerId, onSelectLayer, onSelectObject, p
   );
 
   return (
-    <section className="fortis-gis-tree" aria-label="Структура проекта">
+    <section className="fortis-gis-tree" aria-label={prototypeRu.tree.title}>
       <div className="fortis-gis-panel-header">
         <div>
-          <p className="fortis-gis-eyebrow">GIS Workspace</p>
-          <h2>Структура проекта</h2>
+          <p className="fortis-gis-eyebrow">{prototypeRu.tree.eyebrow}</p>
+          <h2>{prototypeRu.tree.title}</h2>
         </div>
         <Badge variant="neutral">{project.layers.length}</Badge>
       </div>
       <div className="fortis-gis-tree-search">
         <Search
-          label="Поиск в структуре"
+          label={prototypeRu.tree.searchLabel}
           onChange={(event) => setQuery(event.target.value)}
           onClear={() => setQuery("")}
-          placeholder="Актив или эшелон"
+          placeholder={prototypeRu.tree.searchPlaceholder}
           value={query}
         />
       </div>
@@ -66,7 +68,7 @@ export function GisProjectTree({ activeLayerId, onSelectLayer, onSelectObject, p
           <span className="fortis-gis-base-glyph" aria-hidden="true">О</span>
           <span className="fortis-gis-tree-copy">
             <strong className="truncate" title={project.baseObject.name}>{project.baseObject.name}</strong>
-            <span className="fortis-gis-tree-detail">Объект защиты</span>
+            <span className="fortis-gis-tree-detail">{prototypeRu.tree.protectedObject}</span>
           </span>
         </div>
         {layers.map((layer) => {
@@ -114,10 +116,12 @@ export function GisProjectTree({ activeLayerId, onSelectLayer, onSelectObject, p
                       <strong className="truncate" title={objectLabel(object, project.assetLibrary)}>
                         {objectLabel(object, project.assetLibrary)}
                       </strong>
-                      <span className="fortis-gis-tree-detail">{object.isVisibleOnMap === false ? "Скрыт на карте" : "На карте"}</span>
+                      <span className="fortis-gis-tree-detail">
+                        {object.isVisibleOnMap === false ? prototypeRu.tree.hiddenOnMap : prototypeRu.tree.shownOnMap}
+                      </span>
                     </span>
                     {object.hasCoverageConflict || object.hasGeometryConflict || object.hasTerrainConflict ? (
-                      <span className="fortis-gis-warning-mark" aria-label="Есть предупреждение">!</span>
+                      <span className="fortis-gis-warning-mark" aria-label={prototypeRu.tree.warning}>!</span>
                     ) : null}
                   </button>
                 );
@@ -271,24 +275,24 @@ function ObjectInspectorContent({
 }
 
 export function GisObjectInspector({ onClose, onUpdateObject, project, state }: GisObjectInspectorProps) {
-  let eyebrow = "Контекст";
-  let title = "Инспектор";
-  let ariaLabel = "Инспектор";
+  let eyebrow: string = prototypeRu.inspector.context;
+  let title: string = prototypeRu.inspector.title;
+  let ariaLabel: string = prototypeRu.inspector.title;
   let content;
 
   switch (state.type) {
     case "empty":
       content = (
-        <div className="fortis-gis-inspector-empty">
-          <strong>Ничего не выбрано</strong>
-          <p>Выберите объект на карте или в структуре проекта, чтобы посмотреть параметры и предупреждения.</p>
-        </div>
+        <EmptyState
+          description={prototypeRu.inspector.emptyDescription}
+          title={prototypeRu.inspector.emptyTitle}
+        />
       );
       break;
     case "loading":
       content = (
         <div className="fortis-gis-inspector-state">
-          <Status label="Загрузка контекста…" tone="info" />
+          <Status label={prototypeRu.inspector.loading} tone="info" />
         </div>
       );
       break;
@@ -302,9 +306,9 @@ export function GisObjectInspector({ onClose, onUpdateObject, project, state }: 
     case "echelon": {
       const layer = project.layers.find((item) => item.id === state.echelonId);
       const objectCount = project.placedObjects.filter((object) => object.layerId === state.echelonId).length;
-      eyebrow = "Выбранный эшелон";
-      title = "Инспектор эшелона";
-      ariaLabel = "Инспектор эшелона";
+      eyebrow = prototypeRu.inspector.selectedEchelon;
+      title = prototypeRu.inspector.echelonTitle;
+      ariaLabel = prototypeRu.inspector.echelonTitle;
       content = layer ? (
         <div className="fortis-gis-inspector-body">
           <section className="fortis-gis-inspector-identity">
@@ -342,9 +346,9 @@ export function GisObjectInspector({ onClose, onUpdateObject, project, state }: 
       const object = project.placedObjects.find((item) => item.id === state.objectId);
       const asset = project.assetLibrary.find((item) => item.id === object?.assetId);
       const layer = project.layers.find((item) => item.id === object?.layerId);
-      eyebrow = "Выбранный объект";
-      title = "Инспектор объекта";
-      ariaLabel = "Инспектор объекта";
+      eyebrow = prototypeRu.inspector.selectedObject;
+      title = prototypeRu.inspector.objectTitle;
+      ariaLabel = prototypeRu.inspector.objectTitle;
       content = object && asset && layer ? (
         <div className="fortis-gis-inspector-body">
           <ObjectInspectorContent

@@ -1,4 +1,5 @@
 import type { StyleSpecification } from "maplibre-gl";
+import { prototypeRu } from "@/shared/config/prototype-ru";
 
 export type BaseMapSourceType =
   | "vector-style-url"
@@ -48,7 +49,7 @@ const openTopoMapAttribution =
 
 const offlineFallbackStyle: StyleSpecification = {
   version: 8,
-  name: "Fortis offline basemap",
+  name: prototypeRu.baseMap.internalOfflineDescription,
   sources: {},
   layers: [
     {
@@ -110,8 +111,8 @@ function buildInternalBaseMapSource(env: NodeJS.ProcessEnv): BaseMapSource {
   if (styleUrl) {
     return {
       id: "internal-basemap",
-      title: "Internal basemap",
-      description: "Локальная или self-hosted подложка для закрытого контура.",
+      title: prototypeRu.baseMap.internalTitle,
+      description: prototypeRu.baseMap.internalVectorDescription,
       category: "internal",
       type: "vector-style-url",
       styleUrl,
@@ -128,8 +129,8 @@ function buildInternalBaseMapSource(env: NodeJS.ProcessEnv): BaseMapSource {
     const internalType = env.NEXT_PUBLIC_FORTIS_INTERNAL_BASEMAP_TYPE === "wmts" ? "wmts" : "raster-xyz";
     return {
       id: "internal-basemap",
-      title: "Internal basemap",
-      description: "Self-hosted raster/WMTS подложка для закрытого контура.",
+      title: prototypeRu.baseMap.internalTitle,
+      description: prototypeRu.baseMap.internalRasterDescription,
       category: "internal",
       type: internalType,
       tiles: internalTiles,
@@ -144,8 +145,8 @@ function buildInternalBaseMapSource(env: NodeJS.ProcessEnv): BaseMapSource {
 
   return {
     id: "internal-basemap",
-    title: "Internal basemap",
-    description: "Офлайн fallback-подложка Fortis для закрытого контура.",
+    title: prototypeRu.baseMap.internalTitle,
+    description: prototypeRu.baseMap.internalOfflineDescription,
     category: "internal",
     type: "local-style-json",
     styleJson: offlineFallbackStyle,
@@ -165,7 +166,7 @@ export function createBaseMapSources(env: NodeJS.ProcessEnv = process.env): Base
     {
       id: "openfreemap-bright",
       title: "OpenFreeMap Bright",
-      description: "Open-source OSM-based vector style for demo/dev.",
+      description: prototypeRu.baseMap.openFreeMapDescription,
       category: "base",
       type: "vector-style-url",
       styleUrl: "https://tiles.openfreemap.org/styles/bright",
@@ -179,7 +180,7 @@ export function createBaseMapSources(env: NodeJS.ProcessEnv = process.env): Base
     {
       id: "osm-standard",
       title: "OSM Standard",
-      description: "Dev/demo raster fallback. Not a production dependency.",
+      description: prototypeRu.baseMap.osmDescription,
       category: "base",
       type: "raster-xyz",
       tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
@@ -194,8 +195,8 @@ export function createBaseMapSources(env: NodeJS.ProcessEnv = process.env): Base
     },
     {
       id: "topographic",
-      title: "Topographic",
-      description: "Configurable topo raster source for demo and planning contexts.",
+      title: prototypeRu.baseMap.topographicTitle,
+      description: prototypeRu.baseMap.topographicDescription,
       category: "topographic",
       type: "raster-xyz",
       tiles: topographicTiles,
@@ -211,8 +212,8 @@ export function createBaseMapSources(env: NodeJS.ProcessEnv = process.env): Base
     },
     {
       id: "satellite-demo",
-      title: "Satellite demo",
-      description: "Optional satellite/orthophoto source enabled only after legal review.",
+      title: prototypeRu.baseMap.satelliteTitle,
+      description: prototypeRu.baseMap.satelliteDescription,
       category: "satellite",
       type: env.NEXT_PUBLIC_FORTIS_SATELLITE_BASEMAP_TYPE === "wmts" ? "wmts" : "raster-xyz",
       tiles: satelliteTiles,
@@ -250,7 +251,7 @@ export function resolveDefaultBaseMapSourceId(
 
   const fallback = availableSources[0];
   if (!fallback) {
-    throw new Error("No basemap sources are available for the current Fortis environment.");
+    throw new Error(prototypeRu.baseMap.noSources);
   }
 
   return fallback.id;

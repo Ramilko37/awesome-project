@@ -43,12 +43,15 @@ import {
 } from "@/modules/drone-defense/domain/prototype-workflow";
 import { MAX_DEFENSE_PROJECT_LAYERS, useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
 import { useMapViewStore } from "@/shared/lib/use-map-view-store";
+import { prototypeRu } from "@/shared/config/prototype-ru";
 import type { LayerInsertOption } from "@/shared/lib/defense-project";
 import type { DefenseLayer, DefenseLayerId } from "@/shared/types/drone-defense";
 import type { Coordinates, ProtectedObjectOption } from "@/shared/types/defense-project";
 import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import {
   Button,
+  AssetCard,
+  Badge,
   DropdownMenu,
   Icon,
   IconButton,
@@ -57,6 +60,7 @@ import {
   Modal,
   Search,
   Select,
+  Status,
   Tooltip,
 } from "@/shared/ui/fortis";
 
@@ -90,15 +94,6 @@ function formatObjectCountLabel(count: number) {
 
 function formatLayerObjectMeta(objectCount: number, totalMln: number) {
   return `${formatObjectCountLabel(objectCount)} · ${formatLayerCost(totalMln)}`;
-}
-
-function splitLayerTitle(code: string, name: string) {
-  const trimmedName = name.trim();
-  const [firstWord = trimmedName, ...restWords] = trimmedName.split(/\s+/);
-  return {
-    primary: `${code} · ${firstWord}`,
-    secondary: restWords.join(" "),
-  };
 }
 
 function describeLayerDeletion(totalLayers: number, objectCount: number) {
@@ -299,7 +294,7 @@ export function DroneDefensePrototype() {
     return {
       ...projectLayerToMapLayer(wizardLayer),
       id: "__layer_preview__" as DefenseLayer["id"],
-      shortName: "PREVIEW",
+      shortName: prototypeRu.workspace.previewShortName,
       name: layerWizardState?.mode === "edit" ? "Предпросмотр изменения" : "Предпросмотр нового эшелона",
       color: "#0ea5e9",
       opacity: 0.22,
@@ -850,7 +845,7 @@ export function DroneDefensePrototype() {
               </div>
               <div className="min-w-0">
                 <h1 className={`${styles.prototypeTitleLarge} truncate`}>Моя карта</h1>
-                <p className={`${styles.prototypeMeta} truncate`}>Defense Configuration Studio</p>
+                <p className={`${styles.prototypeMeta} truncate`}>{prototypeRu.workspace.studioName}</p>
               </div>
             </div>
             <div className="mt-3 hidden lg:block">
@@ -873,17 +868,16 @@ export function DroneDefensePrototype() {
             />
           </div>
 
-          <div className={styles.prototypeLibraryPanel}>
+          <div className={styles.prototypeLibraryPanel} data-library-role="add-objects">
             <div className={`${styles.prototypeSection} ${styles.prototypeLibraryFixedControls}`}>
               <div>
                 <div className="min-w-0">
-                  <p className={styles.prototypeEyebrow}>Библиотека СЗ</p>
-                  <h2 className={`${styles.prototypeTitle} truncate`}>
-                    {selectedLayer?.code ?? "—"} · {selectedLayer?.name ?? "Эшелон не выбран"}
+                  <p className={styles.prototypeEyebrow}>{prototypeRu.library.eyebrow}</p>
+                  <h2 className={`${styles.prototypeTitle} truncate`} data-library-context>
+                    {selectedLayer
+                      ? prototypeRu.library.context(selectedLayer.code, selectedLayer.name)
+                      : prototypeRu.library.noEchelon}
                   </h2>
-                  <p className={styles.prototypeMeta}>
-                    {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)}
-                  </p>
                 </div>
               </div>
               <Search
@@ -956,7 +950,7 @@ export function DroneDefensePrototype() {
               <div>
                 <p className={styles.prototypeEyebrow}>Объекты эшелона</p>
                 <h3 className={styles.prototypeTitle}>{activeEchelonObjectsLayer.code} · {activeEchelonObjectsLayer.name}</h3>
-                <p className={styles.prototypeMeta}>Открывается отдельно, чтобы не перегружать основную панель.</p>
+                <p className={styles.prototypeMeta}>{prototypeRu.echelons.objectsPanelDescription}</p>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -1130,17 +1124,18 @@ export function DroneDefensePrototype() {
                   aria-label="Обзор эшелонов"
                   className={styles.prototypeLayerPanel}
                   data-echelon-drawer-state={showCompactLayerPanel ? "collapsed" : "expanded"}
+                  data-echelon-role="quick-overview"
                 >
                   <header className={styles.prototypeLayerHeader}>
                     <div className="min-w-0 flex-1">
                       <p className={styles.prototypeEyebrow}>
-                        Эшелоны проекта · {layerPanelSummaryLabel}
+                        {prototypeRu.echelons.overviewTitle} · {layerPanelSummaryLabel}
                       </p>
                       <p
                         className={`${styles.prototypeTitle} mt-1 truncate`}
-                        title={`Активный: ${selectedLayer.code} · ${selectedLayer.name}`}
+                        title={prototypeRu.echelons.activeContext(selectedLayer.code, selectedLayer.name)}
                       >
-                        Активный: {selectedLayer.code} · {selectedLayer.name}
+                        {prototypeRu.echelons.activeContext(selectedLayer.code, selectedLayer.name)}
                       </p>
                       <p className={styles.prototypeMeta}>
                         {showCompactLayerPanel
@@ -1211,7 +1206,11 @@ export function DroneDefensePrototype() {
                       const isSelected = layer.id === selectedLayer.id;
                       const isHovered = layer.id === hoveredLayerId;
                       const layerDeleteState = describeLayerDeletion(project.layers.length, objectCountByLayer.get(layer.id) ?? 0);
-                      const titleParts = splitLayerTitle(layer.code, layer.name);
+                      const layerHasConflict = project.placedObjects.some(
+                        (object) =>
+                          object.layerId === layer.id &&
+                          (object.hasCoverageConflict || object.hasGeometryConflict || object.hasTerrainConflict),
+                      );
                       const layerMenuItems = [
                         {
                           id: "objects",
@@ -1243,80 +1242,69 @@ export function DroneDefensePrototype() {
                         },
                       ];
                       return (
-                        <div
+                        <AssetCard
+                          actions={
+                            <>
+                              <Button
+                                onClick={() => selectLayerWithDefaultSlot(layer.id)}
+                                size="sm"
+                                variant={isSelected ? "primary" : "quiet"}
+                              >
+                                {isSelected ? prototypeRu.echelons.selected : "Выбрать"}
+                              </Button>
+                              <IconButton
+                                icon={layer.isVisible === false ? "action.visibility-on" : "action.visibility-off"}
+                                label={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  toggleLayerVisibility(layer.id, layer.isVisible === false);
+                                }}
+                                size="sm"
+                                variant="quiet"
+                              />
+                              <DropdownMenu
+                                icon="action.more"
+                                iconOnly
+                                items={layerMenuItems}
+                                label="Открыть меню эшелона"
+                              />
+                            </>
+                          }
                           key={layer.id}
                           className={styles.prototypeLayerCard}
-                          data-selected={isSelected ? "true" : "false"}
+                          conflict={layerHasConflict}
                           data-hovered={isHovered ? "true" : "false"}
+                          leading={
+                            <>
+                              <span
+                                className={styles.prototypeLayerDot}
+                                style={{ backgroundColor: layer.color ?? "#2563eb" }}
+                                aria-hidden="true"
+                              />
+                              <Badge>{layer.code}</Badge>
+                            </>
+                          }
+                          meta={formatLayerRange(summary?.innerRadiusM ?? 0, summary?.outerRadiusM ?? 0)}
                           onMouseEnter={() => setHoveredLayerId(layer.id)}
                           onMouseLeave={() => setHoveredLayerId((current) => (current === layer.id ? null : current))}
+                          selected={isSelected}
+                          status={
+                            layerHasConflict ? (
+                              <Status label={prototypeRu.echelons.conflict} tone="warning" />
+                            ) : (
+                              <Status
+                                label={layer.isVisible === false ? prototypeRu.echelons.hidden : prototypeRu.echelons.visible}
+                                tone={layer.isVisible === false ? "neutral" : "success"}
+                              />
+                            )
+                          }
+                          title={layer.name}
                         >
-                          <div className={styles.prototypeLayerActions}>
-                            <IconButton
-                              className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
-                              icon={layer.isVisible === false ? "action.visibility-on" : "action.visibility-off"}
-                              label={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                toggleLayerVisibility(layer.id, layer.isVisible === false);
-                              }}
-                              size="sm"
-                              variant="quiet"
-                            />
-                            <DropdownMenu
-                              icon="action.more"
-                              iconOnly
-                              items={layerMenuItems}
-                              label="Открыть меню эшелона"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            className={styles.prototypeLayerButton}
-                            onClick={() => selectLayerWithDefaultSlot(layer.id)}
-                          >
-                            <div className="flex items-start gap-2.5 pr-[4.4rem]">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex min-w-0 items-start gap-2">
-                                  <span
-                                    className={styles.prototypeLayerDot}
-                                    style={{ backgroundColor: layer.color ?? "#2563eb" }}
-                                    aria-hidden="true"
-                                  />
-                                  <div className="min-w-0 min-h-[2.45rem]" title={`${layer.code} · ${layer.name}`}>
-                                    <p className={`${styles.prototypeLayerName} truncate`}>
-                                      {titleParts.primary}
-                                    </p>
-                                    {titleParts.secondary ? (
-                                      <p
-                                        className={styles.prototypeLayerName}
-                                        style={{
-                                          display: "-webkit-box",
-                                          WebkitLineClamp: 1,
-                                          WebkitBoxOrient: "vertical",
-                                          overflow: "hidden",
-                                        }}
-                                      >
-                                        {titleParts.secondary}
-                                      </p>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <p className={styles.prototypeLayerRange}>
-                              {formatLayerRange(summary?.innerRadiusM ?? 0, summary?.outerRadiusM ?? 0)}
-                            </p>
-                            <p className={styles.prototypeMeta}>
-                              {formatLayerObjectMeta(summary?.objectCount ?? 0, summary?.totalMln ?? 0)}
-                            </p>
-                          </button>
+                          {formatLayerObjectMeta(summary?.objectCount ?? 0, summary?.totalMln ?? 0)}
                           {layer.isLocked ? (
-                            <span className={`${styles.prototypeLayerLocked} ${styles.prototypeBadgeMuted}`}>
-                              locked
-                            </span>
+                            <Status label={prototypeRu.workspace.locked} tone="neutral" />
                           ) : null}
-                        </div>
+                        </AssetCard>
                       );
                     })}
                   </div>

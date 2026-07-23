@@ -812,7 +812,7 @@
 .fortis-gis-panel-header h2,
 .fortis-gis-inspector-section h3 {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: var(--fortis-panel-title-size);
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -820,7 +820,7 @@
 .fortis-gis-eyebrow {
   margin: 0 0 0.125rem;
   color: var(--fortis-semantic-light-text-secondary);
-  font-size: 0.6875rem;
+  font-size: var(--fortis-font-size-sm);
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1.2;
@@ -1013,23 +1013,9 @@
   display: none;
 }
 
-.fortis-gis-inspector-empty {
-  padding: 2rem 1rem;
-  color: var(--fortis-semantic-light-text-secondary);
-  text-align: center;
-}
-
-.fortis-gis-inspector-empty strong {
-  display: block;
-  color: var(--fortis-semantic-light-text-primary);
-  font-size: 0.875rem;
-}
-
-.fortis-gis-inspector-empty p {
-  margin: 0.375rem auto 0;
-  max-width: 28ch;
-  font-size: 0.8125rem;
-  line-height: 1.45;
+.fortis-gis-inspector > .fortis-state {
+  flex: 1;
+  overflow-y: auto;
 }
 
 .fortis-gis-inspector-body {
@@ -1426,11 +1412,11 @@
   }
 
   .fortis-gis-inspector-body,
-  .fortis-gis-inspector-empty {
+  .fortis-gis-inspector > .fortis-state {
     overflow-y: auto;
   }
 
-  .fortis-gis-inspector-empty {
+  .fortis-gis-inspector > .fortis-state {
     flex: 1;
   }
 

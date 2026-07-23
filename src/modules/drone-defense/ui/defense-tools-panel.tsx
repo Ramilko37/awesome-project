@@ -4,6 +4,7 @@ import { getBuildAssetForCatalogGroup } from "@/modules/drone-defense/domain/ech
 import { DefenseToolIcon } from "@/modules/drone-defense/ui/defense-tool-icon";
 import type { AssetCatalogItem } from "@/shared/lib/defense-project";
 import { EmptyState } from "@/shared/ui/fortis";
+import { prototypeRu } from "@/shared/config/prototype-ru";
 import type { DefenseProject } from "@/shared/types/defense-project";
 import type {
   DragEvent as ReactDragEvent,
@@ -39,8 +40,8 @@ export function DefenseToolsPanel({
   if (assets.length === 0) {
     return (
       <EmptyState
-        description="Измените поисковый запрос или очистите фильтры библиотеки."
-        title="Средства защиты не найдены"
+        description={prototypeRu.library.emptyDescription}
+        title={prototypeRu.library.emptyTitle}
       />
     );
   }

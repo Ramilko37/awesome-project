@@ -214,12 +214,14 @@ export function AssetLibraryManager({
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const formFooterRef = useRef<HTMLDivElement>(null);
   const usedAssetIds = useMemo(() => new Set(placedObjects.map((object) => object.assetId)), [placedObjects]);
   const selectedAssetUsed = Boolean(selectedAsset && usedAssetIds.has(selectedAsset.id));
 
   useEffect(() => {
     if (mode !== "closed") {
       nameInputRef.current?.focus();
+      formFooterRef.current?.scrollIntoView({ block: "nearest" });
     }
   }, [mode]);
 
@@ -466,7 +468,7 @@ export function AssetLibraryManager({
         </div>
       </div>
 
-      <div className={styles.prototypeLibraryFormFooter}>
+      <div className={styles.prototypeLibraryFormFooter} ref={formFooterRef}>
         {mode === "edit" ? (
           <IconButton
             icon="action.delete"

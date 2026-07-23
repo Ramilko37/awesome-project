@@ -1,0 +1,86 @@
+/**
+ * Канонические пользовательские строки GIS-прототипа.
+ *
+ * Названия провайдеров карт и принятые аббревиатуры остаются без перевода.
+ * Компоненты получают copy отсюда, чтобы runtime не смешивал языки.
+ */
+export const prototypeRu = {
+  workspace: {
+    name: "ГИС-рабочее пространство",
+    studioName: "Студия конфигурации защиты",
+    previewShortName: "ПРОСМОТР",
+    locked: "Заблокирован",
+  },
+  tree: {
+    eyebrow: "ГИС-рабочее пространство",
+    title: "Структура проекта",
+    searchLabel: "Поиск в структуре",
+    searchPlaceholder: "Объект или эшелон",
+    protectedObject: "Объект защиты",
+    fallbackObject: "Средство защиты",
+    hiddenOnMap: "Скрыт на карте",
+    shownOnMap: "На карте",
+    warning: "Есть предупреждение",
+  },
+  inspector: {
+    context: "Контекст",
+    title: "Инспектор",
+    emptyTitle: "Ничего не выбрано",
+    emptyDescription:
+      "Выберите объект на карте или в структуре проекта, чтобы посмотреть параметры и предупреждения.",
+    loading: "Загрузка контекста…",
+    selectedEchelon: "Выбранный эшелон",
+    echelonTitle: "Инспектор эшелона",
+    selectedObject: "Выбранный объект",
+    objectTitle: "Инспектор объекта",
+  },
+  library: {
+    role: "Добавление объектов",
+    eyebrow: "Библиотека средств защиты",
+    noEchelon: "Эшелон не выбран",
+    context: (code: string, name: string) => `Добавить в ${code} · ${name}`,
+    emptyTitle: "Средства защиты не найдены",
+    emptyDescription: "Измените поисковый запрос или очистите фильтры библиотеки.",
+  },
+  echelons: {
+    overviewRole: "Быстрый обзор эшелонов",
+    overviewTitle: "Эшелоны проекта",
+    activeContext: (code: string, name: string) => `Активный эшелон: ${code} · ${name}`,
+    emptyTitle: "В этом эшелоне пока нет объектов",
+    emptyDescription: "Перетащите средство из библиотеки на карту.",
+    conflict: "Есть конфликт",
+    selected: "Выбран",
+    visible: "Виден",
+    hidden: "Скрыт",
+    objectsPanelDescription: "Быстрый список объектов активного эшелона.",
+  },
+  cards: {
+    map: "Карта",
+    zone: "Зона",
+    drag: "Перетащите",
+    draw: "Нарисовать",
+    onMap: "На карте",
+    sites: "Участков",
+    basePostCost: "Базовая стоимость поста",
+    postType: "Тип поста",
+    personnel: "Личный состав",
+    accountability: "Подотчётность",
+    weapons: "Оружие",
+    sector: "Сектор",
+    enterCoordinates: "Ввести координаты",
+    drawArea: "Нарисовать область",
+  },
+  baseMap: {
+    internalTitle: "Внутренняя подложка",
+    internalVectorDescription: "Локальная или собственная подложка для закрытого контура.",
+    internalRasterDescription: "Собственная растровая или WMTS-подложка для закрытого контура.",
+    internalOfflineDescription: "Офлайн-подложка Fortis для закрытого контура.",
+    openFreeMapDescription: "Открытая векторная подложка на основе данных OSM для демо и разработки.",
+    osmDescription: "Резервная растровая подложка для демо и разработки; не является production-зависимостью.",
+    topographicTitle: "Топографическая",
+    topographicDescription: "Настраиваемая топографическая подложка для демо и планирования.",
+    satelliteTitle: "Спутниковая демо-подложка",
+    satelliteDescription: "Дополнительный спутниковый или ортофото-источник после правовой проверки.",
+    noSources: "Для текущей среды Fortis нет доступных источников карты.",
+  },
+} as const;

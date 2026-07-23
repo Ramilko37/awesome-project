@@ -7,6 +7,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import { useDefenseStudioStore } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import { VariantSaveButton, VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
+import { prototypeRu } from "@/shared/config/prototype-ru";
 import {
   Drawer,
   FortisProvider,
@@ -132,7 +133,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
       ? scenarioModelingTitle
       : isRetrospective
         ? "Ретро-анализ"
-        : "Defense Configuration Studio";
+        : prototypeRu.workspace.studioName;
   const navigationProps = {
     isCalculator,
     isDrilldownActive,

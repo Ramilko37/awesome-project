@@ -14,6 +14,7 @@ import type {
   DefenseLayerId,
   Placement,
 } from "@/shared/types/drone-defense";
+import { prototypeRu } from "@/shared/config/prototype-ru";
 
 const statusLabel: Record<string, string> = {
   ready: "Готов",
@@ -54,8 +55,8 @@ export function EchelonObjectsList({
   if (layerPlacements.length === 0) {
     return (
       <EmptyState
-        description="Перетащите средство из каталога на карту."
-        title="В этом эшелоне пока нет объектов"
+        description={prototypeRu.echelons.emptyDescription}
+        title={prototypeRu.echelons.emptyTitle}
       />
     );
   }

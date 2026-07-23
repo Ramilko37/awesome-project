@@ -119,7 +119,8 @@ test.describe("asset library create form", () => {
   test("keeps closed-library controls fixed across long, error, and empty catalog states", async ({ page }) => {
     await openPrototypeWithDeterministicCatalog(page);
 
-    const libraryHeading = page.getByText("Библиотека СЗ", { exact: true });
+    const libraryPanel = page.locator('[data-library-role="add-objects"]');
+    const libraryHeading = libraryPanel.getByRole("heading", { name: /^Добавить в / });
     const librarySearch = page.getByRole("searchbox", { name: "Поиск по библиотеке средств защиты" });
     const scrollRegion = page.getByTestId("asset-library-scroll-region");
     const lastCard = page.getByTestId("defense-tool-card-e2e-asset-24");

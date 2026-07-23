@@ -15,6 +15,7 @@ export function PageHeader({ actions, description, eyebrow, title }: { actions?:
 type AssetCardProps = Omit<HTMLAttributes<HTMLElement>, "title"> & {
   actions?: ReactNode;
   children?: ReactNode;
+  conflict?: boolean;
   disabled?: boolean;
   leading?: ReactNode;
   meta: string;
@@ -22,6 +23,7 @@ type AssetCardProps = Omit<HTMLAttributes<HTMLElement>, "title"> & {
   selected?: boolean;
   status?: ReactNode;
   title: string;
+  tooltip?: string;
   warning?: boolean;
 };
 
@@ -29,6 +31,7 @@ export function AssetCard({
   actions,
   children,
   className,
+  conflict,
   disabled,
   leading,
   meta,
@@ -36,24 +39,31 @@ export function AssetCard({
   selected,
   status,
   title,
+  tooltip,
   warning,
   ...props
 }: AssetCardProps) {
   return (
     <article
       className={`fortis-card ${className ?? ""}`}
+      data-conflict={conflict || undefined}
       data-disabled={disabled || undefined}
       data-selected={selected || undefined}
       data-warning={warning || undefined}
+      title={tooltip}
       {...props}
     >
       <div className="fortis-card__title">
-        <span className="fortis-card__identity">{leading}<strong>{title}</strong></span>
+        <span className="fortis-card__identity">{leading}<strong title={title}>{title}</strong></span>
         {status}
       </div>
-      <span>{meta}</span>
+      <span className="fortis-card__meta">{meta}</span>
       {children ? <div className="fortis-card__content">{children}</div> : null}
-      {actions ?? (onSelect ? <Button disabled={disabled} onClick={onSelect} variant="secondary">Выбрать</Button> : null)}
+      {actions || onSelect ? (
+        <div className="fortis-card__actions">
+          {actions ?? <Button disabled={disabled} onClick={onSelect} variant="secondary">Выбрать</Button>}
+        </div>
+      ) : null}
     </article>
   );
 }
