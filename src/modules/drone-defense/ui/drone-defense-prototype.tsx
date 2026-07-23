@@ -853,8 +853,8 @@ export function DroneDefensePrototype() {
             />
           </div>
 
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <div className={styles.prototypeSection}>
+          <div className={styles.prototypeLibraryPanel}>
+            <div className={`${styles.prototypeSection} ${styles.prototypeLibraryFixedControls}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className={styles.prototypeEyebrow}>Библиотека СЗ</p>
@@ -883,43 +883,44 @@ export function DroneDefensePrototype() {
                 value={catalogQuery}
               />
             </div>
-            <AssetLibraryManager
-              assets={project.assetLibrary}
-              placedObjects={project.placedObjects}
-              selectedAssetId={activeToolId ?? selectedPlacedObject?.assetId}
-              loading={assetLibraryLoading}
-              error={assetLibraryError}
-              onRefresh={() => refreshAssetLibrary({ isPublic: true, limit: 100 })}
-              onSelectAsset={(assetId) => {
-                setActiveToolId(assetId);
-                selectAsset(assetId);
-              }}
-              onAssetSaved={(asset) => {
-                upsertAssetInLibrary(asset);
-                setActiveToolId(asset.id);
-              }}
-              onAssetDeleted={(assetId) => {
-                const result = removeAssetFromLibrary(assetId);
-                if (result.ok) {
-                  setActiveToolId((current) => (current === assetId ? null : current));
-                }
-                return result;
-              }}
-              onMessage={setLastPlacementMessage}
-            />
-            <div className={styles.prototypeScrollArea}>
-              <DefenseToolsPanel
-                assets={filteredCatalogItems}
-                projectAssets={project.assetLibrary}
-                selectedToolId={activeToolId}
-                selectedObjectAssetId={selectedPlacedObject?.assetId}
-                onSelectTool={handleSelectTool}
-                onOpenCoordinates={openCoordinatePlacement}
-                onDragAsset={startAssetDrag}
-                onPointerDragAsset={startAssetPointerDrag}
-                onMouseDragAsset={startAssetMouseDrag}
-                onRemoveTool={(asset) => removeCatalogAsset(asset.assetId)}
-              />
+            <div className={styles.prototypeLibraryScrollArea}>
+              <AssetLibraryManager
+                assets={project.assetLibrary}
+                placedObjects={project.placedObjects}
+                selectedAssetId={activeToolId ?? selectedPlacedObject?.assetId}
+                loading={assetLibraryLoading}
+                error={assetLibraryError}
+                onRefresh={() => refreshAssetLibrary({ isPublic: true, limit: 100 })}
+                onSelectAsset={(assetId) => {
+                  setActiveToolId(assetId);
+                  selectAsset(assetId);
+                }}
+                onAssetSaved={(asset) => {
+                  upsertAssetInLibrary(asset);
+                  setActiveToolId(asset.id);
+                }}
+                onAssetDeleted={(assetId) => {
+                  const result = removeAssetFromLibrary(assetId);
+                  if (result.ok) {
+                    setActiveToolId((current) => (current === assetId ? null : current));
+                  }
+                  return result;
+                }}
+                onMessage={setLastPlacementMessage}
+              >
+                <DefenseToolsPanel
+                  assets={filteredCatalogItems}
+                  projectAssets={project.assetLibrary}
+                  selectedToolId={activeToolId}
+                  selectedObjectAssetId={selectedPlacedObject?.assetId}
+                  onSelectTool={handleSelectTool}
+                  onOpenCoordinates={openCoordinatePlacement}
+                  onDragAsset={startAssetDrag}
+                  onPointerDragAsset={startAssetPointerDrag}
+                  onMouseDragAsset={startAssetMouseDrag}
+                  onRemoveTool={(asset) => removeCatalogAsset(asset.assetId)}
+                />
+              </AssetLibraryManager>
             </div>
           </div>
         </section>

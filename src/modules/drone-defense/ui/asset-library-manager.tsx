@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Alert,
   Button,
@@ -28,6 +28,7 @@ import type {
 
 type AssetLibraryManagerProps = {
   assets: DefenseAsset[];
+  children?: ReactNode;
   placedObjects: PlacedDefenseObject[];
   selectedAssetId?: string | null;
   loading: boolean;
@@ -54,6 +55,8 @@ type AssetFormState = {
   isPublic: boolean;
   enterpriseId: string;
 };
+
+type AssetFormErrors = Partial<Record<"name", string>>;
 
 const categoryOptions: Array<{ value: DefenseAssetCategory; label: string }> = [
   { value: "detection", label: "Обнаружение" },
@@ -190,6 +193,7 @@ function formToAssetInput(form: AssetFormState): DefenseAssetMutationInput {
 
 export function AssetLibraryManager({
   assets,
+  children,
   placedObjects,
   selectedAssetId,
   loading,
@@ -206,14 +210,23 @@ export function AssetLibraryManager({
     [assets, selectedAssetId],
   );
   const [form, setForm] = useState<AssetFormState>(() => (selectedAsset ? formFromAsset(selectedAsset) : emptyForm()));
+  const [formErrors, setFormErrors] = useState<AssetFormErrors>({});
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const usedAssetIds = useMemo(() => new Set(placedObjects.map((object) => object.assetId)), [placedObjects]);
   const selectedAssetUsed = Boolean(selectedAsset && usedAssetIds.has(selectedAsset.id));
+
+  useEffect(() => {
+    if (mode !== "closed") {
+      nameInputRef.current?.focus();
+    }
+  }, [mode]);
 
   const startCreate = () => {
     setMode("create");
     setForm(emptyForm());
+    setFormErrors({});
     setLocalError(null);
   };
 
@@ -221,15 +234,23 @@ export function AssetLibraryManager({
     if (!selectedAsset) return;
     setMode("edit");
     setForm(formFromAsset(selectedAsset));
+    setFormErrors({});
     onSelectAsset(selectedAsset.id);
+    setLocalError(null);
+  };
+
+  const cancelForm = () => {
+    setMode("closed");
+    setFormErrors({});
     setLocalError(null);
   };
 
   const saveAsset = async () => {
     if (!form.name.trim()) {
-      setLocalError("Укажите название средства защиты.");
+      setFormErrors({ name: "Укажите название средства защиты." });
       return;
     }
+    setFormErrors({});
     setSaving(true);
     setLocalError(null);
     try {
@@ -274,62 +295,90 @@ export function AssetLibraryManager({
     }
   };
 
-  return (
-    <div className={styles.prototypeSection}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className={styles.prototypeEyebrow}>Управление карточками</p>
-          <p className={`${styles.prototypeMeta} truncate`}>{assets.length} средств в текущей библиотеке</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <IconButton
-            icon="action.refresh"
-            label="Обновить каталог с сервера"
-            onClick={() => void onRefresh()}
-            disabled={loading}
-            size="sm"
-            variant="quiet"
-          />
-          <IconButton
-            icon="action.add"
-            label="Создать средство защиты"
-            onClick={startCreate}
-            size="sm"
-          />
-          <IconButton
-            icon="action.edit"
-            label="Редактировать выбранное средство"
-            onClick={startEdit}
-            disabled={!selectedAsset}
-            size="sm"
-            variant="quiet"
-          />
-        </div>
-      </div>
-
-      {loading ? <Status label="Загрузка библиотеки" tone="info" /> : null}
-      {error ? <Alert title="Не удалось загрузить библиотеку" tone="warning">{error}</Alert> : null}
-      {localError ? <Alert title="Не удалось выполнить действие" tone="danger">{localError}</Alert> : null}
-
-      {mode !== "closed" ? (
-        <div className="fortis-asset-library-form">
+  if (mode === "closed") {
+    return (
+      <div className={styles.prototypeLibraryCatalogContent}>
+        <div className={`${styles.prototypeSection} ${styles.prototypeLibraryManager}`}>
           <div className="flex items-center justify-between gap-2">
-            <p className={styles.prototypeCardTitle}>
-              {mode === "create" ? "Новая карточка" : "Редактирование"}
-            </p>
-            <IconButton
-              icon="action.close"
-              label="Закрыть форму"
-              onClick={() => setMode("closed")}
-              size="sm"
-              variant="quiet"
-            />
+            <div className="min-w-0">
+              <p className={styles.prototypeEyebrow}>Управление карточками</p>
+              <p className={`${styles.prototypeMeta} truncate`}>{assets.length} средств в текущей библиотеке</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <IconButton
+                icon="action.refresh"
+                label="Обновить каталог с сервера"
+                onClick={() => void onRefresh()}
+                disabled={loading}
+                size="sm"
+                variant="quiet"
+              />
+              <IconButton
+                icon="action.add"
+                label="Создать средство защиты"
+                onClick={startCreate}
+                size="sm"
+              />
+              <IconButton
+                icon="action.edit"
+                label="Редактировать выбранное средство"
+                onClick={startEdit}
+                disabled={!selectedAsset}
+                size="sm"
+                variant="quiet"
+              />
+            </div>
           </div>
 
+          {loading ? <Status label="Загрузка библиотеки" tone="info" /> : null}
+          {error ? <Alert title="Не удалось загрузить библиотеку" tone="warning">{error}</Alert> : null}
+          {localError ? <Alert title="Не удалось выполнить действие" tone="danger">{localError}</Alert> : null}
+        </div>
+        <div className={styles.prototypeLibraryCatalog}>{children}</div>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      aria-label={mode === "create" ? "Создание средства защиты" : "Редактирование средства защиты"}
+      className={styles.prototypeLibraryForm}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void saveAsset();
+      }}
+    >
+      <div className={styles.prototypeLibraryFormHeader}>
+        <div>
+          <p className={styles.prototypeEyebrow}>
+            {mode === "create" ? "Новое средство" : "Карточка средства"}
+          </p>
+          <h2 className={styles.prototypeCardTitle}>
+            {mode === "create" ? "Создание средства защиты" : "Редактирование средства защиты"}
+          </h2>
+        </div>
+        <IconButton
+          icon="action.close"
+          label="Отменить и вернуться в библиотеку"
+          onClick={cancelForm}
+          size="sm"
+          variant="quiet"
+        />
+      </div>
+
+      <div className={styles.prototypeLibraryFormBody}>
+        {localError ? <Alert title="Не удалось выполнить действие" tone="danger">{localError}</Alert> : null}
+        <div className="fortis-asset-library-form">
           <Input
+            invalid={Boolean(formErrors.name)}
             label="Название"
+            message={formErrors.name}
+            ref={nameInputRef}
             value={form.name}
-            onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+            onChange={(event) => {
+              setForm((current) => ({ ...current, name: event.target.value }));
+              if (formErrors.name) setFormErrors({});
+            }}
           />
 
           <div className="fortis-asset-library-form__grid">
@@ -414,28 +463,31 @@ export function AssetLibraryManager({
               onChange={(event) => setForm((current) => ({ ...current, enterpriseId: event.target.value }))}
             />
           ) : null}
-
-          <div className="flex items-center gap-2">
-            <Button
-              className="flex-1"
-              leadingIcon={<Icon decorative name="action.save" />}
-              loading={saving}
-              onClick={() => void saveAsset()}
-            >
-              Сохранить
-            </Button>
-            {mode === "edit" ? (
-              <IconButton
-                icon="action.delete"
-                label={selectedAssetUsed ? "Средство размещено на карте" : "Удалить средство защиты"}
-                onClick={() => void deleteSelectedAsset()}
-                disabled={saving || selectedAssetUsed}
-                variant="danger"
-              />
-            ) : null}
-          </div>
         </div>
-      ) : null}
-    </div>
+      </div>
+
+      <div className={styles.prototypeLibraryFormFooter}>
+        {mode === "edit" ? (
+          <IconButton
+            icon="action.delete"
+            label={selectedAssetUsed ? "Средство размещено на карте" : "Удалить средство защиты"}
+            onClick={() => void deleteSelectedAsset()}
+            disabled={saving || selectedAssetUsed}
+            variant="danger"
+          />
+        ) : null}
+        <Button disabled={saving} onClick={cancelForm} variant="secondary">
+          Отмена
+        </Button>
+        <Button
+          className="flex-1"
+          leadingIcon={<Icon decorative name="action.save" />}
+          loading={saving}
+          type="submit"
+        >
+          {mode === "create" ? "Создать" : "Сохранить"}
+        </Button>
+      </div>
+    </form>
   );
 }

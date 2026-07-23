@@ -3,6 +3,7 @@
 import { getBuildAssetForCatalogGroup } from "@/modules/drone-defense/domain/echelon-build-assets";
 import { DefenseToolIcon } from "@/modules/drone-defense/ui/defense-tool-icon";
 import type { AssetCatalogItem } from "@/shared/lib/defense-project";
+import { EmptyState } from "@/shared/ui/fortis";
 import type { DefenseProject } from "@/shared/types/defense-project";
 import type {
   DragEvent as ReactDragEvent,
@@ -37,9 +38,10 @@ export function DefenseToolsPanel({
 }: DefenseToolsPanelProps) {
   if (assets.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-sm text-slate-500">
-        Нет средств защиты
-      </div>
+      <EmptyState
+        description="Измените поисковый запрос или очистите фильтры библиотеки."
+        title="Средства защиты не найдены"
+      />
     );
   }
 
