@@ -12,7 +12,11 @@ import { GisBoard } from "@/modules/drone-defense/ui/gis-board";
 import { EchelonObjectsList } from "@/modules/drone-defense/ui/echelon-objects-list";
 import { MogCompositionEditor } from "@/modules/drone-defense/ui/mog-composition-editor";
 import { FacilityDrilldown } from "@/modules/drone-defense/ui/facility-drilldown";
-import { GisObjectInspector, GisProjectTree } from "@/modules/drone-defense/ui/gis-workspace-panels";
+import {
+  GisObjectInspector,
+  GisProjectTree,
+  type InspectorState,
+} from "@/modules/drone-defense/ui/gis-workspace-panels";
 import { VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
 import styles from "./drone-defense-prototype.module.css";
 import {
@@ -147,6 +151,7 @@ export function DroneDefensePrototype() {
   const [isEchelonObjectsPanelOpen, setIsEchelonObjectsPanelOpen] = useState(false);
   const [echelonObjectsLayerId, setEchelonObjectsLayerId] = useState<DefenseLayerId | null>(null);
   const [isEchelonObjectsCollapsed, setIsEchelonObjectsCollapsed] = useState(false);
+  const [inspectorState, setInspectorState] = useState<InspectorState>({ type: "empty" });
   const layerStripRef = useRef<HTMLDivElement | null>(null);
   const {
     currentBaseMapSourceId,
@@ -585,6 +590,7 @@ export function DroneDefensePrototype() {
     const object = project.placedObjects.find((item) => item.id === objectId);
     if (!object) return;
     selectObject(objectId);
+    setInspectorState({ type: "object", objectId: objectId });
     setSelectedSlotId(null);
     setIsEchelonObjectsPanelOpen(true);
     const asset = project.assetLibrary.find((item) => item.id === object.assetId);
@@ -789,6 +795,8 @@ export function DroneDefensePrototype() {
 
   const selectLayerWithDefaultSlot = (layerId: string) => {
     selectLayer(layerId);
+    selectObject(null);
+    setInspectorState({ type: "echelon", echelonId: layerId });
     setActiveToolId(null);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
@@ -845,8 +853,7 @@ export function DroneDefensePrototype() {
                 const object = project.placedObjects.find((item) => item.id === objectId);
                 if (!object) return;
                 selectLayer(object.layerId);
-                selectObject(objectId);
-                setIsEchelonObjectsPanelOpen(true);
+                selectPlacedObject(objectId);
               }}
               project={project}
               selectedObjectId={selectedObjectId ?? null}
@@ -1014,6 +1021,8 @@ export function DroneDefensePrototype() {
               onHoverLayerChange={setHoveredLayerId}
               onSelectSlot={(slot) => {
                 selectLayer(slot.layerId);
+                selectObject(null);
+                setInspectorState({ type: "echelon", echelonId: slot.layerId });
                 setSelectedSlotId(slot.id);
                 setIsEchelonObjectsPanelOpen(true);
               }}
@@ -1044,10 +1053,12 @@ export function DroneDefensePrototype() {
             />
 
             <GisObjectInspector
-              asset={selectedPlacedAsset}
-              layer={selectedPlacedLayer}
-              object={selectedPlacedObject}
-              onClose={() => selectObject(null)}
+              project={project}
+              state={loading ? { type: "loading" } : error ? { type: "error", message: error } : inspectorState}
+              onClose={() => {
+                selectObject(null);
+                setInspectorState({ type: "empty" });
+              }}
               onUpdateObject={(objectId, patch) => {
                 updatePlacedObject(objectId, patch);
                 setLastPlacementMessage(

@@ -70,6 +70,7 @@ type EchelonTreeItemProps = {
   onSelect?: () => void;
   pattern?: "solid" | "dashed" | "dotted";
   selected?: boolean;
+  title?: string;
   warning?: boolean;
 };
 
@@ -85,6 +86,7 @@ export function EchelonTreeItem({
   onSelect,
   pattern = "solid",
   selected,
+  title,
   warning,
 }: EchelonTreeItemProps) {
   const colors: Record<string, string> = {
@@ -107,6 +109,7 @@ export function EchelonTreeItem({
       onClick={onSelect}
       role="treeitem"
       style={{ "--fortis-level": color ?? colors[level] ?? "var(--fortis-blue-500)" } as CSSProperties}
+      title={title}
       type="button"
     >
       <span className="fortis-tree-item__copy">

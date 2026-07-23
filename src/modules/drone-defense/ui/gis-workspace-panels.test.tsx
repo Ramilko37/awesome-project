@@ -3,7 +3,7 @@ import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { createDefaultDefenseProject } from "@/shared/lib/defense-project";
-import { GisObjectInspector, GisProjectTree } from "./gis-workspace-panels";
+import { GisObjectInspector, GisProjectTree, type InspectorState } from "./gis-workspace-panels";
 
 test("Project Tree exposes the base object, layers and placed objects as a semantic project structure", () => {
   const project = createDefaultDefenseProject();
@@ -38,7 +38,7 @@ test("Project Tree exposes the base object, layers and placed objects as a seman
   assert.match(html, /class="fortis-tree-item"/);
 });
 
-test("Object Inspector shows selected asset context and does not invent an object when selection is empty", () => {
+test("Inspector renders exactly one explicit empty, echelon, object, loading or error state", () => {
   const project = createDefaultDefenseProject();
   const layer = project.layers[0]!;
   const asset = project.assetLibrary[0]!;
@@ -54,26 +54,26 @@ test("Object Inspector shows selected asset context and does not invent an objec
     updatedAt: "2026-07-23T00:00:00.000Z",
   };
 
-  const selected = renderToStaticMarkup(
-    <GisObjectInspector
-      asset={asset}
-      layer={layer}
-      object={selectedObject}
-      onClose={() => undefined}
-      onUpdateObject={() => undefined}
-    />,
-  );
-  const empty = renderToStaticMarkup(
-    <GisObjectInspector
-      asset={null}
-      layer={null}
-      object={null}
-      onClose={() => undefined}
-      onUpdateObject={() => undefined}
-    />,
-  );
+  const states: InspectorState[] = [
+    { type: "empty" },
+    { type: "echelon", echelonId: layer.id },
+    { type: "object", objectId: selectedObject.id },
+    { type: "loading" },
+    { type: "error", message: "Не удалось загрузить контекст" },
+  ];
+  const renderState = (state: InspectorState) =>
+    renderToStaticMarkup(
+      <GisObjectInspector
+        onClose={() => undefined}
+        onUpdateObject={() => undefined}
+        project={{ ...project, placedObjects: [selectedObject] }}
+        state={state}
+      />,
+    );
+  const [empty, echelon, selected, loading, error] = states.map(renderState);
 
   assert.match(selected, /aria-label="Инспектор объекта"/);
+  assert.match(selected, /data-inspector-state="object"/);
   assert.match(selected, /Тестовый объект/);
   assert.match(selected, new RegExp(`${layer.code} · ${layer.name}`));
   assert.match(selected, /Количество/);
@@ -82,6 +82,19 @@ test("Object Inspector shows selected asset context and does not invent an objec
   assert.match(selected, /Скрыть на карте/);
   assert.match(selected, /class="fortis-select/);
   assert.match(selected, /class="fortis-button/);
+  assert.match(echelon, /aria-label="Инспектор эшелона"/);
+  assert.match(echelon, /data-inspector-state="echelon"/);
+  assert.match(echelon, new RegExp(layer.name));
+  assert.doesNotMatch(echelon, /Ничего не выбрано/);
   assert.match(empty, /Выберите объект на карте или в структуре проекта/);
+  assert.match(empty, /data-inspector-state="empty"/);
   assert.doesNotMatch(empty, /Количество/);
+  assert.match(loading, /data-inspector-state="loading"/);
+  assert.match(loading, /Загрузка контекста/);
+  assert.match(error, /data-inspector-state="error"/);
+  assert.match(error, /Не удалось загрузить контекст/);
+
+  for (const html of [empty, echelon, selected, loading, error]) {
+    assert.equal(html.match(/data-inspector-state=/g)?.length, 1);
+  }
 });

@@ -1605,7 +1605,7 @@
   position: relative;
   min-width: 0;
   flex: 1;
-  overflow: hidden;
+  overflow: clip;
   background: #eef4fb;
 }
 
@@ -1957,7 +1957,7 @@
 
 @media (min-width: 768px) {
   .prototypeSidebar[data-sidebar-state="open"] {
-    width: 20rem;
+    width: clamp(17.5rem, 25vw, 20rem);
     height: 100%;
     max-height: none;
     border-right-width: 1px;
@@ -1976,9 +1976,15 @@
   }
 }
 
+@media (min-width: 1024px) {
+  .prototypeMain .prototypeObjectsPanel {
+    right: 21rem;
+  }
+}
+
 @media (min-width: 1280px) {
-  .prototypeSidebar[data-sidebar-state="open"] {
-    width: 15rem;
+  .prototypeMain .prototypeObjectsPanel {
+    right: 22rem;
   }
 }
 

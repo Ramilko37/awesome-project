@@ -892,9 +892,12 @@
 
 .fortis-gis-tree-detail {
   display: block;
+  overflow: hidden;
   color: var(--fortis-semantic-light-text-secondary);
   font-size: 0.6875rem;
   line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fortis-gis-base-glyph,
@@ -919,6 +922,21 @@
 .fortis-gis-tree-group {
   display: grid;
   gap: 0.125rem;
+}
+
+.fortis-tree-item__copy {
+  min-width: 0;
+}
+
+.fortis-tree-item__copy > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fortis-tree-item > .fortis-mono {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .fortis-gis-tree-layer,
@@ -1009,9 +1027,20 @@
 
 .fortis-gis-inspector-body {
   display: grid;
+  min-height: 0;
   gap: 0.75rem;
   overflow-y: auto;
   padding: 0.75rem;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.fortis-gis-inspector-state {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--fortis-space-4);
+  overscroll-behavior: contain;
 }
 
 .fortis-gis-inspector-identity {
@@ -1368,6 +1397,7 @@
   .fortis-gis-main {
     display: flex;
     min-width: 0;
+    position: relative;
   }
 
   .fortis-gis-map-board {
@@ -1377,8 +1407,11 @@
 
   .fortis-gis-inspector {
     display: flex;
-    width: 18rem;
-    min-width: 18rem;
+    position: absolute;
+    inset-block: 0;
+    right: 0;
+    width: 20rem;
+    min-width: 20rem;
     flex-direction: column;
     border-left: 1px solid var(--fortis-semantic-light-border-default);
     box-shadow: -12px 0 28px rgb(15 23 42 / 6%);
@@ -1404,7 +1437,17 @@
 }
 
 @media (min-width: 80rem) {
+  .fortis-gis-main {
+    display: grid;
+    grid-template-columns: minmax(35rem, 1fr) minmax(20rem, 21rem);
+  }
+
+  .fortis-gis-map-board {
+    min-width: 35rem;
+  }
+
   .fortis-gis-inspector {
+    position: static;
     width: 21rem;
     min-width: 21rem;
   }
