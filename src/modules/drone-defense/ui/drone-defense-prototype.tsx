@@ -151,7 +151,9 @@ export function DroneDefensePrototype() {
   const [isEchelonObjectsPanelOpen, setIsEchelonObjectsPanelOpen] = useState(false);
   const [echelonObjectsLayerId, setEchelonObjectsLayerId] = useState<DefenseLayerId | null>(null);
   const [isEchelonObjectsCollapsed, setIsEchelonObjectsCollapsed] = useState(false);
-  const [inspectorState, setInspectorState] = useState<InspectorState>({ type: "empty" });
+  const [inspectorContextState, setInspectorContextState] = useState<
+    Extract<InspectorState, { type: "empty" | "echelon" }>
+  >({ type: "empty" });
   const layerStripRef = useRef<HTMLDivElement | null>(null);
   const {
     currentBaseMapSourceId,
@@ -394,6 +396,13 @@ export function DroneDefensePrototype() {
     return selectedPlacedAsset ? buildPlacedDefenseCompoundProfile(selectedPlacedAsset) : null;
   }, [selectedPlacedAsset, selectedPlacedObject]);
   const selectedPlacementId = selectedObjectId ?? null;
+  const inspectorState: InspectorState = loading
+    ? { type: "loading" }
+    : error
+      ? { type: "error", message: error }
+      : selectedObjectId
+        ? { type: "object", objectId: selectedObjectId }
+        : inspectorContextState;
   const selectedMogObject = useMemo(() => {
     if (!selectedPlacedObject || !selectedPlacedAsset || !selectedPlacedObjectProfile) return null;
     return {
@@ -503,6 +512,7 @@ export function DroneDefensePrototype() {
   };
 
   const handleLocatePlacement = (placement: { id: string; mapRef?: { lon: number; lat: number } }) => {
+    setInspectorContextState({ type: "empty" });
     selectObject(placement.id);
     if (placement.mapRef) {
       setLocateTarget({ lon: placement.mapRef.lon, lat: placement.mapRef.lat, at: Date.now() });
@@ -589,8 +599,8 @@ export function DroneDefensePrototype() {
   const selectPlacedObject = (objectId: string) => {
     const object = project.placedObjects.find((item) => item.id === objectId);
     if (!object) return;
+    setInspectorContextState({ type: "empty" });
     selectObject(objectId);
-    setInspectorState({ type: "object", objectId: objectId });
     setSelectedSlotId(null);
     setIsEchelonObjectsPanelOpen(true);
     const asset = project.assetLibrary.find((item) => item.id === object.assetId);
@@ -796,7 +806,7 @@ export function DroneDefensePrototype() {
   const selectLayerWithDefaultSlot = (layerId: string) => {
     selectLayer(layerId);
     selectObject(null);
-    setInspectorState({ type: "echelon", echelonId: layerId });
+    setInspectorContextState({ type: "echelon", echelonId: layerId });
     setActiveToolId(null);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
@@ -1022,7 +1032,7 @@ export function DroneDefensePrototype() {
               onSelectSlot={(slot) => {
                 selectLayer(slot.layerId);
                 selectObject(null);
-                setInspectorState({ type: "echelon", echelonId: slot.layerId });
+                setInspectorContextState({ type: "echelon", echelonId: slot.layerId });
                 setSelectedSlotId(slot.id);
                 setIsEchelonObjectsPanelOpen(true);
               }}
@@ -1054,10 +1064,10 @@ export function DroneDefensePrototype() {
 
             <GisObjectInspector
               project={project}
-              state={loading ? { type: "loading" } : error ? { type: "error", message: error } : inspectorState}
+              state={inspectorState}
               onClose={() => {
                 selectObject(null);
-                setInspectorState({ type: "empty" });
+                setInspectorContextState({ type: "empty" });
               }}
               onUpdateObject={(objectId, patch) => {
                 updatePlacedObject(objectId, patch);

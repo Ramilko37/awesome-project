@@ -54,16 +54,20 @@ test("inspector selection transitions are explicit and clearing returns to empty
   assert.match(workspaceSource, /\|\s*\{\s*type:\s*"object";\s*objectId:\s*string\s*\}/);
   assert.match(workspaceSource, /\|\s*\{\s*type:\s*"loading"\s*\}/);
   assert.match(workspaceSource, /\|\s*\{\s*type:\s*"error";\s*message:\s*string\s*\}/);
-  assert.match(prototypeSource, /useState<InspectorState>\(\{\s*type:\s*"empty"\s*\}\)/);
   assert.match(
     prototypeSource,
-    /setInspectorState\(\{\s*type:\s*"echelon",\s*echelonId:\s*layerId\s*\}\)/,
+    /useState<\s*Extract<InspectorState,\s*\{\s*type:\s*"empty"\s*\|\s*"echelon"\s*\}>\s*>\(\{\s*type:\s*"empty"\s*\}\)/,
   );
   assert.match(
     prototypeSource,
-    /setInspectorState\(\{\s*type:\s*"object",\s*objectId:\s*objectId\s*\}\)/,
+    /selectedObjectId\s*\?\s*\{\s*type:\s*"object",\s*objectId:\s*selectedObjectId\s*\}\s*:\s*inspectorContextState/,
   );
-  assert.match(prototypeSource, /setInspectorState\(\{\s*type:\s*"empty"\s*\}\)/);
+  assert.match(
+    prototypeSource,
+    /setInspectorContextState\(\{\s*type:\s*"echelon",\s*echelonId:\s*layerId\s*\}\)/,
+  );
+  assert.match(prototypeSource, /setInspectorContextState\(\{\s*type:\s*"empty"\s*\}\)/);
+  assert.doesNotMatch(prototypeSource, /setInspectorContextState\(\{\s*type:\s*"object"/);
 });
 
 test("tree truncation keeps full labels accessible without squeezing counts or statuses", () => {
