@@ -150,6 +150,13 @@
 }
 
 .prototypeLibraryCatalogContent {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.prototypeLibraryCatalogScrollRegion {
   display: grid;
   min-height: 0;
   flex: 1;
@@ -162,6 +169,12 @@
 }
 
 .prototypeLibraryManager {
+  display: grid;
+  flex: 0 0 auto;
+  gap: var(--fortis-space-3);
+}
+
+.prototypeLibraryFeedback {
   display: grid;
   gap: var(--fortis-space-3);
 }

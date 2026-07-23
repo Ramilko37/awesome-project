@@ -34,6 +34,8 @@ test("library keeps controls fixed and manager, feedback, empty state, and cards
   );
   const scrollAreaStyles = cssRule(".prototypeLibraryScrollArea");
   const catalogContentStyles = cssRule(".prototypeLibraryCatalogContent");
+  const catalogScrollRegionStyles = cssRule(".prototypeLibraryCatalogScrollRegion");
+  const managerStyles = cssRule(".prototypeLibraryManager");
 
   assert.match(libraryPanel, /prototypeLibraryFixedControls/);
   assert.match(libraryPanel, /prototypeLibraryScrollArea/);
@@ -43,8 +45,11 @@ test("library keeps controls fixed and manager, feedback, empty state, and cards
   );
   assert.doesNotMatch(libraryPanel, /overflow-hidden/);
   assert.match(scrollAreaStyles, /display:\s*flex/);
-  assert.match(catalogContentStyles, /overflow-y:\s*auto/);
-  assert.match(catalogContentStyles, /padding-bottom:/);
+  assert.doesNotMatch(catalogContentStyles, /overflow-y:\s*auto/);
+  assert.match(managerSource, /prototypeLibraryManager[\s\S]*prototypeLibraryCatalogScrollRegion/);
+  assert.match(managerStyles, /flex:\s*0 0 auto/);
+  assert.match(catalogScrollRegionStyles, /overflow-y:\s*auto/);
+  assert.match(catalogScrollRegionStyles, /padding-bottom:/);
   assert.match(toolsSource, /<EmptyState/);
 });
 

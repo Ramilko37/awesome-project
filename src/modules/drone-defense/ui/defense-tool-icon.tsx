@@ -152,7 +152,7 @@ export function DefenseToolIcon({
 
   const isControlTarget = (target: HTMLElement) =>
     Boolean(
-        target.closest("input,select,textarea,a") ||
+        target.closest("button,input,select,textarea,a") ||
         target.closest(".fortis-tool-coordinate-action"),
     );
 
@@ -251,10 +251,13 @@ export function DefenseToolIcon({
       }}
       onPointerDown={handlePointerDown}
       onMouseDown={(event) => {
-        if (canDrag) onMouseDragAsset(event as unknown as ReactMouseEvent<HTMLDivElement>);
+        if (canDrag && !isControlTarget(event.target as HTMLElement)) {
+          onMouseDragAsset(event as unknown as ReactMouseEvent<HTMLDivElement>);
+        }
       }}
       onClick={onSelect}
       onKeyDown={(event) => {
+        if (isControlTarget(event.target as HTMLElement)) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onSelect();

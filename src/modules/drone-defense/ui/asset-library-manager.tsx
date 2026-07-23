@@ -284,7 +284,7 @@ export function AssetLibraryManager({
 
   if (mode === "closed") {
     return (
-      <div className={styles.prototypeLibraryCatalogContent} data-testid="asset-library-scroll-region">
+      <div className={styles.prototypeLibraryCatalogContent}>
         <div className={`${styles.prototypeSection} ${styles.prototypeLibraryManager}`}>
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
@@ -316,12 +316,20 @@ export function AssetLibraryManager({
               />
             </div>
           </div>
-
-          {loading ? <Status label={prototypeRu.library.loading} tone="info" /> : null}
-          {error ? <Alert title={prototypeRu.library.loadError} tone="warning">{error}</Alert> : null}
-          {localError ? <Alert title={prototypeRu.library.actionError} tone="danger">{localError}</Alert> : null}
         </div>
-        <div className={styles.prototypeLibraryCatalog}>{children}</div>
+        <div
+          className={styles.prototypeLibraryCatalogScrollRegion}
+          data-testid="asset-library-scroll-region"
+        >
+          {loading || error || localError ? (
+            <div className={`${styles.prototypeSection} ${styles.prototypeLibraryFeedback}`}>
+              {loading ? <Status label={prototypeRu.library.loading} tone="info" /> : null}
+              {error ? <Alert title={prototypeRu.library.loadError} tone="warning">{error}</Alert> : null}
+              {localError ? <Alert title={prototypeRu.library.actionError} tone="danger">{localError}</Alert> : null}
+            </div>
+          ) : null}
+          <div className={styles.prototypeLibraryCatalog}>{children}</div>
+        </div>
       </div>
     );
   }

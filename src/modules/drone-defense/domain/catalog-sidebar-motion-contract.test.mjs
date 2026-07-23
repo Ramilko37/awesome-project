@@ -6,6 +6,8 @@ const styles = readFileSync(
   "src/modules/drone-defense/ui/drone-defense-prototype.module.css",
   "utf8",
 );
+const globalStyles = readFileSync("src/app/globals.css", "utf8");
+const mapSource = readFileSync("src/modules/drone-defense/ui/gis-board.tsx", "utf8");
 
 assert(
   source.includes('data-sidebar-state={isCatalogTrayOpen ? "open" : "closed"}'),
@@ -19,9 +21,11 @@ assert(
 );
 assert(
   styles.includes('@media (min-width: 768px)') &&
-    styles.includes('.prototypeSidebar[data-sidebar-state="open"] {\n    width: 20rem;') &&
+    styles.includes(
+      '.prototypeSidebar[data-sidebar-state="open"] {\n    width: clamp(17.5rem, 25vw, 20rem);',
+    ) &&
     styles.includes('.prototypeSidebar[data-sidebar-state="closed"] {\n    width: 0;'),
-  "Catalog sidebar must animate desktop width instead of unmounting",
+  "Catalog sidebar must animate a fluid desktop width instead of unmounting",
 );
 assert(
   styles.includes("pointer-events: none;") && styles.includes("opacity: 0;"),
@@ -32,12 +36,14 @@ assert(
   "Closed catalog sidebar must remove borders so it collapses without a 1px remainder",
 );
 assert(
-  source.includes('data-sidebar-toggle-state={isCatalogTrayOpen ? "hidden" : "visible"}') &&
-    styles.includes(".prototypeToggleLauncher {") &&
-    styles.includes('.prototypeToggleLauncher[data-sidebar-toggle-state="hidden"]') &&
-    styles.includes("transform: translateX(-0.5rem);") &&
-    styles.includes("opacity: 0;"),
-  "Catalog sidebar opener must fade/slide in when the sidebar closes",
+  source.includes("leadingControl={") &&
+    source.includes('aria-controls="fortis-gis-library-panel"') &&
+    source.includes("prototypeLibraryBoundaryControl") &&
+    mapSource.includes('<div className="fortis-map-object-toolbar">') &&
+    mapSource.includes("{leadingControl}") &&
+    globalStyles.includes("width: min(23rem, calc(100% - 6rem));") &&
+    globalStyles.includes("grid-template-columns: auto minmax(0, 1fr);"),
+  "Catalog toggle must live in the fluid map toolbar without covering catalog content",
 );
 assert(
   !source.includes("{isCatalogTrayOpen ? (\n        <section"),

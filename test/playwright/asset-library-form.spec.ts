@@ -122,6 +122,9 @@ test.describe("asset library create form", () => {
     const libraryPanel = page.locator('[data-library-role="add-objects"]');
     const libraryHeading = libraryPanel.getByRole("heading", { name: /^Добавить в / });
     const librarySearch = page.getByRole("searchbox", { name: "Поиск по библиотеке средств защиты" });
+    const refreshButton = libraryPanel.getByRole("button", { name: "Обновить каталог с сервера" });
+    const createButton = libraryPanel.getByRole("button", { name: "Создать средство защиты" });
+    const editButton = libraryPanel.getByRole("button", { name: "Редактировать выбранное средство" });
     const scrollRegion = page.getByTestId("asset-library-scroll-region");
     const lastCard = page.getByTestId("defense-tool-card-e2e-asset-24");
     const lowerCard = page.getByTestId("defense-tool-card-e2e-asset-20");
@@ -133,9 +136,13 @@ test.describe("asset library create form", () => {
     const fixedControlsBeforeScroll = await Promise.all([
       libraryHeading.boundingBox(),
       librarySearch.boundingBox(),
+      refreshButton.boundingBox(),
+      createButton.boundingBox(),
+      editButton.boundingBox(),
     ]);
     const scrollGeometry = await scrollRegion.evaluate((element) => {
-      element.scrollTop = element.scrollHeight;
+      const bottomPadding = Number.parseFloat(getComputedStyle(element).paddingBottom) || 0;
+      element.scrollTop = element.scrollHeight - element.clientHeight - bottomPadding;
       return {
         clientHeight: element.clientHeight,
         scrollHeight: element.scrollHeight,
@@ -148,16 +155,22 @@ test.describe("asset library create form", () => {
     await expect(lastCard).toBeInViewport();
     await expect(libraryHeading).toBeInViewport();
     await expect(librarySearch).toBeInViewport();
+    await expect(refreshButton).toBeInViewport();
+    await expect(createButton).toBeInViewport();
+    await expect(editButton).toBeInViewport();
     const fixedControlsAfterScroll = await Promise.all([
       libraryHeading.boundingBox(),
       librarySearch.boundingBox(),
+      refreshButton.boundingBox(),
+      createButton.boundingBox(),
+      editButton.boundingBox(),
     ]);
     expect(fixedControlsAfterScroll).toEqual(fixedControlsBeforeScroll);
 
     await scrollRegion.evaluate((element) => {
       element.scrollTop = 0;
     });
-    await scrollRegion.getByRole("button", { name: "Обновить каталог с сервера" }).click();
+    await refreshButton.click();
     const libraryError = scrollRegion.getByText("Не удалось загрузить библиотеку", { exact: true });
     await expect(libraryError).toBeVisible();
 
@@ -173,5 +186,24 @@ test.describe("asset library create form", () => {
     await expect(emptyState).toBeInViewport();
     await expect(libraryHeading).toBeInViewport();
     await expect(librarySearch).toBeInViewport();
+  });
+
+  test("nested coordinate action owns Enter and Space without card keyboard interception", async ({
+    page,
+  }) => {
+    await openPrototypeWithIsolatedApi(page);
+
+    const coordinateAction = page
+      .getByTestId("asset-library-scroll-region")
+      .getByRole("button", { name: "Ввести координаты" })
+      .first();
+    await coordinateAction.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Размещение по координатам", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Закрыть", exact: true }).click();
+    await coordinateAction.focus();
+    await page.keyboard.press("Space");
+    await expect(page.getByText("Размещение по координатам", { exact: true })).toBeVisible();
   });
 });

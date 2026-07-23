@@ -20,7 +20,9 @@ function extractUserFacingStringLiterals(source: string) {
     const value = match[2];
     const looksUserFacing =
       /[А-Яа-яЁё]/.test(value) ||
-      (/\s/.test(value) && /\b(slot|asset)\b/i.test(value));
+      (/\s/.test(value) &&
+        /\b(slot|asset)\b/i.test(value) &&
+        !/[-${}]/.test(value));
 
     if (looksUserFacing) {
       literals.push(value);
@@ -69,14 +71,15 @@ for (const filePath of checkedFiles) {
 }
 
 const defenseToolIconSource = readFileSync("src/modules/drone-defense/ui/defense-tool-icon.tsx", "utf8");
+const prototypeCopySource = readFileSync("src/shared/config/prototype-ru.ts", "utf8");
 for (const forbiddenCopy of ["РАЗМЕЩЕНО", "Размещено:", ">Разместить<", "не требует размещения"]) {
   if (defenseToolIconSource.includes(forbiddenCopy)) {
     throw new Error(`DefenseToolIcon must not expose legacy compact-card copy: ${forbiddenCopy}`);
   }
 }
 for (const expectedCopy of ["На карте", "Нарисовать", "Перетащите"]) {
-  if (!defenseToolIconSource.includes(expectedCopy)) {
-    throw new Error(`DefenseToolIcon must expose compact-card copy: ${expectedCopy}`);
+  if (!prototypeCopySource.includes(expectedCopy)) {
+    throw new Error(`Centralized prototype copy must expose compact-card copy: ${expectedCopy}`);
   }
 }
 for (const forbiddenCopy of ["Включено", "Без карты", "Добавить"]) {
@@ -106,6 +109,30 @@ if (
 
 const gisBoardSource = readFileSync("src/modules/drone-defense/ui/gis-board.tsx", "utf8");
 const prototypeSource = readFileSync("src/modules/drone-defense/ui/drone-defense-prototype.tsx", "utf8");
+if (
+  !prototypeSource.includes('import { prototypeRu } from "@/shared/config/prototype-ru"') ||
+  !prototypeSource.includes("prototypeRu.workspace.mapTitle") ||
+  !prototypeSource.includes("prototypeRu.workspace.studioName") ||
+  !defenseToolIconSource.includes("prototypeRu.cards.drag") ||
+  !defenseToolIconSource.includes("prototypeRu.cards.draw")
+) {
+  throw new Error("GIS runtime must read workspace and compact-card copy from prototypeRu");
+}
+for (const forbiddenEnglishCopy of ["GIS Workspace", "Defense Configuration Studio"]) {
+  if (prototypeSource.includes(forbiddenEnglishCopy)) {
+    throw new Error(`Prototype must not hardcode untranslated workspace copy: ${forbiddenEnglishCopy}`);
+  }
+}
+for (const expectedLocalizedCopy of [
+  "ГИС-рабочее пространство",
+  "Студия конфигурации защиты",
+  "Открытая векторная подложка",
+  "Резервная растровая подложка",
+]) {
+  if (!prototypeCopySource.includes(expectedLocalizedCopy)) {
+    throw new Error(`prototypeRu must centralize localized runtime copy: ${expectedLocalizedCopy}`);
+  }
+}
 if (
   !prototypeSource.includes("application/x-fortis-defense-asset") ||
   !prototypeSource.includes("application/x-fortis-group") ||
