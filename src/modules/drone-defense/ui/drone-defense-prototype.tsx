@@ -28,6 +28,7 @@ import { GisBoard } from "@/modules/drone-defense/ui/gis-board";
 import { EchelonObjectsList } from "@/modules/drone-defense/ui/echelon-objects-list";
 import { MogCompositionEditor } from "@/modules/drone-defense/ui/mog-composition-editor";
 import { FacilityDrilldown } from "@/modules/drone-defense/ui/facility-drilldown";
+import { GisObjectInspector, GisProjectTree } from "@/modules/drone-defense/ui/gis-workspace-panels";
 import { VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
 import styles from "./drone-defense-prototype.module.css";
 import {
@@ -823,7 +824,7 @@ export function DroneDefensePrototype() {
       {activeView === "gis" ? (
         <section
           data-sidebar-state={isCatalogTrayOpen ? "open" : "closed"}
-          className={styles.prototypeSidebar}
+          className={`${styles.prototypeSidebar} fortis-gis-sidebar`}
           aria-hidden={!isCatalogTrayOpen}
         >
           <div className={styles.prototypeSidebarHeader}>
@@ -839,6 +840,22 @@ export function DroneDefensePrototype() {
             <div className="mt-3 hidden lg:block">
               <VariantStatusButton fullWidth />
             </div>
+          </div>
+
+          <div className="fortis-gis-tree-slot">
+            <GisProjectTree
+              activeLayerId={selectedLayerId}
+              onSelectLayer={selectLayerWithDefaultSlot}
+              onSelectObject={(objectId) => {
+                const object = project.placedObjects.find((item) => item.id === objectId);
+                if (!object) return;
+                selectLayer(object.layerId);
+                selectObject(objectId);
+                setIsEchelonObjectsPanelOpen(true);
+              }}
+              project={project}
+              selectedObjectId={selectedObjectId ?? null}
+            />
           </div>
 
           <div className="min-h-0 flex-1 overflow-hidden">
@@ -911,7 +928,7 @@ export function DroneDefensePrototype() {
         </section>
       ) : null}
 
-      <main className={styles.prototypeMain}>
+      <main className={`${styles.prototypeMain} fortis-gis-main`}>
         {error ? (
           <div className={`${styles.prototypeNoticeDanger} absolute left-4 top-4 z-30 shadow`}>
             {error}
@@ -924,7 +941,7 @@ export function DroneDefensePrototype() {
         ) : null}
 
         {activeView === "gis" && isEchelonObjectsPanelOpen && activeEchelonObjectsLayer ? (
-          <aside className={`${styles.prototypeFloatingPanel} ${styles.prototypeObjectsPanel}`}>
+          <aside className={`${styles.prototypeFloatingPanel} ${styles.prototypeObjectsPanel} fortis-gis-objects-panel`}>
             <div className={styles.prototypeFloatingHeader}>
               <div>
                 <p className={styles.prototypeEyebrow}>Объекты эшелона</p>
@@ -973,7 +990,7 @@ export function DroneDefensePrototype() {
         {activeView === "gis" ? (
           <>
             <GisBoard
-              className="h-full min-h-0 rounded-none border-0"
+              className="fortis-gis-map-board h-full min-h-0 rounded-none border-0"
               facilities={mapFacilities}
               selectedFacilityId={project.baseObject.id}
               onSelectFacility={(nextId) => {
@@ -1028,6 +1045,19 @@ export function DroneDefensePrototype() {
               onDropAsset={placeDroppedAssetOnMap}
             />
 
+            <GisObjectInspector
+              asset={selectedPlacedAsset}
+              layer={selectedPlacedLayer}
+              object={selectedPlacedObject}
+              onClose={() => selectObject(null)}
+              onUpdateObject={(objectId, patch) => {
+                updatePlacedObject(objectId, patch);
+                setLastPlacementMessage(
+                  "Изменения объекта сохранены локально. Сохраните вариант, чтобы отправить их на сервер.",
+                );
+              }}
+            />
+
             {coordinatePlacementAsset && selectedLayer ? (
               <CoordinatePlacementPanel
                 key={`${coordinatePlacementAsset.id}:${selectedLayer.id}`}
@@ -1066,7 +1096,7 @@ export function DroneDefensePrototype() {
 
             {selectedLayer ? (
               <div
-                className={styles.prototypeLayerPanelWrap}
+                className={`${styles.prototypeLayerPanelWrap} fortis-gis-layer-panel-wrap`}
                 data-compact={showCompactLayerPanel ? "true" : "false"}
               >
                 <div

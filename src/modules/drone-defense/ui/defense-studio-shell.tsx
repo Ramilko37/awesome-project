@@ -13,6 +13,7 @@ import {
 } from "@ant-design/icons";
 import { useDefenseStudioStore } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import { VariantSaveButton, VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
+import { FortisProvider } from "@/shared/ui/fortis";
 
 type DefenseStudioShellProps = {
   children: React.ReactNode;
@@ -52,7 +53,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
   const idleMobileClassName = "text-slate-500 hover:bg-white/70 hover:text-slate-900";
 
   return (
-    <div className="h-screen overflow-hidden bg-[#eef3f8] text-slate-900">
+    <FortisProvider className="h-screen overflow-hidden bg-[#eef3f8] text-slate-900">
       <div className="flex h-full min-h-0 flex-col lg:flex-row">
         <aside className="hidden w-[76px] shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm lg:flex">
           <div className="flex h-[74px] items-center justify-center border-b border-slate-100">
@@ -179,6 +180,6 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
           <main className="min-h-0 min-w-0 flex-1 overflow-auto">{children}</main>
         </div>
       </div>
-    </div>
+    </FortisProvider>
   );
 }

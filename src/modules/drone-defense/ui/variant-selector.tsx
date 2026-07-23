@@ -1,124 +1,96 @@
 "use client";
 
 import { useState } from "react";
-import { SaveOutlined } from "@ant-design/icons";
-import { Button, theme } from "antd";
+
+import { resolveVariantUiState } from "@/modules/drone-defense/domain/variant-ui-state";
 import { useDefenseVariantsStore } from "@/modules/drone-defense/domain/use-defense-variants-store";
 import { VariantsModal } from "@/modules/drone-defense/ui/variants-modal";
+import { useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
+import {
+  Button,
+  Icon,
+  IconButton,
+  SaveIndicator,
+  Status,
+  VersionIndicator,
+} from "@/shared/ui/fortis";
 
 function useVariantMeta() {
-  const { token } = theme.useToken();
-  const { activeVariantId, activeVariantName, saveStatus, overwriteActiveVariant } =
-    useDefenseVariantsStore();
-
-  const isDraft = !activeVariantId;
-  const saving = saveStatus === "saving";
-  const label = isDraft ? "Черновик (не сохранён)" : activeVariantName;
-  const dotColor = isDraft ? token.colorWarning : token.colorSuccess;
-
-  return {
-    token,
+  const {
     activeVariantId,
     activeVariantName,
-    saveStatus,
+    conflictState,
+    error,
+    loadVariant,
     overwriteActiveVariant,
-    isDraft,
-    saving,
-    label,
-    dotColor,
+    saveStatus,
+  } = useDefenseVariantsStore();
+  const version = useDefenseProjectStore((state) => state.project.version);
+  const uiState = resolveVariantUiState({
+    activeVariantId,
+    conflict: Boolean(conflictState),
+    saveStatus,
+    version,
+  });
+
+  return {
+    activeVariantId,
+    activeVariantName,
+    conflictState,
+    error,
+    isDraft: !activeVariantId,
+    loadVariant,
+    overwriteActiveVariant,
+    saving: saveStatus === "saving",
+    uiState,
   };
 }
 
-export function VariantStatusButton({
-  fullWidth = false,
-}: {
-  fullWidth?: boolean;
-}) {
-  const { token, isDraft, label, dotColor } = useVariantMeta();
+export function VariantStatusButton({ fullWidth = false }: { fullWidth?: boolean }) {
+  const { activeVariantId, activeVariantName, conflictState, error, isDraft, loadVariant, uiState } = useVariantMeta();
   const [open, setOpen] = useState(false);
+  const label = conflictState ? "Конфликт версий" : isDraft ? "Черновик (не сохранён)" : activeVariantName ?? "Текущий вариант";
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        title="Открыть варианты конфигурации"
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: token.marginXS,
-          width: fullWidth ? "100%" : undefined,
-          justifyContent: fullWidth ? "space-between" : undefined,
-          minWidth: 0,
-          maxWidth: fullWidth ? undefined : 200,
-          height: token.controlHeight,
-          paddingInline: token.paddingSM,
-          background: token.colorFillQuaternary,
-          border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: token.borderRadiusLG,
-          color: token.colorText,
-          cursor: "pointer",
-          font: "inherit",
-          fontSize: token.fontSize,
-          lineHeight: 1,
-          transition: `border-color ${token.motionDurationMid}, background ${token.motionDurationMid}`,
-        }}
-        onMouseEnter={(event) => {
-          event.currentTarget.style.borderColor = token.colorPrimaryBorderHover;
-          event.currentTarget.style.background = token.colorFillTertiary;
-        }}
-        onMouseLeave={(event) => {
-          event.currentTarget.style.borderColor = token.colorBorderSecondary;
-          event.currentTarget.style.background = token.colorFillQuaternary;
-        }}
-      >
-        <span
-          aria-hidden
-          style={{
-            flexShrink: 0,
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background: dotColor,
-            boxShadow: `0 0 0 3px ${dotColor}1f`,
-          }}
+    <div className={fullWidth ? "grid min-w-0 gap-2" : "inline-grid min-w-0 gap-2"}>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <Button
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          className={fullWidth ? "min-w-0 flex-1 justify-between" : "max-w-[16rem]"}
+          onClick={() => setOpen(true)}
+          trailingIcon={<Icon decorative name="action.more" size={16} />}
+          variant="secondary"
+        >
+          <span className="truncate">{label}</span>
+        </Button>
+        <VersionIndicator
+          onOpenHistory={() => setOpen(true)}
+          status={uiState.versionStatus}
+          version={uiState.version}
         />
-        <span
-          style={{
-            minWidth: 0,
-            flex: 1,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            fontWeight: token.fontWeightStrong,
-            color: isDraft ? token.colorTextSecondary : token.colorText,
-          }}
-        >
-          {label}
-        </span>
-        <span
-          aria-hidden
-          style={{ flexShrink: 0, color: token.colorTextTertiary, fontSize: token.fontSizeSM }}
-        >
-          ▾
-        </span>
-      </button>
+      </div>
+      {uiState.saveState ? (
+        <SaveIndicator
+          detail={conflictState?.message ?? error ?? undefined}
+          onResolveConflict={
+            conflictState && activeVariantId ? () => void loadVariant(activeVariantId) : undefined
+          }
+          resolveConflictLabel="Загрузить актуальную"
+          state={uiState.saveState}
+        />
+      ) : (
+        <Status label="Черновик не сохранён" tone="warning" />
+      )}
       <VariantsModal open={open} onClose={() => setOpen(false)} />
-    </>
+    </div>
   );
 }
 
-export function VariantSaveButton({
-  iconOnly = false,
-  className,
-}: {
-  iconOnly?: boolean;
-  className?: string;
-}) {
-  const { activeVariantName, overwriteActiveVariant, isDraft, saving } = useVariantMeta();
+export function VariantSaveButton({ iconOnly = false, className }: { iconOnly?: boolean; className?: string }) {
+  const { activeVariantName, isDraft, overwriteActiveVariant, saving } = useVariantMeta();
   const [open, setOpen] = useState(false);
+  const label = isDraft ? "Сохранить карту как новый вариант" : `Сохранить вариант «${activeVariantName ?? "текущий"}»`;
 
   const handleSave = () => {
     if (isDraft) {
@@ -131,22 +103,16 @@ export function VariantSaveButton({
   return (
     <>
       {iconOnly ? (
-        <button
+        <IconButton
           className={className}
-          type="button"
+          icon="action.save"
+          label={label}
+          loading={saving}
           onClick={handleSave}
-          disabled={saving}
-          title={
-            isDraft
-              ? "Сохранить карту как новый вариант"
-              : `Сохранить вариант «${activeVariantName ?? "текущий"}»`
-          }
-          aria-label={isDraft ? "Сохранить карту как новый вариант" : "Сохранить текущий вариант"}
-        >
-          <SaveOutlined />
-        </button>
+          variant="quiet"
+        />
       ) : (
-        <Button type="primary" onClick={handleSave} loading={saving}>
+        <Button leadingIcon={<Icon decorative name="action.save" size={16} />} loading={saving} onClick={handleSave}>
           Сохранить
         </Button>
       )}
@@ -160,17 +126,10 @@ export function VariantSelector() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        flexWrap: "wrap",
-      }}
-    >
+    <div className="flex flex-wrap items-center gap-2">
       <VariantStatusButton />
       <VariantSaveButton />
-      <Button size="small" onClick={() => setOpen(true)} disabled={saving}>
+      <Button disabled={saving} onClick={() => setOpen(true)} variant="secondary">
         Сохранить как…
       </Button>
       <VariantsModal open={open} onClose={() => setOpen(false)} />

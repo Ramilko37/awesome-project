@@ -1883,6 +1883,12 @@
   }
 }
 
+@media (min-width: 1280px) {
+  .prototypeSidebar[data-sidebar-state="open"] {
+    width: 15rem;
+  }
+}
+
 @media (min-width: 640px) {
   .prototypeLayerCompactCard {
     flex-direction: row;
