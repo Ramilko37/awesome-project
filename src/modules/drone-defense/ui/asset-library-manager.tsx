@@ -297,7 +297,7 @@ export function AssetLibraryManager({
 
   if (mode === "closed") {
     return (
-      <div className={styles.prototypeLibraryCatalogContent}>
+      <div className={styles.prototypeLibraryCatalogContent} data-testid="asset-library-scroll-region">
         <div className={`${styles.prototypeSection} ${styles.prototypeLibraryManager}`}>
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
