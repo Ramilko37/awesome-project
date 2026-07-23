@@ -81,7 +81,8 @@ export function DefenseToolIcon({
   const isZoneObject = placementType === "zone-object";
   const canDrag = canAdd;
   const isCompoundPost = compoundProfile?.kind === "compound-post";
-  const title = disabledReason ?? `${name}: ${rangeLabel}. Перетащите на карту внутри выбранного эшелона`;
+  const title =
+    disabledReason ?? prototypeRu.cards.dragTooltip(name, rangeLabel);
   const coverageText = coverageLabel;
   const costText = `${prototypeRu.cards.basePostCost}: ${priceLabel}`;
   const counterText = isZoneObject
@@ -152,9 +153,7 @@ export function DefenseToolIcon({
   const isControlTarget = (target: HTMLElement) =>
     Boolean(
         target.closest("input,select,textarea,a") ||
-        target.closest(
-          'button[title="Ввести координаты"]',
-        ),
+        target.closest(".fortis-tool-coordinate-action"),
     );
 
   // ── unified pointer handler ──────────────────────────────────────────
@@ -207,7 +206,7 @@ export function DefenseToolIcon({
           variant="quiet"
         />
       }
-      aria-label={`${name}. ${counterText}. ${prototypeRu.cards.drag} на карту`}
+      aria-label={prototypeRu.cards.dragAria(name, counterText)}
       aria-pressed={isSelected}
       className={`fortis-asset-library-card ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
       data-placement-type={placementType}
@@ -232,7 +231,11 @@ export function DefenseToolIcon({
       selected={isSelected}
       status={
         <Badge tone={installedCount > 0 ? "accent" : "neutral"}>
-          {isZoneObject ? `${installedCount} уч.` : maxQuantity > 0 ? `${installedCount}/${maxQuantity}` : installedCount}
+          {isZoneObject
+            ? prototypeRu.cards.siteBadgeCount(installedCount)
+            : maxQuantity > 0
+              ? `${installedCount}/${maxQuantity}`
+              : installedCount}
         </Badge>
       }
       title={name}

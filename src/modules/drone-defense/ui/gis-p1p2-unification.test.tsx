@@ -20,10 +20,6 @@ const assetLibraryManagerSource = readFileSync(
   "src/modules/drone-defense/ui/asset-library-manager.tsx",
   "utf8",
 );
-const toolSource = readFileSync(
-  "src/modules/drone-defense/ui/defense-tool-icon.tsx",
-  "utf8",
-);
 const baseMapSource = readFileSync("src/shared/config/base-map-sources.ts", "utf8");
 const navigationSource = readFileSync(
   "src/shared/ui/fortis/data-navigation-domain.tsx",
@@ -50,6 +46,51 @@ function assertUsesCentralizedCopy(source: string, surface: string) {
     />[^<{\n]*[А-Яа-яЁё][^<{\n]*</,
     `${surface} must not declare Cyrillic user copy in JSX text`,
   );
+}
+
+function discoverPrototypeUiChildren(
+  source: string,
+  surfaceSources: string[],
+): Map<string, string> {
+  const discovered = new Map<string, string>();
+  const pending: Array<{ componentName: string; modulePath: string }> = [];
+
+  function enqueueRenderedImports(moduleSource: string, renderedSources: string[]) {
+    const renderedComponents = new Set(
+      renderedSources.flatMap((renderedSource) =>
+        [...renderedSource.matchAll(/<([A-Z][A-Za-z0-9]*)\b/g)].map((match) => match[1]),
+      ),
+    );
+
+    for (const match of moduleSource.matchAll(
+      /import\s+\{([^}]+)\}\s+from\s+"@\/modules\/drone-defense\/ui\/([^"]+)";/g,
+    )) {
+      const modulePath = match[2];
+      for (const importedName of match[1].split(",")) {
+        const componentName = importedName.trim().split(/\s+as\s+/)[0];
+        if (renderedComponents.has(componentName) && !discovered.has(componentName)) {
+          pending.push({ componentName, modulePath });
+        }
+      }
+    }
+  }
+
+  enqueueRenderedImports(source, surfaceSources);
+
+  while (pending.length > 0) {
+    const child = pending.shift();
+    assert.ok(child);
+    if (discovered.has(child.componentName)) continue;
+
+    const childSource = readFileSync(
+      `src/modules/drone-defense/ui/${child.modulePath}.tsx`,
+      "utf8",
+    );
+    discovered.set(child.componentName, childSource);
+    enqueueRenderedImports(childSource, [childSource]);
+  }
+
+  return discovered;
 }
 
 test("Fortis EmptyState uses panel typography and keeps descriptions readable", () => {
@@ -97,14 +138,41 @@ test("runtime cards share Fortis card geometry and full Task 4 surfaces use cent
     "aria-label={prototypeRu.echelons.overviewAria}",
     '{activeView === "drilldown"',
   );
+  const echelonObjectsSurface = sourceBetween(
+    prototypeSource,
+    "{activeView === \"gis\" && isEchelonObjectsPanelOpen",
+    '{activeView === "gis" ? (',
+  );
+  const prototypeUiChildren = discoverPrototypeUiChildren(
+    prototypeSource,
+    [librarySurface, echelonObjectsSurface, echelonDrawerSurface],
+  );
 
-  assert.match(toolSource, /<AssetCard/);
+  for (const requiredChild of [
+    "AssetLibraryManager",
+    "DefenseToolIcon",
+    "DefenseToolsPanel",
+    "EchelonObjectsList",
+  ]) {
+    assert.ok(
+      prototypeUiChildren.has(requiredChild),
+      `Task 4 child discovery must include ${requiredChild}`,
+    );
+  }
+  assert.match(prototypeUiChildren.get("DefenseToolIcon") ?? "", /<AssetCard/);
   assert.match(prototypeSource, /<AssetCard/);
   assert.match(baseMapSource, /prototypeRu/);
   assertUsesCentralizedCopy(panelSource, "GIS tree and inspector");
   assertUsesCentralizedCopy(assetLibraryManagerSurface, "asset library manager and form");
   assertUsesCentralizedCopy(librarySurface, "prototype library");
+  assertUsesCentralizedCopy(echelonObjectsSurface, "prototype echelon objects panel");
   assertUsesCentralizedCopy(echelonDrawerSurface, "prototype echelon drawer");
+  for (const [componentName, childSource] of prototypeUiChildren) {
+    assertUsesCentralizedCopy(
+      componentName === "AssetLibraryManager" ? assetLibraryManagerSurface : childSource,
+      `${componentName} runtime child`,
+    );
+  }
   assert.doesNotMatch(
     baseMapSource,
     /description:\s*"(?:Open-source|Dev\/demo|Configurable|Optional satellite)/,

@@ -194,6 +194,23 @@ export const prototypeRu = {
     expandCard: "Развернуть карточку",
     collapseCard: "Свернуть карточку",
     closeCard: "Закрыть карточку",
+    objectStatus: {
+      ready: "Готов",
+      warning: "Внимание",
+      inactive: "Выключен",
+    },
+    objectActions: {
+      selected: "Выбран",
+      select: "Выбрать",
+      locate: "На карте",
+      show: "Показать",
+      hide: "Скрыть",
+      remove: "Удалить",
+      hiddenOnMap: "Скрыт на карте",
+    },
+    objectQuantity: (count: number) => `×${count}`,
+    objectCostUnavailable: "—",
+    objectCostMlnRub: (formattedValue: string) => `${formattedValue} млн ₽`,
   },
   cards: {
     map: "Карта",
@@ -210,6 +227,11 @@ export const prototypeRu = {
     sector: "Сектор",
     enterCoordinates: "Ввести координаты",
     drawArea: "Нарисовать область",
+    dragTooltip: (name: string, rangeLabel: string) =>
+      `${name}: ${rangeLabel}. Перетащите на карту внутри выбранного эшелона`,
+    dragAria: (name: string, counterText: string) =>
+      `${name}. ${counterText}. Перетащите на карту`,
+    siteBadgeCount: (count: number) => `${count} уч.`,
   },
   baseMap: {
     internalTitle: "Внутренняя подложка",

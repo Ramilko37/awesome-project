@@ -16,15 +16,11 @@ import type {
 } from "@/shared/types/drone-defense";
 import { prototypeRu } from "@/shared/config/prototype-ru";
 
-const statusLabel: Record<string, string> = {
-  ready: "Готов",
-  warning: "Внимание",
-  inactive: "Выключен",
-};
-
 function formatCostRub(costRub: number): string {
-  if (costRub <= 0) return "—";
-  return `${(costRub / 1_000_000).toFixed(1)} млн ₽`;
+  if (costRub <= 0) return prototypeRu.echelons.objectCostUnavailable;
+  return prototypeRu.echelons.objectCostMlnRub(
+    (costRub / 1_000_000).toFixed(1),
+  );
 }
 
 export function EchelonObjectsList({
@@ -84,7 +80,9 @@ export function EchelonObjectsList({
                     size="sm"
                     variant={isSelected ? "primary" : "quiet"}
                   >
-                    {isSelected ? "Выбран" : "Выбрать"}
+                    {isSelected
+                      ? prototypeRu.echelons.objectActions.selected
+                      : prototypeRu.echelons.objectActions.select}
                   </Button>
                   <Button
                     leadingIcon={<Icon decorative name="action.locate" />}
@@ -92,7 +90,7 @@ export function EchelonObjectsList({
                     size="sm"
                     variant="secondary"
                   >
-                    На карте
+                    {prototypeRu.echelons.objectActions.locate}
                   </Button>
                   <Button
                     aria-pressed={!isHidden}
@@ -106,7 +104,9 @@ export function EchelonObjectsList({
                     size="sm"
                     variant={isHidden ? "primary" : "secondary"}
                   >
-                    {isHidden ? "Показать" : "Скрыть"}
+                    {isHidden
+                      ? prototypeRu.echelons.objectActions.show
+                      : prototypeRu.echelons.objectActions.hide}
                   </Button>
                   <Button
                     leadingIcon={<Icon decorative name="action.delete" />}
@@ -114,17 +114,22 @@ export function EchelonObjectsList({
                     size="sm"
                     variant="danger"
                   >
-                    Удалить
+                    {prototypeRu.echelons.objectActions.remove}
                   </Button>
                 </div>
               }
-              meta={`${summary.echelonShortName} · ${summary.echelonName} · ×${summary.qty} · ${formatCostRub(summary.costRub)}`}
+              meta={`${summary.echelonShortName} · ${summary.echelonName} · ${prototypeRu.echelons.objectQuantity(summary.qty)} · ${formatCostRub(summary.costRub)}`}
               selected={isSelected}
               status={
                 <div className="fortis-echelons-object-status">
-                  {isHidden ? <Status label="Скрыт на карте" tone="warning" /> : null}
+                  {isHidden ? (
+                    <Status
+                      label={prototypeRu.echelons.objectActions.hiddenOnMap}
+                      tone="warning"
+                    />
+                  ) : null}
                   <Status
-                    label={statusLabel[summary.status]}
+                    label={prototypeRu.echelons.objectStatus[summary.status]}
                     tone={statusTone}
                   />
                 </div>
