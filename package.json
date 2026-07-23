@@ -6,11 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build",
-    "design-system:tokens": "node scripts/design-system/fortis-tokens.mjs",
-    "design-system:check": "node scripts/design-system/fortis-tokens.mjs --check"
+    "lint": "eslint"
   },
   "dependencies": {
     "@ant-design/icons": "^6.2.2",
@@ -43,7 +39,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
-    "@storybook/nextjs-vite": "^10.5.3",
     "@tailwindcss/postcss": "^4.2.4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -51,7 +46,6 @@
     "@types/three": "^0.184.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.5",
-    "storybook": "^10.5.3",
     "tailwindcss": "^4.2.4",
     "tsx": "^4.22.4",
     "typescript": "^5"
