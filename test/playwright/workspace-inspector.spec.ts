@@ -49,6 +49,14 @@ async function openWorkspace(page: Page, project?: DefenseProject) {
   );
 }
 
+async function expectNoDocumentHorizontalOverflow(page: Page) {
+  const width = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(width.scrollWidth).toBe(width.clientWidth);
+}
+
 test.describe("workspace layout and inspector", () => {
   test("keeps the full desktop grid stable while echelon selection replaces empty state", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -152,4 +160,47 @@ test.describe("workspace layout and inspector", () => {
     }));
     expect(documentWidth.scrollWidth).toBe(documentWidth.clientWidth);
   });
+
+  for (const viewport of [
+    { width: 1024, height: 768 },
+    { width: 1280, height: 800 },
+  ]) {
+    test(`collapses and restores the context panel without reducing map priority at ${viewport.width}px`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await openWorkspace(page);
+
+      const map = page.locator(".fortis-gis-map-board");
+      const inspector = page.locator(".fortis-gis-inspector");
+      const collapseControl = page.getByRole("button", { name: "Свернуть панель контекста" });
+      const mapBeforeCollapse = await map.boundingBox();
+
+      expect(mapBeforeCollapse).not.toBeNull();
+      await expect(collapseControl).toBeVisible();
+      await expect(collapseControl).toHaveAttribute("aria-controls", "fortis-gis-inspector-panel");
+      await expect(collapseControl).toHaveAttribute("aria-expanded", "true");
+      const collapseControlBox = await collapseControl.boundingBox();
+      expect(collapseControlBox).not.toBeNull();
+      expect(collapseControlBox!.width).toBeGreaterThanOrEqual(44);
+      expect(collapseControlBox!.height).toBeGreaterThanOrEqual(44);
+
+      await collapseControl.click();
+      await expect(inspector).toBeHidden();
+      const expandControl = page.getByRole("button", { name: "Развернуть панель контекста" });
+      await expect(expandControl).toBeVisible();
+      await expect(expandControl).toHaveAttribute("aria-expanded", "false");
+      await expect(expandControl).toBeInViewport();
+
+      const mapAfterCollapse = await map.boundingBox();
+      expect(mapAfterCollapse).not.toBeNull();
+      expect(mapAfterCollapse!.width).toBeGreaterThanOrEqual(mapBeforeCollapse!.width);
+      await expectNoDocumentHorizontalOverflow(page);
+
+      await expandControl.click();
+      await expect(inspector).toBeVisible();
+      await expect(page.getByRole("button", { name: "Свернуть панель контекста" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+    });
+  }
 });

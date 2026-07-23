@@ -50,6 +50,7 @@ test("Inspector renders exactly one explicit empty, echelon, object, loading or 
     name: "Тестовый объект",
     quantity: 2,
     status: "active" as const,
+    hasCoverageConflict: true,
     createdAt: "2026-07-23T00:00:00.000Z",
     updatedAt: "2026-07-23T00:00:00.000Z",
   };
@@ -80,6 +81,7 @@ test("Inspector renders exactly one explicit empty, echelon, object, loading or 
   assert.match(selected, /aria-label="Количество объектов"/);
   assert.match(selected, /aria-label="Статус объекта"/);
   assert.match(selected, /Скрыть на карте/);
+  assert.match(selected, /Покрытие конфликтует с соседним объектом/);
   assert.match(selected, /class="fortis-select/);
   assert.match(selected, /class="fortis-button/);
   assert.match(echelon, /aria-label="Инспектор эшелона"/);
