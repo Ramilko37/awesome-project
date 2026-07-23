@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "test-storybook": "test-storybook --url http://127.0.0.1:6006"
   },
   "dependencies": {
     "@ant-design/icons": "^6.2.2",
@@ -39,6 +42,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "@storybook/nextjs-vite": "^10.5.3",
+    "@storybook/test-runner": "^0.24.4",
     "@tailwindcss/postcss": "^4.2.4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -46,6 +51,7 @@
     "@types/three": "^0.184.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.5",
+    "storybook": "^10.5.3",
     "tailwindcss": "^4.2.4",
     "tsx": "^4.22.4",
     "typescript": "^5"

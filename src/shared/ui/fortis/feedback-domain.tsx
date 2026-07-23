@@ -1,0 +1,9 @@
+"use client";
+import type { ReactNode } from "react";
+import { useEffect } from "react";
+import { Button, IconButton, Status } from "./core";
+import { Icon } from "./icon";
+import { BudgetMetric, CoverageStatus, WarningStack } from "./data-navigation-domain";
+
+export function Toast({ action, duration = 6000, message, onClose, tone = "success" }: { action?: ReactNode; duration?: number; message: string; onClose: () => void; tone?: "success" | "info" | "error" }) { useEffect(() => { const id = window.setTimeout(onClose, duration); return () => window.clearTimeout(id); }, [duration, onClose]); const icon = tone === "error" ? "status.error" : tone === "info" ? "status.info" : "status.success"; return <div aria-live="polite" className="fortis-toast" role="status"><Icon decorative name={icon} size={20} /><span>{message}</span>{action}<IconButton icon="action.close" label="Закрыть уведомление" onClick={onClose} size="sm" variant="quiet" /></div>; }
+export function ObjectInspector({ assetCode, children, onClose, status = "Активен", title }: { assetCode: string; children?: ReactNode; onClose?: () => void; status?: string; title: string }) { return <aside aria-label="Инспектор объекта" className="fortis-object-inspector"><div className="fortis-card__title"><div><strong>{title}</strong><div className="fortis-mono">{assetCode}</div></div><span>{onClose ? <IconButton icon="action.close" label="Закрыть инспектор" onClick={onClose} size="sm" variant="quiet" /> : null}</span></div><Status label={status} tone="success" />{children ?? <><CoverageStatus entries={[{ label: "L2 · Ближняя зона", pattern: "dashed", value: "87%" }]} /><BudgetMetric label="Стоимость" value="₽ 12 480 000" /><WarningStack warnings={[{ detail: "Северный сектор", title: "Покрытие 71%" }]} /><Button>Сохранить</Button></>}</aside>; }
