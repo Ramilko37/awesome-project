@@ -17,6 +17,11 @@ import {
   GisProjectTree,
   type InspectorState,
 } from "@/modules/drone-defense/ui/gis-workspace-panels";
+import {
+  selectEchelon as selectWorkspaceEchelonState,
+  type SelectedEntity,
+  type WorkspaceState,
+} from "@/modules/drone-defense/ui/gis-workspace-state";
 import { VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
 import styles from "./drone-defense-prototype.module.css";
 import {
@@ -127,6 +132,7 @@ function layerWizardStoreDraft(draft: LayerWizardDraft) {
 
 export function DroneDefensePrototype() {
   const searchParams = useSearchParams();
+  const [selectedEchelonId, setSelectedEchelonId] = useState<string | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [catalogQuery, setCatalogQuery] = useState("");
   const [isCatalogTrayOpen, setIsCatalogTrayOpen] = useState(true);
@@ -146,9 +152,6 @@ export function DroneDefensePrototype() {
   const [isEchelonObjectsPanelOpen, setIsEchelonObjectsPanelOpen] = useState(false);
   const [echelonObjectsLayerId, setEchelonObjectsLayerId] = useState<DefenseLayerId | null>(null);
   const [isEchelonObjectsCollapsed, setIsEchelonObjectsCollapsed] = useState(false);
-  const [inspectorContextState, setInspectorContextState] = useState<
-    Extract<InspectorState, { type: "empty" | "echelon" }>
-  >({ type: "empty" });
   const layerStripRef = useRef<HTMLDivElement | null>(null);
   const {
     currentBaseMapSourceId,
@@ -240,6 +243,14 @@ export function DroneDefensePrototype() {
   const selectedLayer = useMemo(
     () => project.layers.find((layer) => layer.id === selectedLayerId) ?? project.layers[0],
     [project.layers, selectedLayerId],
+  );
+  const selectedEntity = useMemo<SelectedEntity>(() => {
+    if (selectedObjectId) return { type: "object", id: selectedObjectId };
+    return selectedEchelonId ? { type: "echelon", id: selectedEchelonId } : null;
+  }, [selectedEchelonId, selectedObjectId]);
+  const workspaceState = useMemo<WorkspaceState>(
+    () => ({ activeEchelonId: selectedLayerId || null, selectedEntity }),
+    [selectedEntity, selectedLayerId],
   );
   const orderedProjectLayers = useMemo(
     () => [...project.layers].sort((a, b) => a.order - b.order),
@@ -380,10 +391,12 @@ export function DroneDefensePrototype() {
     () => project.layers.find((layer) => layer.id === pendingLayerDeletionId) ?? null,
     [pendingLayerDeletionId, project.layers],
   );
-  const selectedPlacedObject = useMemo(
-    () => project.placedObjects.find((object) => object.id === selectedObjectId) ?? null,
-    [project.placedObjects, selectedObjectId],
-  );
+  const selectedPlacedObject = useMemo(() => {
+    const selectedEntity = workspaceState.selectedEntity;
+    return selectedEntity?.type === "object"
+      ? project.placedObjects.find((object) => object.id === selectedEntity.id) ?? null
+      : null;
+  }, [project.placedObjects, workspaceState.selectedEntity]);
   const selectedPlacedAsset = useMemo(
     () => project.assetLibrary.find((asset) => asset.id === selectedPlacedObject?.assetId) ?? null,
     [project.assetLibrary, selectedPlacedObject?.assetId],
@@ -397,14 +410,35 @@ export function DroneDefensePrototype() {
     if (selectedPlacedObject.compoundProfile) return selectedPlacedObject.compoundProfile;
     return selectedPlacedAsset ? buildPlacedDefenseCompoundProfile(selectedPlacedAsset) : null;
   }, [selectedPlacedAsset, selectedPlacedObject]);
-  const selectedPlacementId = selectedObjectId ?? null;
+  const selectedPlacementId = workspaceState.selectedEntity?.type === "object" ? workspaceState.selectedEntity.id : null;
   const inspectorState: InspectorState = loading
     ? { type: "loading" }
     : error
       ? { type: "error", message: error }
-      : selectedObjectId
-        ? { type: "object", objectId: selectedObjectId }
-        : inspectorContextState;
+      : workspaceState.selectedEntity?.type === "object"
+        ? { type: "object", objectId: workspaceState.selectedEntity.id }
+      : workspaceState.selectedEntity?.type === "echelon"
+        ? { type: "echelon", echelonId: workspaceState.selectedEntity.id }
+        : { type: "empty" };
+
+  const selectWorkspaceEchelon = (layerId: string) => {
+    setSelectedEchelonId(selectWorkspaceEchelonState(workspaceState, layerId).selectedEntity?.id ?? null);
+    selectLayer(layerId);
+    selectObject(null);
+  };
+
+  const selectWorkspaceObject = (objectId: string) => {
+    const object = project.placedObjects.find((item) => item.id === objectId);
+    if (!object) return;
+    setSelectedEchelonId(null);
+    selectLayer(object.layerId);
+    selectObject(object.id);
+  };
+
+  const clearWorkspaceEntitySelection = () => {
+    setSelectedEchelonId(null);
+    selectObject(null);
+  };
   const selectedMogObject = useMemo(() => {
     if (!selectedPlacedObject || !selectedPlacedAsset || !selectedPlacedObjectProfile) return null;
     return {
@@ -514,8 +548,7 @@ export function DroneDefensePrototype() {
   };
 
   const handleLocatePlacement = (placement: { id: string; mapRef?: { lon: number; lat: number } }) => {
-    setInspectorContextState({ type: "empty" });
-    selectObject(placement.id);
+    selectWorkspaceObject(placement.id);
     if (placement.mapRef) {
       setLocateTarget({ lon: placement.mapRef.lon, lat: placement.mapRef.lat, at: Date.now() });
     }
@@ -530,7 +563,7 @@ export function DroneDefensePrototype() {
         setLastPlacementMessage(result.validation.message ?? "Не удалось создать эшелон");
         return;
       }
-      selectLayer(result.layer.id);
+      selectWorkspaceEchelon(result.layer.id);
       setLastPlacementMessage("Эшелон создан");
       setLayerWizardState(null);
       return;
@@ -601,8 +634,7 @@ export function DroneDefensePrototype() {
   const selectPlacedObject = (objectId: string) => {
     const object = project.placedObjects.find((item) => item.id === objectId);
     if (!object) return;
-    setInspectorContextState({ type: "empty" });
-    selectObject(objectId);
+    selectWorkspaceObject(objectId);
     setSelectedSlotId(null);
     setIsEchelonObjectsPanelOpen(true);
     const asset = project.assetLibrary.find((item) => item.id === object.assetId);
@@ -806,9 +838,7 @@ export function DroneDefensePrototype() {
   };
 
   const selectLayerWithDefaultSlot = (layerId: string) => {
-    selectLayer(layerId);
-    selectObject(null);
-    setInspectorContextState({ type: "echelon", echelonId: layerId });
+    selectWorkspaceEchelon(layerId);
     setActiveToolId(null);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
@@ -865,7 +895,6 @@ export function DroneDefensePrototype() {
               onSelectObject={(objectId) => {
                 const object = project.placedObjects.find((item) => item.id === objectId);
                 if (!object) return;
-                selectLayer(object.layerId);
                 selectPlacedObject(objectId);
               }}
               project={project}
@@ -1040,9 +1069,7 @@ export function DroneDefensePrototype() {
               onSelectLayer={selectLayerWithDefaultSlot}
               onHoverLayerChange={setHoveredLayerId}
               onSelectSlot={(slot) => {
-                selectLayer(slot.layerId);
-                selectObject(null);
-                setInspectorContextState({ type: "echelon", echelonId: slot.layerId });
+                selectWorkspaceEchelon(slot.layerId);
                 setSelectedSlotId(slot.id);
                 setIsEchelonObjectsPanelOpen(true);
               }}
@@ -1093,8 +1120,7 @@ export function DroneDefensePrototype() {
                 state={inspectorState}
                 onCollapse={() => setIsInspectorPanelOpen(false)}
                 onClose={() => {
-                  selectObject(null);
-                  setInspectorContextState({ type: "empty" });
+                  clearWorkspaceEntitySelection();
                 }}
                 onUpdateObject={(objectId, patch) => {
                   updatePlacedObject(objectId, patch);
@@ -1132,11 +1158,11 @@ export function DroneDefensePrototype() {
                 onPreviewChange={(patch) => updatePlacedObject(selectedMogObject.id, patch)}
                 onSave={(patch) => {
                   updatePlacedObject(selectedMogObject.id, patch);
-                  selectObject(null);
+                  clearWorkspaceEntitySelection();
                 }}
                 onCancel={(patch) => {
                   updatePlacedObject(selectedMogObject.id, patch);
-                  selectObject(null);
+                  clearWorkspaceEntitySelection();
                 }}
               />
             ) : null}

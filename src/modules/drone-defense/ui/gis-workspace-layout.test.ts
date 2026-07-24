@@ -45,7 +45,7 @@ test("inspector is a constrained-width drawer before the full desktop grid break
   );
 });
 
-test("inspector selection transitions are explicit and clearing returns to empty", () => {
+test("workspace uses one active-echelon and selected-entity contract for inspector transitions", () => {
   assert.match(
     workspaceSource,
     /export type InspectorState\s*=\s*\|\s*\{\s*type:\s*"empty"\s*\}/,
@@ -54,20 +54,17 @@ test("inspector selection transitions are explicit and clearing returns to empty
   assert.match(workspaceSource, /\|\s*\{\s*type:\s*"object";\s*objectId:\s*string\s*\}/);
   assert.match(workspaceSource, /\|\s*\{\s*type:\s*"loading"\s*\}/);
   assert.match(workspaceSource, /\|\s*\{\s*type:\s*"error";\s*message:\s*string\s*\}/);
-  assert.match(
-    prototypeSource,
-    /useState<\s*Extract<InspectorState,\s*\{\s*type:\s*"empty"\s*\|\s*"echelon"\s*\}>\s*>\(\{\s*type:\s*"empty"\s*\}\)/,
-  );
-  assert.match(
-    prototypeSource,
-    /selectedObjectId\s*\?\s*\{\s*type:\s*"object",\s*objectId:\s*selectedObjectId\s*\}\s*:\s*inspectorContextState/,
-  );
-  assert.match(
-    prototypeSource,
-    /setInspectorContextState\(\{\s*type:\s*"echelon",\s*echelonId:\s*layerId\s*\}\)/,
-  );
-  assert.match(prototypeSource, /setInspectorContextState\(\{\s*type:\s*"empty"\s*\}\)/);
-  assert.doesNotMatch(prototypeSource, /setInspectorContextState\(\{\s*type:\s*"object"/);
+  assert.match(prototypeSource, /const \[selectedEchelonId, setSelectedEchelonId\] = useState<string \| null>\(null\)/);
+  assert.match(prototypeSource, /const workspaceState = useMemo<WorkspaceState>/);
+  assert.match(prototypeSource, /activeEchelonId: selectedLayerId \|\| null/);
+  assert.match(prototypeSource, /const selectedLayerId = project\.activeLayerId/);
+  assert.match(prototypeSource, /workspaceState\.selectedEntity\?\.type\s*===\s*"object"/);
+  assert.match(prototypeSource, /workspaceState\.selectedEntity\?\.type\s*===\s*"echelon"/);
+  assert.match(prototypeSource, /selectWorkspaceEchelonState\(workspaceState,\s*layerId\)/);
+  assert.match(prototypeSource, /const selectedEntity = useMemo<SelectedEntity>/);
+  assert.match(prototypeSource, /if \(selectedObjectId\) return \{ type: "object", id: selectedObjectId \}/);
+  assert.match(prototypeSource, /return selectedEchelonId \? \{ type: "echelon", id: selectedEchelonId \} : null/);
+  assert.doesNotMatch(prototypeSource, /inspectorContextState/);
 });
 
 test("tree truncation keeps full labels accessible without squeezing counts or statuses", () => {
