@@ -911,6 +911,11 @@
   background: var(--fortis-semantic-light-background-surface);
 }
 
+.fortis-drawer {
+  max-width: 34rem;
+  width: min(100%, 34rem);
+}
+
 .fortis-gis-tree-slot,
 .fortis-gis-sidebar [role="tabpanel"] {
   min-height: 0;

@@ -5,6 +5,7 @@ import {
   Alert,
   Button,
   Checkbox,
+  Drawer,
   Icon,
   IconButton,
   Input,
@@ -335,6 +336,12 @@ export function AssetLibraryManager({
   }
 
   return (
+    <Drawer
+      description={mode === "create" ? prototypeRu.library.createAria : prototypeRu.library.editAria}
+      onClose={cancelForm}
+      open
+      title={mode === "create" ? prototypeRu.library.createAria : prototypeRu.library.editAria}
+    >
     <form
       aria-label={mode === "create" ? prototypeRu.library.createAria : prototypeRu.library.editAria}
       className={styles.prototypeLibraryForm}
@@ -484,5 +491,6 @@ export function AssetLibraryManager({
         </Button>
       </div>
     </form>
+    </Drawer>
   );
 }

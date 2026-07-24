@@ -53,7 +53,7 @@ test("library keeps controls fixed and manager, feedback, empty state, and cards
   assert.match(toolsSource, /<EmptyState/);
 });
 
-test("create view replaces catalog, focuses the first field, validates inline, and keeps actions accessible", () => {
+test("create view opens a wide drawer, focuses the first field, validates inline, and keeps actions accessible", () => {
   const formStyles = cssRule(".prototypeLibraryForm");
   const formHeaderStyles = cssRule(".prototypeLibraryFormHeader");
   const formBodyStyles = cssRule(".prototypeLibraryFormBody");
@@ -61,6 +61,8 @@ test("create view replaces catalog, focuses the first field, validates inline, a
 
   assert.match(managerSource, /children\?: ReactNode/);
   assert.match(managerSource, /mode === "closed"[\s\S]*children/);
+  assert.match(managerSource, /<Drawer[\s\S]*open[\s\S]*title=/);
+  assert.match(managerSource, /onClose=\{cancelForm\}/);
   assert.match(managerSource, /nameInputRef\.current\?\.focus\(\)/);
   assert.match(managerSource, /invalid=\{Boolean\(formErrors\.name\)\}/);
   assert.match(managerSource, /message=\{formErrors\.name\}/);
