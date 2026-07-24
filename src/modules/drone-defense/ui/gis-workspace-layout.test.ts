@@ -76,3 +76,13 @@ test("tree truncation keeps full labels accessible without squeezing counts or s
   assert.match(globalStyles, /\.fortis-tree-item\s*>\s*\.fortis-mono\s*\{[\s\S]*?flex:\s*0\s+0\s+auto/);
   assert.match(globalStyles, /\.fortis-gis-tree-detail\s*\{[\s\S]*?white-space:\s*nowrap/);
 });
+
+test("left workspace exposes mutually exclusive structure and library modes without the legacy map drawers", () => {
+  assert.match(prototypeSource, /const \[leftWorkspaceTab, setLeftWorkspaceTab\] = useState<"structure" \| "library">\("structure"\)/);
+  assert.match(prototypeSource, /role="tablist"/);
+  assert.match(prototypeSource, /aria-controls="fortis-gis-structure-panel"/);
+  assert.match(prototypeSource, /aria-controls="fortis-gis-library-content"/);
+  assert.match(prototypeSource, /leftWorkspaceTab === "structure"/);
+  assert.match(prototypeSource, /leftWorkspaceTab === "library"/);
+  assert.doesNotMatch(prototypeSource, /EchelonObjectsList/);
+});

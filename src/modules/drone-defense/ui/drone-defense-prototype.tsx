@@ -9,7 +9,6 @@ import { AssetLibraryManager } from "@/modules/drone-defense/ui/asset-library-ma
 import { CoordinatePlacementPanel, type CoordinatePlacementInput } from "@/modules/drone-defense/ui/coordinate-placement-panel";
 import { DefenseToolsPanel } from "@/modules/drone-defense/ui/defense-tools-panel";
 import { GisBoard } from "@/modules/drone-defense/ui/gis-board";
-import { EchelonObjectsList } from "@/modules/drone-defense/ui/echelon-objects-list";
 import { MogCompositionEditor } from "@/modules/drone-defense/ui/mog-composition-editor";
 import { FacilityDrilldown } from "@/modules/drone-defense/ui/facility-drilldown";
 import {
@@ -133,6 +132,7 @@ function layerWizardStoreDraft(draft: LayerWizardDraft) {
 export function DroneDefensePrototype() {
   const searchParams = useSearchParams();
   const [selectedEchelonId, setSelectedEchelonId] = useState<string | null>(null);
+  const [leftWorkspaceTab, setLeftWorkspaceTab] = useState<"structure" | "library">("structure");
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [catalogQuery, setCatalogQuery] = useState("");
   const [isCatalogTrayOpen, setIsCatalogTrayOpen] = useState(true);
@@ -149,9 +149,7 @@ export function DroneDefensePrototype() {
   const [pointerDraggedAssetId, setPointerDraggedAssetId] = useState<string | null>(null);
   const [lastPlacementMessage, setLastPlacementMessage] = useState<string | null>(null);
   const [locateTarget, setLocateTarget] = useState<{ lon: number; lat: number; at: number } | null>(null);
-  const [isEchelonObjectsPanelOpen, setIsEchelonObjectsPanelOpen] = useState(false);
   const [echelonObjectsLayerId, setEchelonObjectsLayerId] = useState<DefenseLayerId | null>(null);
-  const [isEchelonObjectsCollapsed, setIsEchelonObjectsCollapsed] = useState(false);
   const layerStripRef = useRef<HTMLDivElement | null>(null);
   const {
     currentBaseMapSourceId,
@@ -383,14 +381,32 @@ export function DroneDefensePrototype() {
   const objectVisibilityToggleTitle = showAllEchelonObjects
     ? prototypeRu.echelons.showActiveOnlyTitle
     : prototypeRu.echelons.showAllObjectsTitle;
-  const activeEchelonObjectsLayer = useMemo(
-    () => project.layers.find((layer) => layer.id === echelonObjectsLayerId) ?? selectedLayer,
-    [echelonObjectsLayerId, project.layers, selectedLayer],
-  );
   const pendingLayerDeletion = useMemo(
     () => project.layers.find((layer) => layer.id === pendingLayerDeletionId) ?? null,
     [pendingLayerDeletionId, project.layers],
   );
+  const showCompactLayerPanel = !isLayerPanelExpanded;
+
+  useEffect(() => {
+    const strip = layerStripRef.current;
+    if (!strip || showCompactLayerPanel) {
+      setLayerStripState({ canScrollLeft: false, canScrollRight: false });
+      return;
+    }
+    const syncLayerStripState = () => {
+      setLayerStripState({
+        canScrollLeft: strip.scrollLeft > 8,
+        canScrollRight: strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 8,
+      });
+    };
+    syncLayerStripState();
+    strip.addEventListener("scroll", syncLayerStripState, { passive: true });
+    window.addEventListener("resize", syncLayerStripState);
+    return () => {
+      strip.removeEventListener("scroll", syncLayerStripState);
+      window.removeEventListener("resize", syncLayerStripState);
+    };
+  }, [orderedProjectLayers, showCompactLayerPanel]);
   const selectedPlacedObject = useMemo(() => {
     const selectedEntity = workspaceState.selectedEntity;
     return selectedEntity?.type === "object"
@@ -452,30 +468,6 @@ export function DroneDefensePrototype() {
     [project.assetLibrary, coordinatePlacementAssetId],
   );
   const canCreateLayer = project.layers.length < MAX_DEFENSE_PROJECT_LAYERS;
-  const showCompactLayerPanel = !isLayerPanelExpanded;
-
-  useEffect(() => {
-    const strip = layerStripRef.current;
-    if (!strip || showCompactLayerPanel) {
-      setLayerStripState({ canScrollLeft: false, canScrollRight: false });
-      return;
-    }
-
-    const syncLayerStripState = () => {
-      setLayerStripState({
-        canScrollLeft: strip.scrollLeft > 8,
-        canScrollRight: strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 8,
-      });
-    };
-
-    syncLayerStripState();
-    strip.addEventListener("scroll", syncLayerStripState, { passive: true });
-    window.addEventListener("resize", syncLayerStripState);
-    return () => {
-      strip.removeEventListener("scroll", syncLayerStripState);
-      window.removeEventListener("resize", syncLayerStripState);
-    };
-  }, [orderedProjectLayers, showCompactLayerPanel]);
 
   const draftForInsertOption = (option: LayerInsertOption | undefined): Pick<LayerWizardState, "draft" | "insertPosition"> => {
     const innerRadiusM = option?.minInnerRadiusM ?? 0;
@@ -616,27 +608,19 @@ export function DroneDefensePrototype() {
   };
 
   const toggleObjectVisibilityMode = () => {
-    setShowAllEchelonObjects((current) => {
-      const next = !current;
-      setLastPlacementMessage(
-        next ? "Объекты: все эшелоны" : `Объекты: ${selectedLayer?.code ?? "активный эшелон"}`,
-      );
-      return next;
-    });
+    setShowAllEchelonObjects((current) => !current);
   };
 
   const scrollLayerStrip = (direction: "left" | "right") => {
-    const strip = layerStripRef.current;
-    if (!strip) return;
-    strip.scrollBy({ left: direction === "left" ? -260 : 260, behavior: "smooth" });
+    layerStripRef.current?.scrollBy({ left: direction === "left" ? -260 : 260, behavior: "smooth" });
   };
+
 
   const selectPlacedObject = (objectId: string) => {
     const object = project.placedObjects.find((item) => item.id === objectId);
     if (!object) return;
     selectWorkspaceObject(objectId);
     setSelectedSlotId(null);
-    setIsEchelonObjectsPanelOpen(true);
     const asset = project.assetLibrary.find((item) => item.id === object.assetId);
     setLastPlacementMessage(`${asset?.name ?? object.name ?? "Объект"} выбран на карте`);
   };
@@ -726,7 +710,6 @@ export function DroneDefensePrototype() {
     const nextVisibility = object.isVisibleOnMap === false;
     const messageAsset = project.assetLibrary.find((item) => item.id === object.assetId);
     setPlacedObjectMapVisibility(objectId, nextVisibility);
-    setIsEchelonObjectsPanelOpen(true);
     setLastPlacementMessage(
       `${messageAsset?.name ?? object.name ?? "Объект"} ${nextVisibility ? "показан" : "скрыт"} на карте`,
     );
@@ -843,7 +826,6 @@ export function DroneDefensePrototype() {
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
     setLastPlacementMessage(null);
-    setIsEchelonObjectsPanelOpen(true);
     const nextSlot =
       echelonModel.slots.find((slot) => slot.layerId === layerId && slot.status === "empty") ??
       echelonModel.slots.find((slot) => slot.layerId === layerId) ??
@@ -888,21 +870,47 @@ export function DroneDefensePrototype() {
             </div>
           </div>
 
-          <div className="fortis-gis-tree-slot">
-            <GisProjectTree
-              activeLayerId={selectedLayerId}
-              onSelectLayer={selectLayerWithDefaultSlot}
-              onSelectObject={(objectId) => {
-                const object = project.placedObjects.find((item) => item.id === objectId);
-                if (!object) return;
-                selectPlacedObject(objectId);
-              }}
-              project={project}
-              selectedObjectId={selectedObjectId ?? null}
-            />
+          <div className="fortis-gis-workspace-tabs" role="tablist" aria-label="Рабочая область">
+            <button
+              aria-controls="fortis-gis-structure-panel"
+              aria-selected={leftWorkspaceTab === "structure"}
+              className={styles.prototypeWorkspaceTab}
+              onClick={() => setLeftWorkspaceTab("structure")}
+              role="tab"
+              type="button"
+            >
+              Структура
+            </button>
+            <button
+              aria-controls="fortis-gis-library-content"
+              aria-selected={leftWorkspaceTab === "library"}
+              className={styles.prototypeWorkspaceTab}
+              onClick={() => setLeftWorkspaceTab("library")}
+              role="tab"
+              type="button"
+            >
+              Библиотека
+            </button>
           </div>
 
-          <div className={styles.prototypeLibraryPanel} data-library-role="add-objects">
+          {leftWorkspaceTab === "structure" ? (
+            <div className="fortis-gis-tree-slot" id="fortis-gis-structure-panel" role="tabpanel">
+              <GisProjectTree
+                activeLayerId={selectedLayerId}
+                onSelectLayer={selectLayerWithDefaultSlot}
+                onSelectObject={(objectId) => {
+                  const object = project.placedObjects.find((item) => item.id === objectId);
+                  if (!object) return;
+                  selectPlacedObject(objectId);
+                }}
+                project={project}
+                selectedObjectId={workspaceState.selectedEntity?.type === "object" ? workspaceState.selectedEntity.id : null}
+              />
+            </div>
+          ) : null}
+
+          {leftWorkspaceTab === "library" ? (
+          <div className={styles.prototypeLibraryPanel} data-library-role="add-objects" id="fortis-gis-library-content" role="tabpanel">
             <div className={`${styles.prototypeSection} ${styles.prototypeLibraryFixedControls}`}>
               <div>
                 <div className="min-w-0">
@@ -963,6 +971,7 @@ export function DroneDefensePrototype() {
               </AssetLibraryManager>
             </div>
           </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -979,53 +988,6 @@ export function DroneDefensePrototype() {
           <div className={`${styles.prototypeNotice} absolute left-4 top-4 z-30 shadow`}>
             Загрузка данных…
           </div>
-        ) : null}
-
-        {activeView === "gis" && isEchelonObjectsPanelOpen && activeEchelonObjectsLayer ? (
-          <aside className={`${styles.prototypeFloatingPanel} ${styles.prototypeObjectsPanel} fortis-gis-objects-panel`}>
-            <div className={styles.prototypeFloatingHeader}>
-              <div>
-                <p className={styles.prototypeEyebrow}>{prototypeRu.echelons.objectsPanel}</p>
-                <h3 className={styles.prototypeTitle}>{activeEchelonObjectsLayer.code} · {activeEchelonObjectsLayer.name}</h3>
-                <p className={styles.prototypeMeta}>{prototypeRu.echelons.objectsPanelDescription}</p>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  className={`${styles.prototypeIconButton} px-2`}
-                  onClick={() => setIsEchelonObjectsCollapsed((current) => !current)}
-                  title={isEchelonObjectsCollapsed ? prototypeRu.echelons.expandCard : prototypeRu.echelons.collapseCard}
-                >
-                  <Icon decorative name={isEchelonObjectsCollapsed ? "navigation.chevron-up" : "navigation.chevron-down"} size={16} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.prototypeIconButton}
-                  onClick={() => setIsEchelonObjectsPanelOpen(false)}
-                  title={prototypeRu.echelons.closeCard}
-                  aria-label={prototypeRu.echelons.closeCard}
-                >
-                  <Icon decorative name="action.close" size={16} />
-                </button>
-              </div>
-            </div>
-            {!isEchelonObjectsCollapsed ? (
-              <div className={styles.prototypeFloatingBody}>
-                <EchelonObjectsList
-                  layerId={activeEchelonObjectsLayer.id as DefenseLayerId}
-                  placements={projectCatalogPlacements}
-                  catalog={catalog}
-                  layers={allProjectMapLayers}
-                  hiddenPlacementIds={hiddenPlacementIds}
-                  selectedPlacementId={selectedPlacementId}
-                  onSelect={(id) => selectPlacedObject(id)}
-                  onLocate={handleLocatePlacement}
-                  onToggleVisibility={(id) => toggleProjectPlacementVisibility(id)}
-                  onRemove={(id) => deleteProjectPlacement(id)}
-                />
-              </div>
-            ) : null}
-          </aside>
         ) : null}
 
         {activeView === "gis" ? (
@@ -1071,7 +1033,6 @@ export function DroneDefensePrototype() {
               onSelectSlot={(slot) => {
                 selectWorkspaceEchelon(slot.layerId);
                 setSelectedSlotId(slot.id);
-                setIsEchelonObjectsPanelOpen(true);
               }}
               onSelectTool={(groupId) => {
                 const asset =

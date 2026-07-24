@@ -904,6 +904,19 @@
   line-height: 1.25;
 }
 
+.fortis-gis-workspace-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--fortis-semantic-light-border-default);
+  background: var(--fortis-semantic-light-background-surface);
+}
+
+.fortis-gis-tree-slot,
+.fortis-gis-sidebar [role="tabpanel"] {
+  min-height: 0;
+  flex: 1;
+}
+
 .fortis-gis-tree-copy {
   min-width: 0;
   flex: 1;
