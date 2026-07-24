@@ -136,7 +136,6 @@ export function DroneDefensePrototype() {
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [catalogQuery, setCatalogQuery] = useState("");
   const [isCatalogTrayOpen, setIsCatalogTrayOpen] = useState(true);
-  const [isInspectorPanelOpen, setIsInspectorPanelOpen] = useState(true);
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
   const [isLayerPanelExpanded, setIsLayerPanelExpanded] = useState(false);
   const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(false);
@@ -149,7 +148,6 @@ export function DroneDefensePrototype() {
   const [pointerDraggedAssetId, setPointerDraggedAssetId] = useState<string | null>(null);
   const [lastPlacementMessage, setLastPlacementMessage] = useState<string | null>(null);
   const [locateTarget, setLocateTarget] = useState<{ lon: number; lat: number; at: number } | null>(null);
-  const [echelonObjectsLayerId, setEchelonObjectsLayerId] = useState<DefenseLayerId | null>(null);
   const layerStripRef = useRef<HTMLDivElement | null>(null);
   const {
     currentBaseMapSourceId,
@@ -435,7 +433,7 @@ export function DroneDefensePrototype() {
         ? { type: "object", objectId: workspaceState.selectedEntity.id }
       : workspaceState.selectedEntity?.type === "echelon"
         ? { type: "echelon", echelonId: workspaceState.selectedEntity.id }
-        : { type: "empty" };
+        : { type: "closed" };
 
   const selectWorkspaceEchelon = (layerId: string) => {
     setSelectedEchelonId(selectWorkspaceEchelonState(workspaceState, layerId).selectedEntity?.id ?? null);
@@ -977,7 +975,7 @@ export function DroneDefensePrototype() {
 
       <main
         className={`${styles.prototypeMain} fortis-gis-main`}
-        data-inspector-panel-state={isInspectorPanelOpen ? "open" : "closed"}
+        data-inspector-panel-state={inspectorState.type === "closed" ? "closed" : "open"}
       >
         {error ? (
           <div className={`${styles.prototypeNoticeDanger} absolute left-4 top-4 z-30 shadow`}>
@@ -1060,37 +1058,17 @@ export function DroneDefensePrototype() {
               onDropAsset={placeDroppedAssetOnMap}
             />
 
-            {!isInspectorPanelOpen ? (
-              <div className="fortis-gis-inspector-toggle">
-                <Tooltip label={prototypeRu.inspector.expandPanel}>
-                  <IconButton
-                    aria-controls="fortis-gis-inspector-panel"
-                    aria-expanded={false}
-                    icon="navigation.chevron-left"
-                    label={prototypeRu.inspector.expandPanel}
-                    onClick={() => setIsInspectorPanelOpen(true)}
-                    variant="default"
-                  />
-                </Tooltip>
-              </div>
-            ) : null}
-
-            {isInspectorPanelOpen ? (
-              <GisObjectInspector
-                project={project}
-                state={inspectorState}
-                onCollapse={() => setIsInspectorPanelOpen(false)}
-                onClose={() => {
-                  clearWorkspaceEntitySelection();
-                }}
-                onUpdateObject={(objectId, patch) => {
-                  updatePlacedObject(objectId, patch);
-                  setLastPlacementMessage(
-                    "Изменения объекта сохранены локально. Сохраните вариант, чтобы отправить их на сервер.",
-                  );
-                }}
-              />
-            ) : null}
+            <GisObjectInspector
+              project={project}
+              state={inspectorState}
+              onClose={clearWorkspaceEntitySelection}
+              onUpdateObject={(objectId, patch) => {
+                updatePlacedObject(objectId, patch);
+                setLastPlacementMessage(
+                  "Изменения объекта сохранены локально. Сохраните вариант, чтобы отправить их на сервер.",
+                );
+              }}
+            />
 
             {coordinatePlacementAsset && selectedLayer ? (
               <CoordinatePlacementPanel
@@ -1230,7 +1208,6 @@ export function DroneDefensePrototype() {
                           label: prototypeRu.echelons.openObjects,
                           onSelect: () => {
                             selectLayerWithDefaultSlot(layer.id);
-                            setEchelonObjectsLayerId(layer.id as DefenseLayerId);
                           },
                         },
                         {

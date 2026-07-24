@@ -56,7 +56,7 @@ test("Inspector renders exactly one explicit empty, echelon, object, loading or 
   };
 
   const states: InspectorState[] = [
-    { type: "empty" },
+    { type: "closed" },
     { type: "echelon", echelonId: layer.id },
     { type: "object", objectId: selectedObject.id },
     { type: "loading" },
@@ -71,7 +71,7 @@ test("Inspector renders exactly one explicit empty, echelon, object, loading or 
         state={state}
       />,
     );
-  const [empty, echelon, selected, loading, error] = states.map(renderState);
+  const [closed, echelon, selected, loading, error] = states.map(renderState);
 
   assert.match(selected, /aria-label="Инспектор объекта"/);
   assert.match(selected, /data-inspector-state="object"/);
@@ -88,15 +88,13 @@ test("Inspector renders exactly one explicit empty, echelon, object, loading or 
   assert.match(echelon, /data-inspector-state="echelon"/);
   assert.match(echelon, new RegExp(layer.name));
   assert.doesNotMatch(echelon, /Ничего не выбрано/);
-  assert.match(empty, /Выберите объект на карте или в структуре проекта/);
-  assert.match(empty, /data-inspector-state="empty"/);
-  assert.doesNotMatch(empty, /Количество/);
+  assert.equal(closed, "");
   assert.match(loading, /data-inspector-state="loading"/);
   assert.match(loading, /Загрузка контекста/);
   assert.match(error, /data-inspector-state="error"/);
   assert.match(error, /Не удалось загрузить контекст/);
 
-  for (const html of [empty, echelon, selected, loading, error]) {
+  for (const html of [echelon, selected, loading, error]) {
     assert.equal(html.match(/data-inspector-state=/g)?.length, 1);
   }
 });

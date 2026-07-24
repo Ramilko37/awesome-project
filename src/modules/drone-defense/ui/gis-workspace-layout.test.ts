@@ -48,7 +48,7 @@ test("inspector is a constrained-width drawer before the full desktop grid break
 test("workspace uses one active-echelon and selected-entity contract for inspector transitions", () => {
   assert.match(
     workspaceSource,
-    /export type InspectorState\s*=\s*\|\s*\{\s*type:\s*"empty"\s*\}/,
+    /export type InspectorState\s*=\s*\|\s*\{\s*type:\s*"closed"\s*\}/,
   );
   assert.match(workspaceSource, /\|\s*\{\s*type:\s*"echelon";\s*echelonId:\s*string\s*\}/);
   assert.match(workspaceSource, /\|\s*\{\s*type:\s*"object";\s*objectId:\s*string\s*\}/);

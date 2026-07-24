@@ -108,20 +108,18 @@ test("Fortis EmptyState uses panel typography and keeps descriptions readable", 
   assert.doesNotMatch(tokensSource, /\.fortis-state h2,\s*\.fortis-page-header h1/);
 });
 
-test("inspector empty state reuses the Fortis EmptyState and has no inert action", () => {
+test("closed inspector renders no empty surface or inert action", () => {
   const project = createDefaultDefenseProject();
   const html = renderToStaticMarkup(
     <GisObjectInspector
       onClose={() => undefined}
       onUpdateObject={() => undefined}
       project={project}
-      state={{ type: "empty" }}
+      state={{ type: "closed" }}
     />,
   );
 
-  assert.match(html, /class="fortis-state"/);
-  assert.match(html, /Ничего не выбрано/);
-  assert.doesNotMatch(html, /<button/);
+  assert.equal(html, "");
 });
 
 test("runtime cards share Fortis card geometry and full Task 4 surfaces use centralized copy", () => {
@@ -138,21 +136,15 @@ test("runtime cards share Fortis card geometry and full Task 4 surfaces use cent
     "aria-label={prototypeRu.echelons.overviewAria}",
     '{activeView === "drilldown"',
   );
-  const echelonObjectsSurface = sourceBetween(
-    prototypeSource,
-    "{activeView === \"gis\" && isEchelonObjectsPanelOpen",
-    '{activeView === "gis" ? (',
-  );
   const prototypeUiChildren = discoverPrototypeUiChildren(
     prototypeSource,
-    [librarySurface, echelonObjectsSurface, echelonDrawerSurface],
+    [librarySurface, echelonDrawerSurface],
   );
 
   for (const requiredChild of [
     "AssetLibraryManager",
     "DefenseToolIcon",
     "DefenseToolsPanel",
-    "EchelonObjectsList",
   ]) {
     assert.ok(
       prototypeUiChildren.has(requiredChild),
@@ -165,7 +157,6 @@ test("runtime cards share Fortis card geometry and full Task 4 surfaces use cent
   assertUsesCentralizedCopy(panelSource, "GIS tree and inspector");
   assertUsesCentralizedCopy(assetLibraryManagerSurface, "asset library manager and form");
   assertUsesCentralizedCopy(librarySurface, "prototype library");
-  assertUsesCentralizedCopy(echelonObjectsSurface, "prototype echelon objects panel");
   assertUsesCentralizedCopy(echelonDrawerSurface, "prototype echelon drawer");
   for (const [componentName, childSource] of prototypeUiChildren) {
     assertUsesCentralizedCopy(
@@ -192,9 +183,9 @@ test("shared card states cover hover, selected, disabled, conflict and long name
   assert.match(tokensSource, /\.fortis-tree-item\s*>\s*\.fortis-mono[^}]*flex:\s*0 0 auto/);
 });
 
-test("library only adds objects and bottom drawer only gives a compact echelon overview", () => {
+test("library remains an add-objects workspace without the removed objects card", () => {
   assert.match(prototypeSource, /data-library-role="add-objects"/);
-  assert.match(prototypeSource, /data-echelon-role="quick-overview"/);
+  assert.doesNotMatch(prototypeSource, /EchelonObjectsList/);
   assert.doesNotMatch(prototypeSource, /Открывается отдельно, чтобы не перегружать основную панель/);
   assert.doesNotMatch(prototypeSource, />\s*locked\s*</);
 });

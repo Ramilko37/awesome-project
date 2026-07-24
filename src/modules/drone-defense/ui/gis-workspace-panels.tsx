@@ -6,7 +6,6 @@ import {
   Badge,
   Button,
   EchelonTreeItem,
-  EmptyState,
   Icon,
   IconButton,
   InlineMessage,
@@ -131,7 +130,7 @@ export function GisProjectTree({ activeLayerId, onSelectLayer, onSelectObject, p
 }
 
 export type InspectorState =
-  | { type: "empty" }
+  | { type: "closed" }
   | { type: "echelon"; echelonId: string }
   | { type: "object"; objectId: string }
   | { type: "loading" }
@@ -272,20 +271,14 @@ function ObjectInspectorContent({
 }
 
 export function GisObjectInspector({ onClose, onCollapse, onUpdateObject, project, state }: GisObjectInspectorProps) {
+  if (state.type === "closed") return null;
+
   let eyebrow: string = prototypeRu.inspector.context;
   let title: string = prototypeRu.inspector.title;
   let ariaLabel: string = prototypeRu.inspector.title;
   let content;
 
   switch (state.type) {
-    case "empty":
-      content = (
-        <EmptyState
-          description={prototypeRu.inspector.emptyDescription}
-          title={prototypeRu.inspector.emptyTitle}
-        />
-      );
-      break;
     case "loading":
       content = (
         <div className="fortis-gis-inspector-state">
