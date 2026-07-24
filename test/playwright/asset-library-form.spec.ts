@@ -19,8 +19,25 @@ const deterministicCatalog = Array.from({ length: 24 }, (_, index) => {
   };
 });
 
-async function openPrototypeWithIsolatedApi(page: Page) {
+async function openPrototypeWithIsolatedApi(page: Page, createSucceeds = false) {
   await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    if (createSucceeds && request.method() === "POST" && new URL(request.url()).pathname === "/api/v1/assets") {
+      const payload = request.postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ...payload,
+          id: "created-e2e-asset",
+          category: "radar",
+          roles: ["detection"],
+          coverageType: "circle",
+          isPublic: true,
+        }),
+      });
+      return;
+    }
     await route.fulfill({
       status: 503,
       contentType: "application/json",
@@ -116,6 +133,17 @@ test.describe("asset library create form", () => {
     await expect(cancelButton).toBeInViewport();
     await expect(createButton).toBeInViewport();
     await expect(nameInput).not.toBeInViewport();
+  });
+
+  test("creates an asset, closes the drawer, and returns the new item to the library", async ({ page }) => {
+    await openPrototypeWithIsolatedApi(page, true);
+    await page.getByRole("button", { name: "Создать средство защиты" }).click();
+    const form = page.getByRole("form", { name: "Создание средства защиты" });
+    await form.getByRole("textbox", { name: "Название" }).fill("Созданное средство E2E");
+    await form.getByRole("button", { name: "Создать", exact: true }).click();
+
+    await expect(form).toHaveCount(0);
+    await expect(page.getByText("Созданное средство E2E", { exact: true })).toBeVisible();
   });
 
   test("keeps closed-library controls fixed across long, error, and empty catalog states", async ({ page }) => {

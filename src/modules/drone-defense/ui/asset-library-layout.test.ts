@@ -69,6 +69,7 @@ test("create view opens a wide drawer, focuses the first field, validates inline
   assert.match(managerSource, /discardChangesTitle/);
   assert.match(managerSource, /openerRef\.current = document\.activeElement/);
   assert.match(managerSource, /requestAnimationFrame\(\(\) => openerRef\.current\?\.focus\(\)\)/);
+  assert.match(managerSource, /if \(isCreate\) \{\s*closeForm\(\);/);
   assert.match(managerSource, /invalid=\{Boolean\(formErrors\.name\)\}/);
   assert.match(managerSource, /message=\{formErrors\.name\}/);
   assert.match(managerSource, /\{prototypeRu\.library\.cancel\}/);

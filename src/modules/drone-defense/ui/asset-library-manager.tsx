@@ -263,16 +263,21 @@ export function AssetLibraryManager({
     setLocalError(null);
     try {
       const payload = formToAssetInput(form);
+      const isCreate = mode === "create";
       const asset = mode === "edit" && form.id
         ? await updateDefenseAsset(form.id, payload)
         : await createDefenseAsset(payload);
       onAssetSaved(asset);
       onSelectAsset(asset.id);
-      setMode("edit");
       const nextForm = formFromAsset(asset);
       initialFormRef.current = nextForm;
-      setForm(nextForm);
       onMessage(prototypeRu.library.savedMessage(asset.name));
+      if (isCreate) {
+        closeForm();
+      } else {
+        setMode("edit");
+        setForm(nextForm);
+      }
     } catch {
       setLocalError(prototypeRu.library.saveError);
     } finally {
