@@ -28,6 +28,7 @@ async function openPrototypeWithIsolatedApi(page: Page) {
     });
   });
   await page.goto("/prototype");
+  await page.getByRole("tab", { name: "Библиотека" }).click();
   await expect(page.getByRole("button", { name: "Создать средство защиты" })).toBeVisible();
 }
 
@@ -58,6 +59,7 @@ async function openPrototypeWithDeterministicCatalog(page: Page) {
   });
 
   await page.goto("/prototype");
+  await page.getByRole("tab", { name: "Библиотека" }).click();
   await expect(page.getByTestId("defense-tool-card-e2e-asset-24")).toBeAttached({ timeout: 15_000 });
 }
 
