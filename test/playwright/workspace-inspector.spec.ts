@@ -42,11 +42,8 @@ async function openWorkspace(page: Page, project?: DefenseProject) {
     });
   });
   await page.goto("/prototype");
-  await expect(page.locator(".fortis-gis-inspector")).toHaveAttribute(
-    "data-inspector-state",
-    "empty",
-    { timeout: 15_000 },
-  );
+  await expect(page.locator(".fortis-gis-map-board")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".fortis-gis-inspector")).toHaveCount(0);
 }
 
 async function expectNoDocumentHorizontalOverflow(page: Page) {
@@ -58,28 +55,24 @@ async function expectNoDocumentHorizontalOverflow(page: Page) {
 }
 
 test.describe("workspace layout and inspector", () => {
-  test("keeps the full desktop grid stable while echelon selection replaces empty state", async ({ page }) => {
+  test("opens one inspector only after echelon selection", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await openWorkspace(page);
 
     const structurePanel = page.locator(".fortis-gis-sidebar");
     const map = page.locator(".fortis-gis-map-board");
     const inspector = page.locator(".fortis-gis-inspector");
-    const [structureBox, mapBox, inspectorBox] = await Promise.all([
+    const [structureBox, mapBox] = await Promise.all([
       structurePanel.boundingBox(),
       map.boundingBox(),
-      inspector.boundingBox(),
     ]);
 
     expect(structureBox).not.toBeNull();
     expect(mapBox).not.toBeNull();
-    expect(inspectorBox).not.toBeNull();
     expect(structureBox!.width).toBeGreaterThanOrEqual(280);
     expect(structureBox!.width).toBeLessThanOrEqual(320);
     expect(mapBox!.width).toBeGreaterThanOrEqual(560);
-    expect(inspectorBox!.width).toBeGreaterThanOrEqual(320);
-    expect(inspectorBox!.width).toBeLessThanOrEqual(360);
-    expect(Math.abs(inspectorBox!.x - (mapBox!.x + mapBox!.width))).toBeLessThanOrEqual(1);
+    await expect(inspector).toHaveCount(0);
 
     const firstEchelon = page.locator(".fortis-tree-item").first();
     const fullEchelonName = await firstEchelon.getAttribute("title");
@@ -91,8 +84,7 @@ test.describe("workspace layout and inspector", () => {
     await expect(inspector.getByText("Ничего не выбрано")).toHaveCount(0);
 
     await inspector.getByRole("button", { name: "Закрыть инспектор" }).click();
-    await expect(inspector).toHaveAttribute("data-inspector-state", "empty");
-    await expect(inspector.getByText("Ничего не выбрано")).toBeVisible();
+    await expect(inspector).toHaveCount(0);
 
     const documentWidth = await page.evaluate(() => ({
       clientWidth: document.documentElement.clientWidth,

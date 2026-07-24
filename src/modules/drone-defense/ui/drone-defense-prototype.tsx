@@ -1106,6 +1106,8 @@ export function DroneDefensePrototype() {
               />
             ) : null}
 
+            {/* Legacy overview drawer is removed from the map-first workspace. */}
+            {/*
             {selectedLayer ? (
               <div
                 className={`${styles.prototypeLayerPanelWrap} fortis-gis-layer-panel-wrap`}
@@ -1313,6 +1315,7 @@ export function DroneDefensePrototype() {
                 </section>
               </div>
             ) : null}
+            */}
           </>
         ) : null}
 
