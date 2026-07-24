@@ -204,6 +204,7 @@ export function AssetLibraryManager({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const formFooterRef = useRef<HTMLDivElement>(null);
   const initialFormRef = useRef<AssetFormState>(form);
+  const openerRef = useRef<HTMLElement | null>(null);
   const usedAssetIds = useMemo(() => new Set(placedObjects.map((object) => object.assetId)), [placedObjects]);
   const selectedAssetUsed = Boolean(selectedAsset && usedAssetIds.has(selectedAsset.id));
 
@@ -215,6 +216,7 @@ export function AssetLibraryManager({
   }, [mode]);
 
   const startCreate = () => {
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const nextForm = emptyForm();
     initialFormRef.current = nextForm;
     setMode("create");
@@ -225,6 +227,7 @@ export function AssetLibraryManager({
 
   const startEdit = () => {
     if (!selectedAsset) return;
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const nextForm = formFromAsset(selectedAsset);
     initialFormRef.current = nextForm;
     setMode("edit");
@@ -239,6 +242,7 @@ export function AssetLibraryManager({
     setFormErrors({});
     setLocalError(null);
     setIsDiscardConfirmOpen(false);
+    requestAnimationFrame(() => openerRef.current?.focus());
   };
 
   const cancelForm = () => {
