@@ -146,6 +146,24 @@ test.describe("asset library create form", () => {
     await expect(page.getByText("Созданное средство E2E", { exact: true })).toBeVisible();
   });
 
+  test("places a library asset into the active echelon by coordinates and synchronizes the structure", async ({ page }) => {
+    await openPrototypeWithIsolatedApi(page);
+    const coordinateAction = page
+      .getByTestId("asset-library-scroll-region")
+      .getByRole("button", { name: "Ввести координаты" })
+      .first();
+    await coordinateAction.click();
+    await page.getByRole("textbox", { name: "Широта" }).fill("55.8000");
+    await page.getByRole("textbox", { name: "Долгота" }).fill("37.1000");
+    await page.getByRole("button", { name: "Разместить" }).click();
+
+    await expect(page.getByText(/размещено в эшелоне L1/)).toBeVisible();
+    await page.getByRole("tab", { name: "Структура" }).click();
+    await expect(
+      page.getByRole("tree").getByRole("treeitem", { name: /Региональные центры МЧС/ }),
+    ).toBeVisible();
+  });
+
   test("keeps closed-library controls fixed across long, error, and empty catalog states", async ({ page }) => {
     await openPrototypeWithDeterministicCatalog(page);
 
