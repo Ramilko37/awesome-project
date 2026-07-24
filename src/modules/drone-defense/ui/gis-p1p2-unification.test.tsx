@@ -131,14 +131,9 @@ test("runtime cards share Fortis card geometry and full Task 4 surfaces use cent
   const assetLibraryManagerSurface = assetLibraryManagerSource.slice(
     assetLibraryManagerSource.indexOf("export function AssetLibraryManager"),
   );
-  const echelonDrawerSurface = sourceBetween(
-    prototypeSource,
-    "aria-label={prototypeRu.echelons.overviewAria}",
-    '{activeView === "drilldown"',
-  );
   const prototypeUiChildren = discoverPrototypeUiChildren(
     prototypeSource,
-    [librarySurface, echelonDrawerSurface],
+    [librarySurface],
   );
 
   for (const requiredChild of [
@@ -152,12 +147,11 @@ test("runtime cards share Fortis card geometry and full Task 4 surfaces use cent
     );
   }
   assert.match(prototypeUiChildren.get("DefenseToolIcon") ?? "", /<AssetCard/);
-  assert.match(prototypeSource, /<AssetCard/);
+  assert.match(prototypeSource, /<GisProjectTree/);
   assert.match(baseMapSource, /prototypeRu/);
   assertUsesCentralizedCopy(panelSource, "GIS tree and inspector");
   assertUsesCentralizedCopy(assetLibraryManagerSurface, "asset library manager and form");
   assertUsesCentralizedCopy(librarySurface, "prototype library");
-  assertUsesCentralizedCopy(echelonDrawerSurface, "prototype echelon drawer");
   for (const [componentName, childSource] of prototypeUiChildren) {
     assertUsesCentralizedCopy(
       componentName === "AssetLibraryManager" ? assetLibraryManagerSurface : childSource,
@@ -188,4 +182,10 @@ test("library remains an add-objects workspace without the removed objects card"
   assert.doesNotMatch(prototypeSource, /EchelonObjectsList/);
   assert.doesNotMatch(prototypeSource, /Открывается отдельно, чтобы не перегружать основную панель/);
   assert.doesNotMatch(prototypeSource, />\s*locked\s*</);
+});
+
+test("map-first workspace contains no legacy echelon overview drawer", () => {
+  assert.doesNotMatch(prototypeSource, /data-echelon-role="quick-overview"/);
+  assert.doesNotMatch(prototypeSource, /fortis-gis-layer-panel-wrap/);
+  assert.doesNotMatch(prototypeSource, /overviewAria/);
 });

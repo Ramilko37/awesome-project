@@ -38,7 +38,7 @@ test("Project Tree exposes the base object, layers and placed objects as a seman
   assert.match(html, /class="fortis-tree-item"/);
 });
 
-test("Inspector renders exactly one explicit empty, echelon, object, loading or error state", () => {
+test("Inspector renders exactly one explicit closed, echelon, object, conflict, loading or error state", () => {
   const project = createDefaultDefenseProject();
   const layer = project.layers[0]!;
   const asset = project.assetLibrary[0]!;
@@ -59,6 +59,7 @@ test("Inspector renders exactly one explicit empty, echelon, object, loading or 
     { type: "closed" },
     { type: "echelon", echelonId: layer.id },
     { type: "object", objectId: selectedObject.id },
+    { type: "conflict", conflictId: "Конфликт покрытия" },
     { type: "loading" },
     { type: "error", message: "Не удалось загрузить контекст" },
   ];
@@ -71,7 +72,7 @@ test("Inspector renders exactly one explicit empty, echelon, object, loading or 
         state={state}
       />,
     );
-  const [closed, echelon, selected, loading, error] = states.map(renderState);
+  const [closed, echelon, selected, conflict, loading, error] = states.map(renderState);
 
   assert.match(selected, /aria-label="Инспектор объекта"/);
   assert.match(selected, /data-inspector-state="object"/);
@@ -89,12 +90,14 @@ test("Inspector renders exactly one explicit empty, echelon, object, loading or 
   assert.match(echelon, new RegExp(layer.name));
   assert.doesNotMatch(echelon, /Ничего не выбрано/);
   assert.equal(closed, "");
+  assert.match(conflict, /data-inspector-state="conflict"/);
+  assert.match(conflict, /Конфликт покрытия/);
   assert.match(loading, /data-inspector-state="loading"/);
   assert.match(loading, /Загрузка контекста/);
   assert.match(error, /data-inspector-state="error"/);
   assert.match(error, /Не удалось загрузить контекст/);
 
-  for (const html of [echelon, selected, loading, error]) {
+  for (const html of [echelon, selected, conflict, loading, error]) {
     assert.equal(html.match(/data-inspector-state=/g)?.length, 1);
   }
 });

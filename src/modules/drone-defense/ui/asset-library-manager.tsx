@@ -9,6 +9,7 @@ import {
   Icon,
   IconButton,
   Input,
+  Modal,
   Select,
   Status,
   Textarea,
@@ -199,8 +200,10 @@ export function AssetLibraryManager({
   const [formErrors, setFormErrors] = useState<AssetFormErrors>({});
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const formFooterRef = useRef<HTMLDivElement>(null);
+  const initialFormRef = useRef<AssetFormState>(form);
   const usedAssetIds = useMemo(() => new Set(placedObjects.map((object) => object.assetId)), [placedObjects]);
   const selectedAssetUsed = Boolean(selectedAsset && usedAssetIds.has(selectedAsset.id));
 
@@ -212,25 +215,38 @@ export function AssetLibraryManager({
   }, [mode]);
 
   const startCreate = () => {
+    const nextForm = emptyForm();
+    initialFormRef.current = nextForm;
     setMode("create");
-    setForm(emptyForm());
+    setForm(nextForm);
     setFormErrors({});
     setLocalError(null);
   };
 
   const startEdit = () => {
     if (!selectedAsset) return;
+    const nextForm = formFromAsset(selectedAsset);
+    initialFormRef.current = nextForm;
     setMode("edit");
-    setForm(formFromAsset(selectedAsset));
+    setForm(nextForm);
     setFormErrors({});
     onSelectAsset(selectedAsset.id);
     setLocalError(null);
   };
 
-  const cancelForm = () => {
+  const closeForm = () => {
     setMode("closed");
     setFormErrors({});
     setLocalError(null);
+    setIsDiscardConfirmOpen(false);
+  };
+
+  const cancelForm = () => {
+    if (JSON.stringify(form) !== JSON.stringify(initialFormRef.current)) {
+      setIsDiscardConfirmOpen(true);
+      return;
+    }
+    closeForm();
   };
 
   const saveAsset = async () => {
@@ -249,7 +265,9 @@ export function AssetLibraryManager({
       onAssetSaved(asset);
       onSelectAsset(asset.id);
       setMode("edit");
-      setForm(formFromAsset(asset));
+      const nextForm = formFromAsset(asset);
+      initialFormRef.current = nextForm;
+      setForm(nextForm);
       onMessage(prototypeRu.library.savedMessage(asset.name));
     } catch {
       setLocalError(prototypeRu.library.saveError);
@@ -273,7 +291,7 @@ export function AssetLibraryManager({
         setLocalError(result.message);
         return;
       }
-      setMode("closed");
+      closeForm();
       setForm(emptyForm());
       onMessage(prototypeRu.library.deletedMessage(selectedAsset.name));
     } catch {
@@ -336,6 +354,7 @@ export function AssetLibraryManager({
   }
 
   return (
+    <>
     <Drawer
       description={mode === "create" ? prototypeRu.library.createAria : prototypeRu.library.editAria}
       onClose={cancelForm}
@@ -492,5 +511,21 @@ export function AssetLibraryManager({
       </div>
     </form>
     </Drawer>
+    <Modal
+      description={prototypeRu.library.discardChangesDescription}
+      onClose={() => setIsDiscardConfirmOpen(false)}
+      open={isDiscardConfirmOpen}
+      title={prototypeRu.library.discardChangesTitle}
+    >
+      <div className="fortis-overlay__footer">
+        <Button onClick={() => setIsDiscardConfirmOpen(false)} variant="secondary">
+          {prototypeRu.library.cancel}
+        </Button>
+        <Button onClick={closeForm} variant="danger">
+          {prototypeRu.library.discardChanges}
+        </Button>
+      </div>
+    </Modal>
+    </>
   );
 }

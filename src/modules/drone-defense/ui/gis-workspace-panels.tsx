@@ -133,6 +133,7 @@ export type InspectorState =
   | { type: "closed" }
   | { type: "echelon"; echelonId: string }
   | { type: "object"; objectId: string }
+  | { type: "conflict"; conflictId: string }
   | { type: "loading" }
   | { type: "error"; message: string };
 
@@ -290,6 +291,13 @@ export function GisObjectInspector({ onClose, onCollapse, onUpdateObject, projec
       content = (
         <div className="fortis-gis-inspector-state">
           <InlineMessage tone="error">{state.message}</InlineMessage>
+        </div>
+      );
+      break;
+    case "conflict":
+      content = (
+        <div className="fortis-gis-inspector-state">
+          <InlineMessage tone="warning">{state.conflictId}</InlineMessage>
         </div>
       );
       break;

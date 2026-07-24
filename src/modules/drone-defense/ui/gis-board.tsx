@@ -734,7 +734,7 @@ export function GisBoard({
               getPosition: (item) => item.position,
               getText: (item) => item.label,
               fontFamily: "sans-serif",
-              fontSettings: { characterSet: "auto" },
+              characterSet: "auto",
               getColor: (item) =>
                 item.status === "occupied"
                   ? [15, 23, 42, 255]
@@ -842,7 +842,7 @@ export function GisBoard({
           getPosition: (item) => item.position,
           getText: (item) => item.label,
           fontFamily: "sans-serif",
-          fontSettings: { characterSet: "auto" },
+          characterSet: "auto",
           getColor: [15, 23, 42, 255],
           getSize: 11,
           getTextAnchor: "start",
@@ -888,7 +888,7 @@ export function GisBoard({
           getPosition: (item) => [item.center.lon, item.center.lat],
           getText: (item) => item.name,
           fontFamily: "sans-serif",
-          fontSettings: { characterSet: "auto" },
+          characterSet: "auto",
           getColor: [30, 41, 59, 255],
           getSize: 12,
           getTextAnchor: "start",

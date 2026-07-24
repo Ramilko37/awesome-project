@@ -37,11 +37,11 @@ test("inspector is a constrained-width drawer before the full desktop grid break
   );
   assert.match(
     globalStyles,
-    /@media \(min-width:\s*80rem\)[\s\S]*?\.fortis-gis-main\s*\{[\s\S]*?display:\s*grid/,
+    /@media \(min-width:\s*90rem\)[\s\S]*?\.fortis-gis-main\s*\{[\s\S]*?display:\s*grid/,
   );
   assert.match(
     globalStyles,
-    /@media \(min-width:\s*80rem\)[\s\S]*?\.fortis-gis-inspector\s*\{[\s\S]*?position:\s*static/,
+    /@media \(min-width:\s*90rem\)[\s\S]*?\.fortis-gis-inspector\s*\{[\s\S]*?position:\s*static/,
   );
 });
 
@@ -52,6 +52,7 @@ test("workspace uses one active-echelon and selected-entity contract for inspect
   );
   assert.match(workspaceSource, /\|\s*\{\s*type:\s*"echelon";\s*echelonId:\s*string\s*\}/);
   assert.match(workspaceSource, /\|\s*\{\s*type:\s*"object";\s*objectId:\s*string\s*\}/);
+  assert.match(workspaceSource, /\|\s*\{\s*type:\s*"conflict";\s*conflictId:\s*string\s*\}/);
   assert.match(workspaceSource, /\|\s*\{\s*type:\s*"loading"\s*\}/);
   assert.match(workspaceSource, /\|\s*\{\s*type:\s*"error";\s*message:\s*string\s*\}/);
   assert.match(prototypeSource, /const \[selectedEchelonId, setSelectedEchelonId\] = useState<string \| null>\(null\)/);
@@ -85,4 +86,8 @@ test("left workspace exposes mutually exclusive structure and library modes with
   assert.match(prototypeSource, /leftWorkspaceTab === "structure"/);
   assert.match(prototypeSource, /leftWorkspaceTab === "library"/);
   assert.doesNotMatch(prototypeSource, /EchelonObjectsList/);
+  assert.doesNotMatch(prototypeSource, /fortis-gis-layer-panel-wrap/);
+  assert.doesNotMatch(prototypeSource, /data-echelon-role="quick-overview"/);
+  assert.doesNotMatch(prototypeStyles, /prototypeLayerPanelWrap/);
+  assert.doesNotMatch(globalStyles, /fortis-gis-layer-panel-wrap/);
 });

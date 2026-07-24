@@ -26,7 +26,6 @@ import styles from "./drone-defense-prototype.module.css";
 import {
   type AssetCatalogItem,
   buildPlacedDefenseCompoundProfile,
-  calculateLayerSummaries,
   findLayerInsertOptions,
   getAssetCatalogItems,
   getLayerRadii,
@@ -54,17 +53,12 @@ import type { Coordinates, ProtectedObjectOption } from "@/shared/types/defense-
 import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import {
   Button,
-  AssetCard,
-  Badge,
-  DropdownMenu,
   Icon,
   IconButton,
   InlineMessage,
   Input,
-  Modal,
   Search,
   Select,
-  Status,
   Tooltip,
 } from "@/shared/ui/fortis";
 
@@ -82,39 +76,6 @@ function protectedObjectToFacility(object: ProtectedObjectOption) {
     priorityWeight: 1,
     status: object.status ?? "active",
   } as const;
-}
-
-function formatLayerCost(totalMln: number) {
-  return prototypeRu.inspector.costMln(
-    totalMln.toLocaleString("ru-RU", { maximumFractionDigits: 1 }),
-  );
-}
-
-function formatObjectCountLabel(count: number) {
-  return prototypeRu.tree.objectCount(count);
-}
-
-function formatLayerObjectMeta(objectCount: number, totalMln: number) {
-  return `${formatObjectCountLabel(objectCount)} · ${formatLayerCost(totalMln)}`;
-}
-
-function describeLayerDeletion(totalLayers: number, objectCount: number) {
-  if (totalLayers <= 1) {
-    return {
-      canDelete: false,
-      reason: prototypeRu.echelons.cannotDeleteLast,
-    };
-  }
-  if (objectCount > 0) {
-    return {
-      canDelete: false,
-      reason: prototypeRu.echelons.cannotDeleteWithObjects,
-    };
-  }
-  return {
-    canDelete: true,
-    reason: prototypeRu.echelons.deleteRequiresConfirmation,
-  };
 }
 
 function layerWizardStoreDraft(draft: LayerWizardDraft) {
@@ -137,18 +98,12 @@ export function DroneDefensePrototype() {
   const [catalogQuery, setCatalogQuery] = useState("");
   const [isCatalogTrayOpen, setIsCatalogTrayOpen] = useState(true);
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
-  const [isLayerPanelExpanded, setIsLayerPanelExpanded] = useState(false);
-  const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(false);
   const [layerWizardState, setLayerWizardState] = useState<LayerWizardState | null>(null);
-  const [pendingLayerDeletionId, setPendingLayerDeletionId] = useState<string | null>(null);
-  const [hoveredLayerId, setHoveredLayerId] = useState<string | null>(null);
-  const [layerStripState, setLayerStripState] = useState({ canScrollLeft: false, canScrollRight: false });
   const [coordinatePlacementAssetId, setCoordinatePlacementAssetId] = useState<string | null>(null);
   const [coordinatePlacementValidation, setCoordinatePlacementValidation] = useState<CoordinatePlacementValidationState | null>(null);
   const [pointerDraggedAssetId, setPointerDraggedAssetId] = useState<string | null>(null);
   const [lastPlacementMessage, setLastPlacementMessage] = useState<string | null>(null);
   const [locateTarget, setLocateTarget] = useState<{ lon: number; lat: number; at: number } | null>(null);
-  const layerStripRef = useRef<HTMLDivElement | null>(null);
   const {
     currentBaseMapSourceId,
     restoreFromLocalStorage: restoreMapViewFromLocalStorage,
@@ -171,10 +126,8 @@ export function DroneDefensePrototype() {
   const {
     project,
     createLayerFromDraft,
-    deleteLayer,
     updateLayerFromDraft,
     selectLayer,
-    setLayerVisibility,
     selectBaseObject,
     selectAsset,
     selectedObjectId,
@@ -248,11 +201,6 @@ export function DroneDefensePrototype() {
     () => ({ activeEchelonId: selectedLayerId || null, selectedEntity }),
     [selectedEntity, selectedLayerId],
   );
-  const orderedProjectLayers = useMemo(
-    () => [...project.layers].sort((a, b) => a.order - b.order),
-    [project.layers],
-  );
-  const layerSummaries = useMemo(() => calculateLayerSummaries(project), [project]);
   const requestedView = searchParams.get("view");
   const activeView = requestedView === "scenario-modeling" || requestedView === "3d" ? "drilldown" : view;
   const assetCatalogItems = useMemo(
@@ -277,7 +225,6 @@ export function DroneDefensePrototype() {
       return haystack.includes(query);
     });
   }, [assetCatalogItems, catalogQuery]);
-  const selectedRadii = selectedLayer ? getLayerRadii(selectedLayer) : { innerRadiusM: 0, widthM: 0, outerRadiusM: 0 };
   const insertOptions = useMemo(() => findLayerInsertOptions(project), [project]);
   const wizardLayer = useMemo(() => {
     if (!layerWizardState) return null;
@@ -327,12 +274,8 @@ export function DroneDefensePrototype() {
   );
   const visibleProjectCatalogPlacements = useMemo(
     () =>
-      projectCatalogPlacements.filter(
-        (placement) =>
-          (showAllEchelonObjects || placement.layerId === selectedLayerId) &&
-          !hiddenPlacementIds.has(placement.id),
-      ),
-    [hiddenPlacementIds, projectCatalogPlacements, selectedLayerId, showAllEchelonObjects],
+      projectCatalogPlacements.filter((placement) => !hiddenPlacementIds.has(placement.id)),
+    [hiddenPlacementIds, projectCatalogPlacements],
   );
   const mapConfiguration = useMemo(
     () => ({
@@ -354,57 +297,6 @@ export function DroneDefensePrototype() {
       }),
     [catalog, mapConfiguration, layers, projectMapLayers, selectedFacility, selectedLayerId, selectedSlotId],
   );
-  const objectCountByLayer = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const object of project.placedObjects) {
-      counts.set(object.layerId, (counts.get(object.layerId) ?? 0) + 1);
-    }
-    return counts;
-  }, [project.placedObjects]);
-  const activeLayerSummary = useMemo(
-    () => layerSummaries.find((item) => item.layerId === selectedLayer?.id) ?? null,
-    [layerSummaries, selectedLayer?.id],
-  );
-  const layerPanelSummaryLabel = prototypeRu.echelons.summary(
-    project.layers.length,
-    MAX_DEFENSE_PROJECT_LAYERS,
-  );
-  const activeLayerHeaderLabel = prototypeRu.echelons.activeHeader(
-    selectedLayer?.code ?? "—",
-    formatObjectCountLabel(activeLayerSummary?.objectCount ?? 0),
-  );
-  const objectVisibilityToggleLabel = showAllEchelonObjects
-    ? prototypeRu.echelons.showActiveOnly
-    : prototypeRu.echelons.showAllObjects;
-  const objectVisibilityToggleTitle = showAllEchelonObjects
-    ? prototypeRu.echelons.showActiveOnlyTitle
-    : prototypeRu.echelons.showAllObjectsTitle;
-  const pendingLayerDeletion = useMemo(
-    () => project.layers.find((layer) => layer.id === pendingLayerDeletionId) ?? null,
-    [pendingLayerDeletionId, project.layers],
-  );
-  const showCompactLayerPanel = !isLayerPanelExpanded;
-
-  useEffect(() => {
-    const strip = layerStripRef.current;
-    if (!strip || showCompactLayerPanel) {
-      setLayerStripState({ canScrollLeft: false, canScrollRight: false });
-      return;
-    }
-    const syncLayerStripState = () => {
-      setLayerStripState({
-        canScrollLeft: strip.scrollLeft > 8,
-        canScrollRight: strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 8,
-      });
-    };
-    syncLayerStripState();
-    strip.addEventListener("scroll", syncLayerStripState, { passive: true });
-    window.addEventListener("resize", syncLayerStripState);
-    return () => {
-      strip.removeEventListener("scroll", syncLayerStripState);
-      window.removeEventListener("resize", syncLayerStripState);
-    };
-  }, [orderedProjectLayers, showCompactLayerPanel]);
   const selectedPlacedObject = useMemo(() => {
     const selectedEntity = workspaceState.selectedEntity;
     return selectedEntity?.type === "object"
@@ -585,34 +477,6 @@ export function DroneDefensePrototype() {
         : current,
     );
   };
-
-  const confirmLayerDeletion = () => {
-    if (!pendingLayerDeletion) return;
-    const result = deleteLayer(pendingLayerDeletion.id);
-    setPendingLayerDeletionId(null);
-    setLastPlacementMessage(result.ok ? "Эшелон удалён" : result.message);
-  };
-
-  const toggleLayerVisibility = (layerId: string, isVisible: boolean) => {
-    setLayerVisibility(layerId, isVisible);
-    if (!isVisible && layerId === selectedLayer?.id) {
-      const fallback =
-        orderedProjectLayers.find((layer) => layer.id !== layerId && layer.isVisible !== false) ??
-        orderedProjectLayers.find((layer) => layer.id !== layerId);
-      if (fallback) {
-        selectLayerWithDefaultSlot(fallback.id);
-      }
-    }
-  };
-
-  const toggleObjectVisibilityMode = () => {
-    setShowAllEchelonObjects((current) => !current);
-  };
-
-  const scrollLayerStrip = (direction: "left" | "right") => {
-    layerStripRef.current?.scrollBy({ left: direction === "left" ? -260 : 260, behavior: "smooth" });
-  };
-
 
   const selectPlacedObject = (objectId: string) => {
     const object = project.placedObjects.find((item) => item.id === objectId);
@@ -893,6 +757,17 @@ export function DroneDefensePrototype() {
 
           {leftWorkspaceTab === "structure" ? (
             <div className="fortis-gis-tree-slot" id="fortis-gis-structure-panel" role="tabpanel">
+              <div className="px-3 pt-3">
+                <Button
+                  className="w-full"
+                  disabled={!canCreateLayer}
+                  leadingIcon={<Icon decorative name="action.add" size={16} />}
+                  onClick={createProjectLayer}
+                  variant="secondary"
+                >
+                  {canCreateLayer ? prototypeRu.echelons.add : prototypeRu.echelons.maximum(MAX_DEFENSE_PROJECT_LAYERS)}
+                </Button>
+              </div>
               <GisProjectTree
                 activeLayerId={selectedLayerId}
                 onSelectLayer={selectLayerWithDefaultSlot}
@@ -1027,7 +902,6 @@ export function DroneDefensePrototype() {
               }
               onSelectBaseMapSource={setBaseMapSource}
               onSelectLayer={selectLayerWithDefaultSlot}
-              onHoverLayerChange={setHoveredLayerId}
               onSelectSlot={(slot) => {
                 selectWorkspaceEchelon(slot.layerId);
                 setSelectedSlotId(slot.id);
@@ -1106,216 +980,6 @@ export function DroneDefensePrototype() {
               />
             ) : null}
 
-            {/* Legacy overview drawer is removed from the map-first workspace. */}
-            {/*
-            {selectedLayer ? (
-              <div
-                className={`${styles.prototypeLayerPanelWrap} fortis-gis-layer-panel-wrap`}
-                data-echelon-drawer-layout={showCompactLayerPanel ? "collapsed" : "expanded"}
-              >
-                <section
-                  aria-label={prototypeRu.echelons.overviewAria}
-                  className={styles.prototypeLayerPanel}
-                  data-echelon-drawer-state={showCompactLayerPanel ? "collapsed" : "expanded"}
-                  data-echelon-role="quick-overview"
-                >
-                  <header className={styles.prototypeLayerHeader}>
-                    <div className="min-w-0 flex-1">
-                      <p className={styles.prototypeEyebrow}>
-                        {prototypeRu.echelons.overviewTitle} · {layerPanelSummaryLabel}
-                      </p>
-                      <p
-                        className={`${styles.prototypeTitle} mt-1 truncate`}
-                        title={prototypeRu.echelons.activeContext(selectedLayer.code, selectedLayer.name)}
-                      >
-                        {prototypeRu.echelons.activeContext(selectedLayer.code, selectedLayer.name)}
-                      </p>
-                      <p className={styles.prototypeMeta}>
-                        {showCompactLayerPanel
-                          ? `${formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)} · ${formatLayerObjectMeta(activeLayerSummary?.objectCount ?? 0, activeLayerSummary?.totalMln ?? 0)}`
-                          : activeLayerHeaderLabel}
-                      </p>
-                    </div>
-                    <div className={styles.prototypeLayerHeaderActions}>
-                      {!showCompactLayerPanel ? (
-                        <>
-                          <button
-                            type="button"
-                            className={`${showAllEchelonObjects ? styles.prototypeButtonPrimary : styles.prototypeButton} cursor-pointer px-3`}
-                            onClick={toggleObjectVisibilityMode}
-                            aria-pressed={showAllEchelonObjects}
-                            title={objectVisibilityToggleTitle}
-                          >
-                            <Icon decorative name={showAllEchelonObjects ? "action.visibility-off" : "action.visibility-on"} size={16} />
-                            {objectVisibilityToggleLabel}
-                          </button>
-                          <IconButton
-                            icon="action.add"
-                            label={canCreateLayer ? prototypeRu.echelons.add : prototypeRu.echelons.maximum(MAX_DEFENSE_PROJECT_LAYERS)}
-                            onClick={createProjectLayer}
-                            disabled={!canCreateLayer}
-                            variant="quiet"
-                          />
-                        </>
-                      ) : null}
-                      <Tooltip label={showCompactLayerPanel ? prototypeRu.echelons.expandPanel : prototypeRu.echelons.collapsePanel}>
-                        <IconButton
-                          aria-controls="fortis-echelons-drawer-content"
-                          aria-expanded={!showCompactLayerPanel}
-                          icon={showCompactLayerPanel ? "navigation.chevron-up" : "navigation.chevron-down"}
-                          label={showCompactLayerPanel ? prototypeRu.echelons.expandPanel : prototypeRu.echelons.collapsePanel}
-                          onClick={() => setIsLayerPanelExpanded((current) => !current)}
-                          variant="quiet"
-                        />
-                      </Tooltip>
-                    </div>
-                  </header>
-
-                  <div
-                    hidden={showCompactLayerPanel}
-                    id="fortis-echelons-drawer-content"
-                    className={styles.prototypeLayerDrawerContent}
-                  >
-                  <div className={styles.prototypeLayerScrollRow}>
-                    <button
-                      type="button"
-                      className={`${styles.prototypeIconButton} shrink-0 cursor-pointer`}
-                      onClick={() => scrollLayerStrip("left")}
-                      disabled={!layerStripState.canScrollLeft}
-                      aria-label={prototypeRu.echelons.scrollLeft}
-                    >
-                      <Icon decorative name="navigation.chevron-left" size={16} />
-                    </button>
-                    <div className="relative min-w-0 flex-1">
-                      {layerStripState.canScrollLeft ? <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white via-white/80 to-transparent" /> : null}
-                      {layerStripState.canScrollRight ? <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white via-white/80 to-transparent" /> : null}
-                  <div
-                    ref={layerStripRef}
-                    className={styles.prototypeLayerStrip}
-                    data-echelon-scroll-rule="horizontal"
-                  >
-                    {orderedProjectLayers.map((layer) => {
-                      const summary = layerSummaries.find((item) => item.layerId === layer.id);
-                      const isSelected = layer.id === selectedLayer.id;
-                      const isHovered = layer.id === hoveredLayerId;
-                      const layerDeleteState = describeLayerDeletion(project.layers.length, objectCountByLayer.get(layer.id) ?? 0);
-                      const layerHasConflict = project.placedObjects.some(
-                        (object) =>
-                          object.layerId === layer.id &&
-                          (object.hasCoverageConflict || object.hasGeometryConflict || object.hasTerrainConflict),
-                      );
-                      const layerMenuItems = [
-                        {
-                          id: "objects",
-                          label: prototypeRu.echelons.openObjects,
-                          onSelect: () => {
-                            selectLayerWithDefaultSlot(layer.id);
-                          },
-                        },
-                        {
-                          id: "edit",
-                          label: prototypeRu.echelons.edit,
-                          onSelect: () => {
-                            selectLayerWithDefaultSlot(layer.id);
-                            editSelectedLayer();
-                          },
-                        },
-                        {
-                          id: "delete",
-                          danger: true,
-                          disabled: !layerDeleteState.canDelete,
-                          label: layerDeleteState.canDelete
-                            ? prototypeRu.echelons.delete
-                            : prototypeRu.echelons.deleteUnavailable(layerDeleteState.reason),
-                          onSelect: () => {
-                            if (!layerDeleteState.canDelete) return;
-                            setPendingLayerDeletionId(layer.id);
-                          },
-                        },
-                      ];
-                      return (
-                        <AssetCard
-                          actions={
-                            <>
-                              <Button
-                                onClick={() => selectLayerWithDefaultSlot(layer.id)}
-                                size="sm"
-                                variant={isSelected ? "primary" : "quiet"}
-                              >
-                                {isSelected ? prototypeRu.echelons.selected : prototypeRu.echelons.select}
-                              </Button>
-                              <IconButton
-                                icon={layer.isVisible === false ? "action.visibility-on" : "action.visibility-off"}
-                                label={layer.isVisible === false ? prototypeRu.echelons.show : prototypeRu.echelons.hide}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  toggleLayerVisibility(layer.id, layer.isVisible === false);
-                                }}
-                                size="sm"
-                                variant="quiet"
-                              />
-                              <DropdownMenu
-                                icon="action.more"
-                                iconOnly
-                                items={layerMenuItems}
-                                label={prototypeRu.echelons.openMenu}
-                              />
-                            </>
-                          }
-                          key={layer.id}
-                          className={styles.prototypeLayerCard}
-                          conflict={layerHasConflict}
-                          data-hovered={isHovered ? "true" : "false"}
-                          leading={
-                            <>
-                              <span
-                                className={styles.prototypeLayerDot}
-                                style={{ backgroundColor: layer.color ?? "#2563eb" }}
-                                aria-hidden="true"
-                              />
-                              <Badge>{layer.code}</Badge>
-                            </>
-                          }
-                          meta={formatLayerRange(summary?.innerRadiusM ?? 0, summary?.outerRadiusM ?? 0)}
-                          onMouseEnter={() => setHoveredLayerId(layer.id)}
-                          onMouseLeave={() => setHoveredLayerId((current) => (current === layer.id ? null : current))}
-                          selected={isSelected}
-                          status={
-                            layerHasConflict ? (
-                              <Status label={prototypeRu.echelons.conflict} tone="warning" />
-                            ) : (
-                              <Status
-                                label={layer.isVisible === false ? prototypeRu.echelons.hidden : prototypeRu.echelons.visible}
-                                tone={layer.isVisible === false ? "neutral" : "success"}
-                              />
-                            )
-                          }
-                          title={layer.name}
-                        >
-                          {formatLayerObjectMeta(summary?.objectCount ?? 0, summary?.totalMln ?? 0)}
-                          {layer.isLocked ? (
-                            <Status label={prototypeRu.workspace.locked} tone="neutral" />
-                          ) : null}
-                        </AssetCard>
-                      );
-                    })}
-                  </div>
-                    </div>
-                    <button
-                      type="button"
-                      className={`${styles.prototypeIconButton} shrink-0 cursor-pointer`}
-                      onClick={() => scrollLayerStrip("right")}
-                      disabled={!layerStripState.canScrollRight}
-                      aria-label={prototypeRu.echelons.scrollRight}
-                    >
-                      <Icon decorative name="navigation.chevron-right" size={16} />
-                    </button>
-                  </div>
-                  </div>
-                </section>
-              </div>
-            ) : null}
-            */}
           </>
         ) : null}
 
@@ -1353,20 +1017,6 @@ export function DroneDefensePrototype() {
             onSubmit={saveLayerWizard}
           />
         ) : null}
-        <Modal
-          description="Объекты должны быть удалены или перенесены до удаления эшелона."
-          onClose={() => setPendingLayerDeletionId(null)}
-          open={Boolean(pendingLayerDeletion)}
-          title="Удалить эшелон?"
-        >
-          <p>
-            {pendingLayerDeletion ? `${pendingLayerDeletion.code} · ${pendingLayerDeletion.name}` : "Выбранный эшелон"} будет удалён без возможности восстановления.
-          </p>
-          <div className="fortis-overlay__footer">
-            <Button onClick={() => setPendingLayerDeletionId(null)} variant="secondary">Отмена</Button>
-            <Button onClick={confirmLayerDeletion} variant="danger">Удалить эшелон</Button>
-          </div>
-        </Modal>
       </main>
     </div>
   );

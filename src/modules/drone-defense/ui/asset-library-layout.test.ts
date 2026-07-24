@@ -64,6 +64,9 @@ test("create view opens a wide drawer, focuses the first field, validates inline
   assert.match(managerSource, /<Drawer[\s\S]*open[\s\S]*title=/);
   assert.match(managerSource, /onClose=\{cancelForm\}/);
   assert.match(managerSource, /nameInputRef\.current\?\.focus\(\)/);
+  assert.match(managerSource, /isDiscardConfirmOpen/);
+  assert.match(managerSource, /JSON\.stringify\(form\) !== JSON\.stringify\(initialFormRef\.current\)/);
+  assert.match(managerSource, /discardChangesTitle/);
   assert.match(managerSource, /invalid=\{Boolean\(formErrors\.name\)\}/);
   assert.match(managerSource, /message=\{formErrors\.name\}/);
   assert.match(managerSource, /\{prototypeRu\.library\.cancel\}/);
