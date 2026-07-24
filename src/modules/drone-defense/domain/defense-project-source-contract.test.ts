@@ -27,27 +27,19 @@ assert(
 );
 assert(
   /selectedPlacementId=\{selectedPlacementId\}/.test(source),
-  "GisBoard and EchelonObjectsList should use project-driven selectedPlacementId",
-);
-assert(
-  /onSelect=\{\(id\) => selectPlacedObject\(id\)\}/.test(source),
-  "EchelonObjectsList onSelect must use selectPlacedObject",
+  "GisBoard should use project-driven selectedPlacementId",
 );
 assert(
   /onSelectPlacement=\{\(id\) => selectPlacedObject\(id\)\}/.test(source),
   "GisBoard onSelectPlacement must use selectPlacedObject",
 );
 assert(
-  /onRemove=\{\(id\) => deleteProjectPlacement\(id\)\}/.test(source),
-  "EchelonObjectsList onRemove must call deleteProjectPlacement",
+  /const selectedPlacementId = workspaceState\.selectedEntity\?\.type === "object" \? workspaceState\.selectedEntity\.id : null;/.test(source),
+  "Prototype should derive selectedPlacementId from canonical workspace selection",
 );
 assert(
-  /const selectedPlacementId = selectedObjectId \?\? null;/.test(source),
-  "Prototype should derive selectedPlacementId from defense project",
-);
-assert(
-  /const handleLocatePlacement =/.test(source) && /selectObject\(placement\.id\)/.test(source),
-  "Prototype locate path should select project placement by id",
+  /const handleLocatePlacement =/.test(source) && /selectWorkspaceObject\(placement\.id\)/.test(source),
+  "Prototype locate path should select the canonical workspace object",
 );
 
 console.log("defense-project-source-contract.test.ts: prototype source contract passed");

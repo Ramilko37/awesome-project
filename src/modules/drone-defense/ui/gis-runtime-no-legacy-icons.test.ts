@@ -8,7 +8,6 @@ const runtimeFiles = [
   "defense-asset-card.tsx",
   "defense-tool-icon.tsx",
   "drone-defense-prototype.tsx",
-  "echelon-objects-list.tsx",
   "facility-drilldown.tsx",
   "gis-board.tsx",
   "map-object-marker.tsx",
