@@ -490,7 +490,7 @@
   background: var(--fortis-surface-selected);
 }
 
-@media (min-width: 90rem) {
+@media (min-width: 80rem) {
   .fortis-studio-rail {
     display: flex;
     width: 4.75rem;
@@ -902,24 +902,6 @@
   display: block;
   font-size: 0.75rem;
   line-height: 1.25;
-}
-
-.fortis-gis-workspace-tabs {
-  display: flex;
-  flex: 0 0 auto;
-  border-bottom: 1px solid var(--fortis-semantic-light-border-default);
-  background: var(--fortis-semantic-light-background-surface);
-}
-
-.fortis-drawer {
-  max-width: 34rem;
-  width: min(100%, 34rem);
-}
-
-.fortis-gis-tree-slot,
-.fortis-gis-sidebar [role="tabpanel"] {
-  min-height: 0;
-  flex: 1;
 }
 
 .fortis-gis-tree-copy {
@@ -1467,6 +1449,18 @@
     flex: 1;
   }
 
+  .fortis-gis-objects-panel {
+    right: 19rem;
+  }
+
+  .fortis-gis-layer-panel-wrap {
+    right: 18rem;
+  }
+
+  .fortis-gis-main[data-inspector-panel-state="closed"] .fortis-gis-objects-panel,
+  .fortis-gis-main[data-inspector-panel-state="closed"] .fortis-gis-layer-panel-wrap {
+    right: 0;
+  }
 }
 
 @media (min-width: 80rem) {
@@ -1489,4 +1483,11 @@
     grid-template-columns: minmax(35rem, 1fr);
   }
 
+  .fortis-gis-objects-panel {
+    right: 22rem;
+  }
+
+  .fortis-gis-layer-panel-wrap {
+    right: 21rem;
+  }
 }

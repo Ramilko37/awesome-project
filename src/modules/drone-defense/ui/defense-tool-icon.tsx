@@ -1,9 +1,8 @@
 "use client";
 
+import { AimOutlined, DragOutlined, EnvironmentOutlined } from "@ant-design/icons";
 import Image from "next/image";
 import { withBasePath } from "@/shared/lib/base-path";
-import { AssetCard, Badge, IconButton } from "@/shared/ui/fortis";
-import { prototypeRu } from "@/shared/config/prototype-ru";
 import type { DefenseAssetLibraryItem } from "@/shared/types/defense-project";
 import type {
   DragEvent as ReactDragEvent,
@@ -81,23 +80,23 @@ export function DefenseToolIcon({
   const isZoneObject = placementType === "zone-object";
   const canDrag = canAdd;
   const isCompoundPost = compoundProfile?.kind === "compound-post";
-  const title =
-    disabledReason ?? prototypeRu.cards.dragTooltip(name, rangeLabel);
+  const title = disabledReason ?? `${name}: ${rangeLabel}. Перетащите на карту внутри выбранного эшелона`;
   const coverageText = coverageLabel;
-  const costText = `${prototypeRu.cards.basePostCost}: ${priceLabel}`;
+  const costText = `Базовая стоимость поста: ${priceLabel}`;
   const counterText = isZoneObject
-      ? `${prototypeRu.cards.sites}: ${installedCount}`
+      ? `Участков: ${installedCount}`
       : maxQuantity > 0
-        ? `${prototypeRu.cards.onMap}: ${installedCount}/${maxQuantity}`
-        : `${prototypeRu.cards.onMap}: ${installedCount}`;
-  const placementBadge = isZoneObject ? prototypeRu.cards.zone : prototypeRu.cards.map;
+        ? `На карте: ${installedCount}/${maxQuantity}`
+        : `На карте: ${installedCount}`;
+  const placementBadge = isZoneObject ? "Зона" : "Карта";
   const protectionBadge = protectionType;
-  const actionText = isZoneObject ? prototypeRu.cards.draw : prototypeRu.cards.drag;
+  const actionText = isZoneObject ? "Нарисовать" : "Перетащите";
   const compoundWeaponSummary = compoundProfile?.weapons
     ?.filter((item) => Number(item.quantity) > 0)
     .map((item) => `${item.label}: ${item.quantity}`)
     .join(", ");
 
+  const rootRef = useRef<HTMLDivElement>(null);
   const ghostRef = useRef<HTMLDivElement | null>(null);
   const infoRef = useRef<AssetInfo>({ title: "", imageUrl: "" });
   infoRef.current = { title: `${name}\n${coverageLabel}`, imageUrl: withBasePath(previewImageUrl) };
@@ -152,8 +151,10 @@ export function DefenseToolIcon({
 
   const isControlTarget = (target: HTMLElement) =>
     Boolean(
-        target.closest("button,input,select,textarea,a") ||
-        target.closest(".fortis-tool-coordinate-action"),
+        target.closest("input,select,textarea,a") ||
+        target.closest(
+          'button[title="Ввести координаты"]',
+        ),
     );
 
   // ── unified pointer handler ──────────────────────────────────────────
@@ -191,104 +192,129 @@ export function DefenseToolIcon({
   // ── render ───────────────────────────────────────────────────────────
 
   return (
-    <AssetCard
-      actions={
-        <IconButton
-          className="fortis-tool-coordinate-action"
-          disabled={!canAdd}
-          icon="map.coordinates"
-          label={isZoneObject ? prototypeRu.cards.drawArea : prototypeRu.cards.enterCoordinates}
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpenCoordinates();
-          }}
-          size="sm"
-          variant="quiet"
-        />
-      }
-      aria-label={prototypeRu.cards.dragAria(name, counterText)}
-      aria-pressed={isSelected}
-      className={`fortis-asset-library-card ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
+    <div
+      ref={rootRef}
+      className={`group grid min-h-[104px] min-w-0 grid-cols-[0.75rem_3rem_minmax(0,1fr)] items-center gap-1.5 rounded-lg border bg-white p-1.5 transition ${
+        isSelected
+          ? "border-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,0.35),0_12px_24px_rgba(37,99,235,0.16)]"
+          : installedCount > 0
+          ? "border-emerald-300 bg-emerald-50/70"
+          : disabledReason
+            ? "border-slate-200 bg-slate-50 opacity-65 cursor-not-allowed"
+            : "border-slate-200 hover:border-blue-300 hover:shadow-md hover:shadow-blue-900/10"
+      } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
       data-placement-type={placementType}
       data-can-drag={canDrag ? "true" : "false"}
       data-testid={`defense-tool-card-${assetId}`}
-      disabled={Boolean(disabledReason)}
-      draggable={canDrag}
-      leading={
-        <span className="fortis-asset-card__media">
-          <Image
-            src={withBasePath(previewImageUrl)}
-            alt=""
-            width={56}
-            height={56}
-            unoptimized
-            className={isPlaceholder ? "object-contain p-2" : "object-cover"}
-            draggable={false}
-          />
-        </span>
-      }
-      meta={[categoryLabel, protectionBadge, coverageText].filter(Boolean).join(" · ")}
-      selected={isSelected}
-      status={
-        <Badge tone={installedCount > 0 ? "accent" : "neutral"}>
-          {isZoneObject
-            ? prototypeRu.cards.siteBadgeCount(installedCount)
-            : maxQuantity > 0
-              ? `${installedCount}/${maxQuantity}`
-              : installedCount}
-        </Badge>
-      }
-      title={name}
-      tooltip={title}
       role="button"
       tabIndex={0}
+      aria-pressed={isSelected}
+      aria-label={`${name}. ${counterText}. Перетащите на карту`}
+      title={title}
+      draggable={canDrag}
       onDragStart={(event) => {
         if (!canDrag) {
           event.preventDefault();
           return;
         }
-        onDragAsset(event as unknown as ReactDragEvent<HTMLDivElement>);
+        onDragAsset(event);
       }}
       onPointerDown={handlePointerDown}
       onMouseDown={(event) => {
-        if (canDrag && !isControlTarget(event.target as HTMLElement)) {
-          onMouseDragAsset(event as unknown as ReactMouseEvent<HTMLDivElement>);
-        }
+        if (canDrag) onMouseDragAsset(event);
       }}
       onClick={onSelect}
       onKeyDown={(event) => {
-        if (isControlTarget(event.target as HTMLElement)) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onSelect();
         }
       }}
     >
-      <div className="fortis-asset-card__details">
+      <span className="grid h-full place-items-center text-slate-400" aria-hidden="true">
+        {canDrag ? <DragOutlined /> : null}
+      </span>
+
+      <span className="relative block h-12 w-12 overflow-hidden rounded-md border border-slate-100 bg-slate-100">
+        <Image
+          src={withBasePath(previewImageUrl)}
+          alt=""
+          width={56}
+          height={56}
+          unoptimized
+          className={`h-full w-full object-cover ${isPlaceholder ? "object-contain p-2" : ""}`}
+          draggable={false}
+        />
+      </span>
+
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <span className="min-w-0 truncate text-xs font-semibold leading-snug text-slate-950">{name}</span>
+          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+            installedCount > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+          }`}>
+            {isZoneObject ? `${installedCount} уч.` : maxQuantity > 0 ? `${installedCount}/${maxQuantity}` : `${installedCount}`}
+          </span>
+        </div>
+        <div className="mt-1 flex min-w-0 items-center gap-1 text-[11px] leading-tight text-slate-500">
+          <span className="truncate">{categoryLabel}</span>
+          {protectionBadge ? <>
+            <span aria-hidden="true">·</span>
+            <span className="truncate">{protectionBadge}</span>
+          </> : null}
+          <span aria-hidden="true">·</span>
+            <span className="truncate">{coverageText}</span>
+        </div>
         {isCompoundPost ? (
           <>
-            <p>
-              <strong>{prototypeRu.cards.postType}:</strong> {compoundProfile.postType}
+            <p className="mt-1 flex flex-wrap gap-x-1 text-[10px] leading-tight text-slate-600">
+              <span className="font-semibold text-slate-700">Тип поста:</span>
+              <span className="truncate">{compoundProfile.postType}</span>
               <span aria-hidden="true">·</span>
-              <strong>{prototypeRu.cards.personnel}:</strong> {compoundProfile.personnelCount}
+              <span className="font-semibold text-slate-700">Личный состав:</span>
+              <span className="truncate">{compoundProfile.personnelCount}</span>
             </p>
-            <p>
-              <strong>{prototypeRu.cards.accountability}:</strong> {compoundProfile.accountability}
+            <p className="mt-1 flex flex-wrap gap-x-1 text-[10px] leading-tight text-slate-600">
+              <span className="font-semibold text-slate-700">Подотчётность:</span>
+              <span className="truncate">{compoundProfile.accountability}</span>
             </p>
-            <p>
-              <strong>{prototypeRu.cards.weapons}:</strong>{" "}
-              {compoundWeaponSummary || `${compoundProfile.armament}: ${compoundProfile.weaponUnits}`}
+            <p className="mt-1 flex flex-wrap gap-x-1 text-[10px] leading-tight text-slate-600">
+              <span className="font-semibold text-slate-700">Оружие:</span>
+              <span className="truncate">{compoundWeaponSummary || `${compoundProfile.armament}: ${compoundProfile.weaponUnits}`}</span>
               <span aria-hidden="true">·</span>
-              <strong>{prototypeRu.cards.sector}:</strong> {compoundProfile.sectorOrRange}
+              <span className="font-semibold text-slate-700">Сектор:</span>
+              <span className="truncate">{compoundProfile.sectorOrRange}</span>
             </p>
           </>
         ) : null}
-        <p className="fortis-asset-card__summary">
-          <span>{isCompoundPost ? costText : priceLabel}</span>
-          <Badge>{placementBadge}</Badge>
-          <span data-tone={disabledReason ? "danger" : "action"}>{disabledReason ?? actionText}</span>
-        </p>
+        <div className="mt-1 flex min-w-0 items-center gap-1 text-[11px] leading-tight text-slate-500">
+          <span className="truncate">{isCompoundPost ? costText : priceLabel}</span>
+          <span aria-hidden="true">·</span>
+          <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-600">{placementBadge}</span>
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <span className={`min-w-0 truncate text-[11px] font-semibold ${
+            disabledReason ? "text-rose-600" : "text-blue-600"
+          }`}>
+            {disabledReason ?? actionText}
+          </span>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              className="grid h-6 w-6 cursor-pointer place-items-center rounded-md bg-slate-100 text-slate-500 transition hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-35"
+              disabled={!canAdd}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenCoordinates();
+              }}
+              title="Ввести координаты"
+              aria-label="Ввести координаты"
+            >
+              {isZoneObject ? <AimOutlined /> : <EnvironmentOutlined />}
+            </button>
+          </div>
+        </div>
       </div>
-    </AssetCard>
+    </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   validateObjectPlacement,
   placeObjectInProject,
   calculateLayerConflicts,
+  isPointInsideLayerGeometry,
 } from "@/shared/lib/defense-project";
 import type { Coordinates } from "@/shared/types/defense-project";
 

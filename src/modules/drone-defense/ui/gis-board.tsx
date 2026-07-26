@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import DeckGL, { type DeckGLRef } from "@deck.gl/react";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
@@ -48,7 +48,6 @@ import type {
   ThreatRoute,
 } from "@/shared/types/drone-defense";
 import type { Coordinates } from "@/shared/types/defense-project";
-import { Badge, Button, Icon, IconButton, InlineMessage, Select, Status } from "@/shared/ui/fortis";
 
 type GisBoardProps = {
   className?: string;
@@ -67,7 +66,6 @@ type GisBoardProps = {
   activeToolId: string | null;
   baseMapSourceId: string;
   placementHint: string;
-  leadingControl?: ReactNode;
   onSelectBaseMapSource: (sourceId: string) => void;
   onSelectLayer: (layerId: string) => void;
   onHoverLayerChange?: (layerId: string | null) => void;
@@ -125,7 +123,11 @@ const baseMapCategoryLabels: Record<BaseMapSourceCategory, string> = {
 };
 
 function getBaseMapBadges(source: BaseMapSource) {
-  return [source.isExternal ? "Внешний источник" : "Локальный источник"];
+  const badges: string[] = [];
+  badges.push(source.isExternal ? "online" : "internal");
+  if (source.requiresApiKey) badges.push("requires key");
+  if (source.requiresLicenseCheck) badges.push("license check");
+  return badges;
 }
 
 function extractErrorMessage(event: unknown) {
@@ -210,7 +212,6 @@ export function GisBoard({
   activeToolId,
   baseMapSourceId,
   placementHint,
-  leadingControl,
   onSelectBaseMapSource,
   onSelectLayer,
   onHoverLayerChange,
@@ -733,8 +734,6 @@ export function GisBoard({
               data: [],
               getPosition: (item) => item.position,
               getText: (item) => item.label,
-              fontFamily: "sans-serif",
-              characterSet: "auto",
               getColor: (item) =>
                 item.status === "occupied"
                   ? [15, 23, 42, 255]
@@ -841,8 +840,6 @@ export function GisBoard({
           data: echelonModel.placements.filter((item) => item.layerId === selectedLayerId && !item.catalogGroupId),
           getPosition: (item) => item.position,
           getText: (item) => item.label,
-          fontFamily: "sans-serif",
-          characterSet: "auto",
           getColor: [15, 23, 42, 255],
           getSize: 11,
           getTextAnchor: "start",
@@ -887,8 +884,6 @@ export function GisBoard({
           data: visibleFacilities,
           getPosition: (item) => [item.center.lon, item.center.lat],
           getText: (item) => item.name,
-          fontFamily: "sans-serif",
-          characterSet: "auto",
           getColor: [30, 41, 59, 255],
           getSize: 12,
           getTextAnchor: "start",
@@ -1024,7 +1019,7 @@ export function GisBoard({
   return (
     <section
       ref={boardRef}
-      className={`fortis-map-board ${className}`}
+      className={`relative h-[calc(100vh-11.5rem)] min-h-[540px] overflow-hidden rounded-lg border border-slate-200 ${className}`}
       onDragOver={handleSectionDragOver}
       onDragLeave={handleSectionDragLeave}
       onDrop={handleSectionDrop}
@@ -1147,132 +1142,163 @@ export function GisBoard({
         })}
       </div>
 
-      <div className="fortis-map-object-control">
-        <div className="fortis-map-object-toolbar">
-          {leadingControl}
-          <Select
-            aria-label="Выбрать объект защиты"
-            label="Объект защиты"
+      <div className="absolute left-4 top-4 z-10 flex max-w-[min(42rem,calc(100%-2rem))] flex-wrap items-center gap-2">
+        <div className="min-w-[min(23rem,calc(100vw-6rem))] rounded-lg border border-white/60 bg-white/95 px-3 py-2 text-xs shadow-md shadow-slate-900/10 backdrop-blur">
+          <select
+            className="h-7 w-full rounded-md border border-transparent bg-transparent pr-6 text-sm font-semibold text-slate-950 outline-none transition hover:border-slate-200 hover:bg-white focus:border-blue-300 focus:bg-white"
+            value={selectedFacility?.id ?? selectedFacilityId}
             onChange={(event) => onSelectFacility(event.target.value)}
             onClick={(event) => event.stopPropagation()}
             onPointerDown={(event) => event.stopPropagation()}
-            options={facilities.map((facility) => ({ label: facility.name, value: facility.id }))}
-            value={selectedFacility?.id ?? selectedFacilityId}
-          />
+            aria-label="Выбрать объект защиты"
+          >
+            {facilities.map((facility) => (
+              <option key={facility.id} value={facility.id}>
+                {facility.name}
+              </option>
+            ))}
+          </select>
+          <p className="text-slate-500">
+            {placementHint}
+          </p>
         </div>
-        <Status label={placementHint} tone="info" />
       </div>
 
-      <div ref={baseMapMenuRef} className="fortis-map-control-corner">
-        <div className="fortis-map-basemap-wrap">
-          <Button
-            className="fortis-map-basemap-trigger"
-            leadingIcon={<Icon decorative name="map.basemap" size={16} />}
+      <div ref={baseMapMenuRef} className="absolute right-4 top-4 z-10 flex items-start gap-2">
+        <div className="relative">
+          <button
+            className="flex min-h-11 min-w-11 items-center gap-2 rounded-lg border border-white/60 bg-white/95 px-3 text-sm font-semibold text-slate-700 shadow-md shadow-slate-900/10 backdrop-blur transition hover:border-blue-200 hover:text-blue-700"
+            type="button"
             onClick={() => setIsBaseMapMenuOpen((current) => !current)}
             aria-expanded={isBaseMapMenuOpen}
             aria-haspopup="dialog"
             aria-label="Выбрать источник карты"
             title="Источник карты"
-            variant="secondary"
           >
-            Карта · {currentBaseMapSource.title}
-          </Button>
+            <span>Карта</span>
+            <span className="text-xs text-slate-500">{currentBaseMapSource.title}</span>
+          </button>
           {isBaseMapMenuOpen ? (
-            <div aria-label="Источники карты" className="fortis-map-basemap-menu" role="dialog">
-              <div className="fortis-map-basemap-header">
+            <div className="absolute right-0 mt-2 w-[min(26rem,calc(100vw-2rem))] max-h-[70vh] overflow-y-auto rounded-2xl border border-white/70 bg-white/97 p-3 shadow-2xl shadow-slate-900/20 backdrop-blur">
+              <div className="mb-2 flex items-center justify-between">
                 <div>
-                  <strong>Источники карты</strong>
-                  <p>Подложка переключается независимо от слоёв Fortis.</p>
+                  <p className="text-sm font-semibold text-slate-900">Источники карты</p>
+                  <p className="text-xs text-slate-500">Basemap переключается независимо от слоёв Fortis.</p>
                 </div>
-                <IconButton
-                  icon="action.close"
-                  label="Закрыть список источников карты"
+                <button
+                  className="grid h-11 w-11 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  type="button"
                   onClick={() => setIsBaseMapMenuOpen(false)}
-                  variant="quiet"
-                />
+                  aria-label="Закрыть список источников карты"
+                >
+                  x
+                </button>
               </div>
-              <div className="fortis-map-basemap-groups">
+              <div className="space-y-3">
                 {groupedBaseMapSources.map(([category, sources]) => (
-                  <section key={category}>
-                    <h3>{baseMapCategoryLabels[category]}</h3>
-                    <div className="fortis-map-basemap-options">
+                  <div key={category}>
+                    <p className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                      {baseMapCategoryLabels[category]}
+                    </p>
+                    <div className="space-y-1">
                       {sources.map((source) => {
                         const isActive = source.id === currentBaseMapSource.id;
                         return (
                           <button
                             key={source.id}
-                            className="fortis-map-source-option"
-                            data-active={isActive || undefined}
+                            className={`block w-full rounded-xl border px-3 py-2 text-left transition ${
+                              isActive
+                                ? "border-blue-200 bg-blue-50/80 shadow-sm"
+                                : "border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50"
+                            }`}
                             type="button"
                             onClick={() => handleBaseMapSelect(source.id)}
                             aria-pressed={isActive}
                           >
-                            <span className="fortis-map-source-copy">
-                              <span>
-                                <strong>{source.title}</strong>
-                                {source.description ? <small>{source.description}</small> : null}
-                              </span>
-                              {isActive ? <Badge tone="accent">Текущий</Badge> : null}
-                            </span>
-                            <span className="fortis-map-source-badges">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-slate-900">{source.title}</p>
+                                <p className="mt-0.5 text-xs text-slate-500">
+                                  {source.type}
+                                  {source.description ? ` · ${source.description}` : ""}
+                                </p>
+                              </div>
+                              {isActive ? (
+                                <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">
+                                  текущий
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
                               {getBaseMapBadges(source).map((badge) => (
-                                <Badge key={`${source.id}:${badge}`}>{badge}</Badge>
+                                <span
+                                  key={`${source.id}:${badge}`}
+                                  className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600"
+                                >
+                                  {badge}
+                                </span>
                               ))}
-                            </span>
+                            </div>
                           </button>
                         );
                       })}
                     </div>
-                  </section>
+                  </div>
                 ))}
               </div>
             </div>
           ) : null}
         </div>
 
-        <div className="fortis-map-zoom-group">
-          <IconButton
-            icon="map.zoom-in"
-            label="Приблизить карту"
+        <div className="flex flex-col overflow-hidden rounded-lg bg-white/95 text-slate-500 shadow-md shadow-slate-900/10 backdrop-blur">
+          <button
+            className="grid h-11 w-11 cursor-pointer place-items-center border-b border-slate-100 text-lg transition hover:bg-blue-50 hover:text-blue-700"
+            type="button"
             onClick={() => adjustMapZoom(1)}
-            variant="quiet"
-          />
-          <output aria-label={`Текущий масштаб ${zoomReadout.toFixed(1)}`} className="fortis-map-zoom-readout">
+            aria-label="Приблизить карту"
+            title="Приблизить карту"
+          >
+            +
+          </button>
+          <button className="grid h-11 w-11 place-items-center border-b border-slate-100 text-xs font-semibold" type="button" disabled>
             {zoomReadout.toFixed(1)}
-          </output>
-          <IconButton
-            icon="map.zoom-out"
-            label="Отдалить карту"
+          </button>
+          <button
+            className="grid h-11 w-11 cursor-pointer place-items-center text-lg transition hover:bg-blue-50 hover:text-blue-700"
+            type="button"
             onClick={() => adjustMapZoom(-1)}
-            variant="quiet"
-          />
+            aria-label="Отдалить карту"
+            title="Отдалить карту"
+          >
+            −
+          </button>
         </div>
       </div>
 
       <div
-        className="fortis-map-scale"
+        className="absolute bottom-5 left-4 z-10 rounded bg-white/90 px-3 py-1.5 text-[11px] text-slate-600 shadow"
         aria-label={`Масштаб карты ${scaleBar.label}`}
       >
-        <div className="fortis-map-scale-line" style={{ width: `${scaleBar.widthPx}px` }} />
+        <div className="mb-1 h-1 rounded-full bg-slate-800" style={{ width: `${scaleBar.widthPx}px` }} />
         {scaleBar.label}
       </div>
 
       {currentBaseMapSource.attribution ? (
         <div
-          className="fortis-map-attribution"
+          className="absolute bottom-5 right-4 z-10 max-w-[min(32rem,calc(100vw-2rem))] rounded bg-white/92 px-3 py-1.5 text-[11px] leading-4 text-slate-600 shadow"
           dangerouslySetInnerHTML={{ __html: currentBaseMapSource.attribution }}
         />
       ) : null}
 
       {baseMapWarning ? (
-        <div className="fortis-map-warning">
-          <InlineMessage tone="warning">{baseMapWarning}</InlineMessage>
+        <div className="absolute left-1/2 top-20 z-10 w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 rounded-xl border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs font-medium text-amber-900 shadow-lg">
+          {baseMapWarning}
         </div>
       ) : null}
 
       {hoverLabel ? (
-        <div className="fortis-map-hover-label">
-          <Status label={hoverLabel} />
+        <div className="pointer-events-none absolute bottom-3 left-3 rounded bg-slate-900/88 px-2 py-1 text-xs text-white">
+          {hoverLabel}
         </div>
       ) : null}
 
@@ -1287,8 +1313,8 @@ export function GisBoard({
       */}
       <div className="pointer-events-none absolute inset-0 z-20">
         {dropPreviewSlotId ? (
-          <div className="fortis-map-drop-preview">
-            <Badge tone="accent">Позиция: {echelonModel.slots.find((slot) => slot.id === dropPreviewSlotId)?.label ?? dropPreviewSlotId}</Badge>
+          <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-md border border-blue-300 bg-blue-600/90 px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
+            Слот: {echelonModel.slots.find((slot) => slot.id === dropPreviewSlotId)?.label ?? dropPreviewSlotId}
           </div>
         ) : null}
       </div>

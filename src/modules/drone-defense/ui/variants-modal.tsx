@@ -1,17 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CheckCircleFilled } from "@ant-design/icons";
+import { Alert, Button, Input, Modal, Spin, Tag, Typography, theme } from "antd";
 import { useDefenseVariantsStore } from "@/modules/drone-defense/domain/use-defense-variants-store";
-import {
-  Alert,
-  Button,
-  EmptyState,
-  Icon,
-  Input,
-  LoadingState,
-  Modal,
-  Tag,
-} from "@/shared/ui/fortis";
 import type { VariantSummary } from "@/shared/types/defense-project";
 
 type Props = { open: boolean; onClose: () => void };
@@ -33,6 +25,7 @@ export function VariantsModal({ open, onClose }: Props) {
     loadVariant,
     deleteVariant,
   } = useDefenseVariantsStore();
+  const { token } = theme.useToken();
   const [newName, setNewName] = useState("");
 
   useEffect(() => {
@@ -50,63 +43,69 @@ export function VariantsModal({ open, onClose }: Props) {
 
   return (
     <Modal
-      description="Сохраняйте, загружайте и удаляйте конфигурации текущей карты."
-      onClose={onClose}
       open={open}
+      onCancel={onClose}
       title="Варианты конфигурации"
+      footer={null}
+      width={520}
+      destroyOnHidden
     >
-      <div className="fortis-variants-modal">
-        {error ? (
-          <Alert
-            action={
-              conflictState ? (
-                <Button
-                  onClick={() => void loadVariant(conflictState.projectId)}
-                  size="sm"
-                  variant="danger"
-                >
-                  Перезагрузить актуальную версию
-                </Button>
-              ) : undefined
-            }
-            title="Не удалось выполнить действие"
-            tone="danger"
-          >
-            {error}
-          </Alert>
-        ) : null}
-
-        <VariantsBody
-          activeVariantId={activeVariantId}
-          listStatus={listStatus}
-          onDelete={(id) => void deleteVariant(id)}
-          onLoad={(id) => void loadVariant(id).then(onClose)}
-          variants={variants}
+      {error ? (
+        <Alert
+          type="error"
+          message={error}
+          action={
+            conflictState ? (
+              <Button size="small" danger onClick={() => void loadVariant(conflictState.projectId)}>
+                Перезагрузить актуальную версию
+              </Button>
+            ) : undefined
+          }
+          showIcon
+          style={{ marginBottom: token.marginMD }}
         />
+      ) : null}
 
-        <section className="fortis-variants-save">
-          <h3>Сохранить текущую карту</h3>
-          <div className="fortis-variants-save__controls">
-            <Input
-              disabled={saving}
-              label="Имя нового варианта"
-              maxLength={120}
-              onChange={(event) => setNewName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") handleSave();
-              }}
-              placeholder="Например, Северный периметр"
-              value={newName}
-            />
-            <Button
-              disabled={!canSave}
-              loading={saving}
-              onClick={handleSave}
-            >
-              Сохранить как новый
-            </Button>
-          </div>
-        </section>
+      <VariantsBody
+        variants={variants}
+        activeVariantId={activeVariantId}
+        listStatus={listStatus}
+        token={token}
+        onLoad={(id) => void loadVariant(id).then(onClose)}
+        onDelete={(id) => void deleteVariant(id)}
+      />
+
+      <div
+        style={{
+          marginTop: token.marginLG,
+          paddingTop: token.marginMD,
+          borderTop: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
+        <Typography.Text
+          strong
+          style={{ display: "block", marginBottom: token.marginXS }}
+        >
+          Сохранить текущую карту
+        </Typography.Text>
+        <div style={{ display: "flex", gap: token.marginXS }}>
+          <Input
+            value={newName}
+            onChange={(event) => setNewName(event.target.value)}
+            onPressEnter={handleSave}
+            placeholder="Имя нового варианта…"
+            disabled={saving}
+            maxLength={120}
+          />
+          <Button
+            type="primary"
+            onClick={handleSave}
+            disabled={!canSave}
+            loading={saving}
+          >
+            Сохранить как новый
+          </Button>
+        </div>
       </div>
     </Modal>
   );
@@ -116,6 +115,7 @@ type VariantsBodyProps = {
   variants: VariantSummary[];
   activeVariantId: string | null;
   listStatus: "idle" | "loading" | "error";
+  token: ReturnType<typeof theme.useToken>["token"];
   onLoad: (id: string) => void;
   onDelete: (id: string) => void;
 };
@@ -124,66 +124,108 @@ function VariantsBody({
   variants,
   activeVariantId,
   listStatus,
+  token,
   onLoad,
   onDelete,
 }: VariantsBodyProps) {
   if (listStatus === "loading") {
-    return <LoadingState label="Загрузка списка вариантов" />;
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: token.marginSM,
+          padding: `${token.paddingXL}px 0`,
+        }}
+      >
+        <Spin />
+        <Typography.Text type="secondary">Загрузка списка…</Typography.Text>
+      </div>
+    );
   }
 
   if (variants.length === 0) {
     return (
-      <EmptyState
-        description="Сохраните текущую карту как первый вариант."
-        title="Пока нет сохранённых вариантов"
-      />
+      <div
+        style={{
+          padding: `${token.paddingXL}px ${token.paddingLG}px`,
+          textAlign: "center",
+        }}
+      >
+        <Typography.Text type="secondary">
+          Пока нет сохранённых вариантов. Сохраните текущую карту как первый
+          вариант ниже.
+        </Typography.Text>
+      </div>
     );
   }
 
   return (
-    <ul className="fortis-variants-list">
+    <ul
+      style={{
+        listStyle: "none",
+        margin: 0,
+        padding: 0,
+        maxHeight: 360,
+        overflowY: "auto",
+        marginInline: -token.paddingContentHorizontalLG,
+      }}
+    >
       {variants.map((variant) => {
         const isActive = variant.projectId === activeVariantId;
-
         return (
           <li
-            className="fortis-variants-list__item"
-            data-active={isActive || undefined}
             key={variant.projectId}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: token.marginSM,
+              paddingBlock: token.paddingSM,
+              paddingInline: token.paddingContentHorizontalLG,
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              background: isActive ? token.colorPrimaryBg : undefined,
+              transition: `background ${token.motionDurationMid}`,
+            }}
           >
             {isActive ? (
-              <Icon
-                className="fortis-variants-list__active-icon"
-                decorative
-                name="status.success"
-                size={20}
+              <CheckCircleFilled
+                style={{ color: token.colorPrimary, fontSize: token.fontSizeLG }}
               />
             ) : null}
-            <div className="fortis-variants-list__content">
-              <div className="fortis-variants-list__title">
-                <strong>{variant.name}</strong>
-                {isActive ? <Tag label="Текущий" selected /> : null}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: token.marginXS,
+                }}
+              >
+                <Typography.Text strong>{variant.name}</Typography.Text>
+                {isActive ? (
+                  <Tag color="processing" style={{ marginInlineEnd: 0 }}>
+                    Текущий
+                  </Tag>
+                ) : null}
               </div>
-              <span className="fortis-variants-list__meta">
+              <Typography.Text
+                type="secondary"
+                style={{ display: "block", fontSize: token.fontSizeSM }}
+              >
                 {`v${variant.version} · ${formatUpdatedAt(variant.updatedAt)}`}
-              </span>
+              </Typography.Text>
             </div>
-            <div className="fortis-variants-list__actions">
-              <Button
-                onClick={() => onLoad(variant.projectId)}
-                size="sm"
-                variant="quiet"
-              >
-                Загрузить
-              </Button>
-              <Button
-                onClick={() => onDelete(variant.projectId)}
-                size="sm"
-                variant="danger"
-              >
-                Удалить
-              </Button>
-            </div>
+            <Button type="link" size="small" onClick={() => onLoad(variant.projectId)}>
+              Загрузить
+            </Button>
+            <Button
+              type="link"
+              size="small"
+              danger
+              onClick={() => onDelete(variant.projectId)}
+            >
+              Удалить
+            </Button>
           </li>
         );
       })}

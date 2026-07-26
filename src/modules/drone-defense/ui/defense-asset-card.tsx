@@ -1,6 +1,6 @@
 "use client";
 
-import { Icon } from "@/shared/ui/fortis";
+import { DragOutlined } from "@ant-design/icons";
 import styles from "./drone-defense-prototype.module.css";
 
 export type PlacementMode = "point" | "line" | "polygon";
@@ -126,7 +126,7 @@ export function DefenseAssetCard({
       {/* Drag handle (только для draggable-карточек) */}
       {showDragHandle && (
         <span className={styles.dragHandle}>
-          <Icon decorative name="action.drag" />
+          <DragOutlined />
         </span>
       )}
 

@@ -1,14 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Button,
-  Icon,
-  IconButton,
-  InlineMessage,
-  Input,
-  Textarea,
-} from "@/shared/ui/fortis";
 import type { PlacementValidationResult } from "@/shared/types/defense-project";
 import styles from "./drone-defense-prototype.module.css";
 
@@ -46,12 +38,12 @@ export function CoordinatePlacementPanel({
   onCancel,
 }: CoordinatePlacementPanelProps) {
   const [input, setInput] = useState(emptyInput);
-  const messageTone =
+  const messageClass =
     validationLevel === "success"
-      ? "info"
+      ? styles.prototypeNoticeSuccess
       : validationLevel === "warning"
-        ? "warning"
-        : "error";
+        ? styles.prototypeNoticeWarning
+        : styles.prototypeNoticeDanger;
 
   const updateInput = (patch: Partial<CoordinatePlacementInput>) => {
     setInput((current) => ({ ...current, ...patch }));
@@ -76,64 +68,79 @@ export function CoordinatePlacementPanel({
               Эшелон: {layerLabel}
             </p>
           </div>
-          <IconButton
-            className="shrink-0"
-            icon="action.close"
-            label="Закрыть"
+          <button
+            type="button"
+            className={`${styles.prototypeIconButton} shrink-0`}
             onClick={onCancel}
-            size="sm"
-            variant="quiet"
-          />
+            aria-label="Закрыть"
+            title="Закрыть"
+          >
+            ×
+          </button>
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <Input
-            inputMode="decimal"
-            label="Широта"
-            onChange={(event) => updateInput({ lat: event.target.value })}
-            placeholder="55.4400"
-            value={input.lat}
-          />
-          <Input
-            inputMode="decimal"
-            label="Долгота"
-            onChange={(event) => updateInput({ lng: event.target.value })}
-            placeholder="37.1000"
-            value={input.lng}
-          />
-          <Input
-            inputMode="decimal"
-            label="Высота, м"
-            onChange={(event) => updateInput({ altitude: event.target.value })}
-            placeholder="Опционально"
-            value={input.altitude}
-          />
-          <Textarea
-            className="col-span-2 resize-none"
-            label="Комментарий"
-            onChange={(event) => updateInput({ notes: event.target.value })}
-            rows={2}
-            value={input.notes}
-          />
+          <label className={styles.prototypeLabel}>
+            Широта
+            <input
+              value={input.lat}
+              onChange={(event) => updateInput({ lat: event.target.value })}
+              inputMode="decimal"
+              placeholder="55.4400"
+              className={styles.prototypeField}
+            />
+          </label>
+          <label className={styles.prototypeLabel}>
+            Долгота
+            <input
+              value={input.lng}
+              onChange={(event) => updateInput({ lng: event.target.value })}
+              inputMode="decimal"
+              placeholder="37.1000"
+              className={styles.prototypeField}
+            />
+          </label>
+          <label className={styles.prototypeLabel}>
+            Высота, м
+            <input
+              value={input.altitude}
+              onChange={(event) => updateInput({ altitude: event.target.value })}
+              inputMode="decimal"
+              placeholder="опционально"
+              className={styles.prototypeField}
+            />
+          </label>
+          <label className={`${styles.prototypeLabel} col-span-2`}>
+            Комментарий
+            <textarea
+              value={input.notes}
+              onChange={(event) => updateInput({ notes: event.target.value })}
+              rows={2}
+              className={`${styles.prototypeTextarea} resize-none`}
+            />
+          </label>
         </div>
 
         {validationMessage ? (
-          <InlineMessage tone={messageTone}>
+          <div className={`mt-3 ${messageClass}`}>
             {validationMessage}
-          </InlineMessage>
+          </div>
         ) : null}
 
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <Button
-            leadingIcon={<Icon decorative name="status.info" />}
+          <button
+            type="button"
+            className={`${styles.prototypeButton} cursor-pointer px-3`}
             onClick={() => onCheck(input)}
-            variant="secondary"
           >
             Проверить точку
-          </Button>
-          <Button type="submit">
+          </button>
+          <button
+            type="submit"
+            className={`${styles.prototypeButtonPrimary} cursor-pointer px-3`}
+          >
             Разместить
-          </Button>
+          </button>
         </div>
       </form>
     </div>

@@ -1,26 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import {
-  Alert,
-  Button,
-  Checkbox,
-  Drawer,
-  Icon,
-  IconButton,
-  Input,
-  Modal,
-  Select,
-  Status,
-  Textarea,
-} from "@/shared/ui/fortis";
+  CloseOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  SaveOutlined,
+} from "@ant-design/icons";
 import {
   createDefenseAsset,
   deleteDefenseAsset,
   updateDefenseAsset,
   type DefenseAssetMutationInput,
 } from "@/modules/drone-defense/infra/asset-library-api";
-import { prototypeRu } from "@/shared/config/prototype-ru";
 import styles from "./drone-defense-prototype.module.css";
 import type {
   DefenseAsset,
@@ -31,7 +25,6 @@ import type {
 
 type AssetLibraryManagerProps = {
   assets: DefenseAsset[];
-  children?: ReactNode;
   placedObjects: PlacedDefenseObject[];
   selectedAssetId?: string | null;
   loading: boolean;
@@ -59,14 +52,28 @@ type AssetFormState = {
   enterpriseId: string;
 };
 
-type AssetFormErrors = Partial<Record<"name", string>>;
-
 const categoryOptions: Array<{ value: DefenseAssetCategory; label: string }> = [
-  ...prototypeRu.library.categoryOptions,
+  { value: "detection", label: "Обнаружение" },
+  { value: "classification", label: "Классификация" },
+  { value: "jamming", label: "РЭБ" },
+  { value: "spoofing", label: "Спуфинг" },
+  { value: "kinetic", label: "Поражение" },
+  { value: "interceptor", label: "Перехват" },
+  { value: "passive-protection", label: "Пассивная защита" },
+  { value: "engineering-protection", label: "Инженерная защита" },
+  { value: "infrastructure", label: "Инфраструктура" },
+  { value: "command-center", label: "Командный центр" },
+  { value: "early-warning", label: "Раннее предупреждение" },
+  { value: "software", label: "ПО" },
+  { value: "external-service", label: "Внешний сервис" },
 ];
 
 const coverageTypeOptions: Array<{ value: DefenseAssetCoverageType; label: string }> = [
-  ...prototypeRu.library.coverageTypeOptions,
+  { value: "circle", label: "Круг" },
+  { value: "sector", label: "Сектор" },
+  { value: "line", label: "Линия" },
+  { value: "polygon", label: "Полигон" },
+  { value: "none", label: "Нет" },
 ];
 
 function emptyForm(): AssetFormState {
@@ -180,7 +187,6 @@ function formToAssetInput(form: AssetFormState): DefenseAssetMutationInput {
 
 export function AssetLibraryManager({
   assets,
-  children,
   placedObjects,
   selectedAssetId,
   loading,
@@ -197,89 +203,44 @@ export function AssetLibraryManager({
     [assets, selectedAssetId],
   );
   const [form, setForm] = useState<AssetFormState>(() => (selectedAsset ? formFromAsset(selectedAsset) : emptyForm()));
-  const [formErrors, setFormErrors] = useState<AssetFormErrors>({});
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
-  const nameInputRef = useRef<HTMLInputElement>(null);
-  const formFooterRef = useRef<HTMLDivElement>(null);
-  const initialFormRef = useRef<AssetFormState>(form);
-  const openerRef = useRef<HTMLElement | null>(null);
   const usedAssetIds = useMemo(() => new Set(placedObjects.map((object) => object.assetId)), [placedObjects]);
   const selectedAssetUsed = Boolean(selectedAsset && usedAssetIds.has(selectedAsset.id));
 
-  useEffect(() => {
-    if (mode !== "closed") {
-      nameInputRef.current?.focus();
-      formFooterRef.current?.scrollIntoView({ block: "nearest" });
-    }
-  }, [mode]);
-
   const startCreate = () => {
-    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const nextForm = emptyForm();
-    initialFormRef.current = nextForm;
     setMode("create");
-    setForm(nextForm);
-    setFormErrors({});
+    setForm(emptyForm());
     setLocalError(null);
   };
 
   const startEdit = () => {
     if (!selectedAsset) return;
-    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const nextForm = formFromAsset(selectedAsset);
-    initialFormRef.current = nextForm;
     setMode("edit");
-    setForm(nextForm);
-    setFormErrors({});
+    setForm(formFromAsset(selectedAsset));
     onSelectAsset(selectedAsset.id);
     setLocalError(null);
   };
 
-  const closeForm = () => {
-    setMode("closed");
-    setFormErrors({});
-    setLocalError(null);
-    setIsDiscardConfirmOpen(false);
-    requestAnimationFrame(() => openerRef.current?.focus());
-  };
-
-  const cancelForm = () => {
-    if (JSON.stringify(form) !== JSON.stringify(initialFormRef.current)) {
-      setIsDiscardConfirmOpen(true);
-      return;
-    }
-    closeForm();
-  };
-
   const saveAsset = async () => {
     if (!form.name.trim()) {
-      setFormErrors({ name: prototypeRu.library.nameRequired });
+      setLocalError("Укажите название средства защиты.");
       return;
     }
-    setFormErrors({});
     setSaving(true);
     setLocalError(null);
     try {
       const payload = formToAssetInput(form);
-      const isCreate = mode === "create";
       const asset = mode === "edit" && form.id
         ? await updateDefenseAsset(form.id, payload)
         : await createDefenseAsset(payload);
       onAssetSaved(asset);
       onSelectAsset(asset.id);
-      const nextForm = formFromAsset(asset);
-      initialFormRef.current = nextForm;
-      onMessage(prototypeRu.library.savedMessage(asset.name));
-      if (isCreate) {
-        closeForm();
-      } else {
-        setMode("edit");
-        setForm(nextForm);
-      }
+      setMode("edit");
+      setForm(formFromAsset(asset));
+      onMessage(`${asset.name} сохранено в библиотеке`);
     } catch {
-      setLocalError(prototypeRu.library.saveError);
+      setLocalError("Не удалось сохранить карточку на сервере.");
     } finally {
       setSaving(false);
     }
@@ -288,7 +249,7 @@ export function AssetLibraryManager({
   const deleteSelectedAsset = async () => {
     if (!selectedAsset) return;
     if (selectedAssetUsed) {
-      setLocalError(prototypeRu.library.assetUsedDeleteError);
+      setLocalError("Средство уже размещено на карте. Удаление заблокировано.");
       return;
     }
     setSaving(true);
@@ -300,241 +261,210 @@ export function AssetLibraryManager({
         setLocalError(result.message);
         return;
       }
-      closeForm();
+      setMode("closed");
       setForm(emptyForm());
-      onMessage(prototypeRu.library.deletedMessage(selectedAsset.name));
+      onMessage(`${selectedAsset.name} удалено из библиотеки`);
     } catch {
-      setLocalError(prototypeRu.library.deleteError);
+      setLocalError("Не удалось удалить карточку на сервере.");
     } finally {
       setSaving(false);
     }
   };
 
-  if (mode === "closed") {
-    return (
-      <div className={styles.prototypeLibraryCatalogContent}>
-        <div className={`${styles.prototypeSection} ${styles.prototypeLibraryManager}`}>
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className={styles.prototypeEyebrow}>{prototypeRu.library.management}</p>
-              <p className={`${styles.prototypeMeta} truncate`}>{prototypeRu.library.count(assets.length)}</p>
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <IconButton
-                icon="action.refresh"
-                label={prototypeRu.library.refresh}
-                onClick={() => void onRefresh()}
-                disabled={loading}
-                size="sm"
-                variant="quiet"
-              />
-              <IconButton
-                icon="action.add"
-                label={prototypeRu.library.createAsset}
-                onClick={startCreate}
-                size="sm"
-              />
-              <IconButton
-                icon="action.edit"
-                label={prototypeRu.library.editAsset}
-                onClick={startEdit}
-                disabled={!selectedAsset}
-                size="sm"
-                variant="quiet"
-              />
-            </div>
-          </div>
-        </div>
-        <div
-          className={styles.prototypeLibraryCatalogScrollRegion}
-          data-testid="asset-library-scroll-region"
-        >
-          {loading || error || localError ? (
-            <div className={`${styles.prototypeSection} ${styles.prototypeLibraryFeedback}`}>
-              {loading ? <Status label={prototypeRu.library.loading} tone="info" /> : null}
-              {error ? <Alert title={prototypeRu.library.loadError} tone="warning">{error}</Alert> : null}
-              {localError ? <Alert title={prototypeRu.library.actionError} tone="danger">{localError}</Alert> : null}
-            </div>
-          ) : null}
-          <div className={styles.prototypeLibraryCatalog}>{children}</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <>
-    <Drawer
-      description={mode === "create" ? prototypeRu.library.createAria : prototypeRu.library.editAria}
-      onClose={cancelForm}
-      open
-      title={mode === "create" ? prototypeRu.library.createAria : prototypeRu.library.editAria}
-    >
-    <form
-      aria-label={mode === "create" ? prototypeRu.library.createAria : prototypeRu.library.editAria}
-      className={styles.prototypeLibraryForm}
-      onSubmit={(event) => {
-        event.preventDefault();
-        void saveAsset();
-      }}
-    >
-      <div className={styles.prototypeLibraryFormHeader}>
-        <div>
-          <p className={styles.prototypeEyebrow}>
-            {mode === "create" ? prototypeRu.library.newAsset : prototypeRu.library.assetCard}
-          </p>
-          <h2 className={styles.prototypeCardTitle}>
-            {mode === "create" ? prototypeRu.library.createAria : prototypeRu.library.editAria}
-          </h2>
+    <div className={styles.prototypeSection}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className={styles.prototypeEyebrow}>Управление карточками</p>
+          <p className={`${styles.prototypeMeta} truncate`}>{assets.length} средств в текущей библиотеке</p>
         </div>
-        <IconButton
-          icon="action.close"
-          label={prototypeRu.library.cancelAndReturn}
-          onClick={cancelForm}
-          size="sm"
-          variant="quiet"
-        />
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            className={`${styles.prototypeIconButton} cursor-pointer disabled:cursor-wait`}
+            onClick={() => void onRefresh()}
+            disabled={loading}
+            title="Обновить каталог с сервера"
+            aria-label="Обновить каталог с сервера"
+          >
+            <ReloadOutlined />
+          </button>
+          <button
+            type="button"
+            className={`${styles.prototypeButtonPrimary} w-8 cursor-pointer`}
+            onClick={startCreate}
+            title="Создать средство защиты"
+            aria-label="Создать средство защиты"
+          >
+            <PlusOutlined />
+          </button>
+          <button
+            type="button"
+            className={`${styles.prototypeIconButton} cursor-pointer`}
+            onClick={startEdit}
+            disabled={!selectedAsset}
+            title="Редактировать выбранное средство"
+            aria-label="Редактировать выбранное средство"
+          >
+            <EditOutlined />
+          </button>
+        </div>
       </div>
 
-      <div className={styles.prototypeLibraryFormBody}>
-        {localError ? <Alert title={prototypeRu.library.actionError} tone="danger">{localError}</Alert> : null}
-        <div className="fortis-asset-library-form">
-          <Input
-            invalid={Boolean(formErrors.name)}
-            label={prototypeRu.library.name}
-            message={formErrors.name}
-            ref={nameInputRef}
+      {loading ? <p className={`${styles.prototypeMeta} mt-2 text-blue-600`}>Загрузка библиотеки…</p> : null}
+      {error ? <p className={`${styles.prototypeNoticeWarning} mt-2`}>{error}</p> : null}
+      {localError ? <p className={`${styles.prototypeNoticeDanger} mt-2`}>{localError}</p> : null}
+
+      {mode !== "closed" ? (
+        <div className={`${styles.prototypeFormCard} mt-3 grid gap-2 bg-slate-50 p-2`}>
+          <div className="flex items-center justify-between gap-2">
+            <p className={styles.prototypeCardTitle}>
+              {mode === "create" ? "Новая карточка" : "Редактирование"}
+            </p>
+            <button
+              type="button"
+              className={`${styles.prototypeIconButton} cursor-pointer`}
+              onClick={() => setMode("closed")}
+              title="Закрыть форму"
+              aria-label="Закрыть форму"
+            >
+              <CloseOutlined />
+            </button>
+          </div>
+
+          <input
+            className={styles.prototypeField}
             value={form.name}
-            onChange={(event) => {
-              setForm((current) => ({ ...current, name: event.target.value }));
-              if (formErrors.name) setFormErrors({});
-            }}
+            onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+            placeholder="Название"
           />
 
-          <div className="fortis-asset-library-form__grid">
-            <Select
-              label={prototypeRu.library.category}
-              options={categoryOptions}
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              className={styles.prototypeSelect}
               value={form.category}
               onChange={(event) =>
                 setForm((current) => ({ ...current, category: event.target.value as DefenseAssetCategory }))
               }
-            />
-            <Select
-              label={prototypeRu.library.coverageType}
-              options={coverageTypeOptions}
+            >
+              {categoryOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <select
+              className={styles.prototypeSelect}
               value={form.coverageType}
               onChange={(event) =>
                 setForm((current) => ({ ...current, coverageType: event.target.value as DefenseAssetCoverageType }))
               }
-            />
+            >
+              {coverageTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="fortis-asset-library-form__grid">
-            <Input
-              label={prototypeRu.library.protectionType}
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              className={styles.prototypeField}
               value={form.protectionType}
               onChange={(event) => setForm((current) => ({ ...current, protectionType: event.target.value }))}
+              placeholder="Тип защиты"
             />
-            <Input
-              label={prototypeRu.library.recommendedEchelons}
+            <input
+              className={styles.prototypeField}
               value={form.recommendedLayerCodes}
               onChange={(event) => setForm((current) => ({ ...current, recommendedLayerCodes: event.target.value }))}
-              placeholder={prototypeRu.library.recommendedEchelonsPlaceholder}
+              placeholder="Эшелоны: L2, L3"
             />
           </div>
 
-          <div className="fortis-asset-library-form__grid" data-columns="three">
-            <Input
-              inputMode="decimal"
-              label={prototypeRu.library.priceMln}
+          <div className="grid grid-cols-3 gap-2">
+            <input
+              className={styles.prototypeField}
               value={form.pricePerUnitMln}
               onChange={(event) => setForm((current) => ({ ...current, pricePerUnitMln: event.target.value }))}
-            />
-            <Input
+              placeholder="млн ₽"
               inputMode="decimal"
-              label={prototypeRu.library.radiusKm}
+            />
+            <input
+              className={styles.prototypeField}
               value={form.coverageRadiusKm}
               onChange={(event) => setForm((current) => ({ ...current, coverageRadiusKm: event.target.value }))}
-            />
-            <Input
+              placeholder="радиус, км"
               inputMode="decimal"
-              label={prototypeRu.library.angleDegrees}
+            />
+            <input
+              className={styles.prototypeField}
               value={form.coverageAngle}
               onChange={(event) => setForm((current) => ({ ...current, coverageAngle: event.target.value }))}
+              placeholder="угол"
+              inputMode="decimal"
             />
           </div>
 
-          <Input
-            inputMode="decimal"
-            label={prototypeRu.library.maxDistanceKm}
+          <input
+            className={styles.prototypeField}
             value={form.maxEffectiveDistanceKm}
             onChange={(event) => setForm((current) => ({ ...current, maxEffectiveDistanceKm: event.target.value }))}
+            placeholder="максимальная дальность, км"
+            inputMode="decimal"
           />
 
-          <Textarea
-            className="fortis-asset-library-form__description"
-            label={prototypeRu.library.description}
+          <textarea
+            className={`${styles.prototypeTextarea} min-h-16 resize-y`}
             value={form.description}
             onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+            placeholder="Описание"
           />
 
-          <Checkbox
-            checked={form.isPublic}
-            description={prototypeRu.library.publicCatalogDescription}
-            label={prototypeRu.library.publicCatalog}
-            onCheckedChange={(isPublic) => setForm((current) => ({ ...current, isPublic }))}
-          />
+          <label className={`${styles.prototypeInlineCard} text-xs text-slate-600`}>
+            <span>Общий каталог</span>
+            <input
+              type="checkbox"
+              checked={form.isPublic}
+              onChange={(event) => setForm((current) => ({ ...current, isPublic: event.target.checked }))}
+            />
+          </label>
 
           {!form.isPublic ? (
-            <Input
-              label={prototypeRu.library.enterpriseId}
+            <input
+              className={styles.prototypeField}
               value={form.enterpriseId}
               onChange={(event) => setForm((current) => ({ ...current, enterpriseId: event.target.value }))}
+              placeholder="enterpriseId"
             />
           ) : null}
-        </div>
-      </div>
 
-      <div className={styles.prototypeLibraryFormFooter} ref={formFooterRef}>
-        {mode === "edit" ? (
-          <IconButton
-            icon="action.delete"
-            label={selectedAssetUsed ? prototypeRu.library.assetUsed : prototypeRu.library.deleteAsset}
-            onClick={() => void deleteSelectedAsset()}
-            disabled={saving || selectedAssetUsed}
-            variant="danger"
-          />
-        ) : null}
-        <Button disabled={saving} onClick={cancelForm} variant="secondary">
-          {prototypeRu.library.cancel}
-        </Button>
-        <Button
-          className="flex-1"
-          leadingIcon={<Icon decorative name="action.save" />}
-          loading={saving}
-          type="submit"
-        >
-          {mode === "create" ? prototypeRu.library.create : prototypeRu.library.save}
-        </Button>
-      </div>
-    </form>
-    </Drawer>
-    <Modal
-      description={prototypeRu.library.discardChangesDescription}
-      onClose={() => setIsDiscardConfirmOpen(false)}
-      open={isDiscardConfirmOpen}
-      title={prototypeRu.library.discardChangesTitle}
-    >
-      <div className="fortis-overlay__footer">
-        <Button onClick={() => setIsDiscardConfirmOpen(false)} variant="secondary">
-          {prototypeRu.library.cancel}
-        </Button>
-        <Button onClick={closeForm} variant="danger">
-          {prototypeRu.library.discardChanges}
-        </Button>
-      </div>
-    </Modal>
-    </>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className={`${styles.prototypeButtonPrimary} flex-1 cursor-pointer px-3 disabled:cursor-wait`}
+              onClick={() => void saveAsset()}
+              disabled={saving}
+            >
+              <SaveOutlined />
+              Сохранить
+            </button>
+            {mode === "edit" ? (
+              <button
+                type="button"
+                className={`${styles.prototypeButtonDanger} w-10 cursor-pointer`}
+                onClick={() => void deleteSelectedAsset()}
+                disabled={saving || selectedAssetUsed}
+                title={selectedAssetUsed ? "Средство размещено на карте" : "Удалить средство защиты"}
+                aria-label="Удалить средство защиты"
+              >
+                <DeleteOutlined />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
