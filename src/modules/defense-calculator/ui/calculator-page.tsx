@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { BulbOutlined, MoonOutlined, PrinterOutlined } from "@ant-design/icons";
@@ -16,8 +16,13 @@ import { computeWeightedScore, priorityForScore } from "@/modules/defense-calcul
 import { fitToBudget } from "@/modules/defense-calculator/domain/budget-fit";
 import { formatMln, priorityLabel } from "@/modules/defense-calculator/domain/format";
 import {
+  checkBackendProjectBudget,
+  getBackendBudgetConfig,
   getBackendProjectCost,
   getBackendProjectReport,
+  updateBackendBudgetConfig,
+  type BackendBudgetCheck,
+  type BackendBudgetConfig,
   type BackendCostCalculation,
   type BackendProjectReport,
 } from "@/modules/defense-calculator/infra/backend-project-api";
@@ -33,6 +38,7 @@ import {
 import { useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
 import type { DefenseProject, LayerSummary } from "@/shared/types/defense-project";
 import type {
+  ConfigurationEstimate,
   DefenseAsset,
   PriorityColor,
 } from "@/modules/defense-calculator/domain/calculator-types";
@@ -50,6 +56,8 @@ const PRIORITY_TEXT: Record<PriorityColor, string> = {
   red: "text-rose-600",
 };
 
+type BackendBudgetStatus = "idle" | "loading" | "saving" | "checking" | "error";
+
 function formatDistance(meters: number) {
   if (meters >= 1000) return `${(meters / 1000).toLocaleString("ru-RU", { maximumFractionDigits: 1 })} км`;
   return `${meters.toLocaleString("ru-RU")} м`;
@@ -63,12 +71,63 @@ function calculatorAssetIdForProjectAsset(project: DefenseProject, assetId: stri
   return project.assetLibrary.find((asset) => asset.id === assetId)?.calculatorAssetId ?? assetId;
 }
 
+function projectLayerIdForCalculatorEchelon(project: DefenseProject, echelonId: string) {
+  const codeByEchelon: Record<string, string> = {
+    ech_1_external_warning: "L1",
+    ech_2_detection: "L2",
+    ech_3_suppression: "L4",
+    ech_4_fire_priority: "L5",
+    ech_5_fire_reserve: "L6",
+    ech_6_passive_itz: "L8",
+    ech_7_atz: "L9",
+    ech_8_infrastructure: "L9",
+  };
+  const code = codeByEchelon[echelonId];
+  return project.layers.find((layer) => layer.code === code)?.id ?? project.activeLayerId ?? project.layers[0]?.id;
+}
+
+function projectAssetIdForCalculatorAsset(project: DefenseProject, calculatorAssetId: string) {
+  return project.assetLibrary.find((asset) => (asset.calculatorAssetId ?? asset.id) === calculatorAssetId)?.id;
+}
+
+function estimateFromBackendCost(
+  fallback: ConfigurationEstimate,
+  backendCost: BackendCostCalculation | null,
+  scoredAssets: ScoredAsset[],
+): ConfigurationEstimate {
+  if (!backendCost) return fallback;
+  const priorityByAssetId = new Map(scoredAssets.map((item) => [item.asset.id, item.priority]));
+  return {
+    ...fallback,
+    totalMln: backendCost.totalMln,
+    echelons: backendCost.byEchelon.map((echelon) => ({
+      echelonId: echelon.echelonId as ConfigurationEstimate["echelons"][number]["echelonId"],
+      echelonName: echelon.echelonName,
+      lines: echelon.lines.map((line) => ({
+        assetId: line.assetId,
+        assetName: line.assetName,
+        echelonId: line.echelonId as ConfigurationEstimate["echelons"][number]["echelonId"],
+        quantity: line.quantity,
+        unitPriceMln: line.unitPriceMln,
+        lineTotalMln: line.lineTotalMln,
+        priority: priorityByAssetId.get(line.assetId) ?? "orange",
+      })),
+      echelonTotalMln: echelon.echelonTotalMln,
+      coveragePct: 0,
+      isEmpty: echelon.lines.length === 0,
+    })),
+  };
+}
+
 export function CalculatorPage() {
   const [tab, setTab] = useState<Tab>("configure");
   const [budgetMln, setBudgetMln] = useState(9300);
   const [backendCost, setBackendCost] = useState<BackendCostCalculation | null>(null);
   const [backendReport, setBackendReport] = useState<BackendProjectReport | null>(null);
+  const [backendBudgetConfig, setBackendBudgetConfig] = useState<BackendBudgetConfig | null>(null);
   const [backendStatus, setBackendStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [backendBudgetStatus, setBackendBudgetStatus] = useState<BackendBudgetStatus>("idle");
+  const [backendBudgetMessage, setBackendBudgetMessage] = useState<string | null>(null);
   const {
     project,
     applyBudgetSelection,
@@ -85,7 +144,10 @@ export function CalculatorPage() {
       Promise.resolve().then(() => {
         setBackendCost(null);
         setBackendReport(null);
+        setBackendBudgetConfig(null);
         setBackendStatus("idle");
+        setBackendBudgetStatus("idle");
+        setBackendBudgetMessage(null);
       });
       return;
     }
@@ -94,20 +156,34 @@ export function CalculatorPage() {
       .then(async () => {
         if (cancelled) return;
         setBackendStatus("loading");
-        const [cost, report] = await Promise.all([
+        setBackendBudgetStatus("loading");
+        const [costResult, reportResult, budgetResult] = await Promise.allSettled([
           getBackendProjectCost(project.projectId),
           getBackendProjectReport(project.projectId),
+          getBackendBudgetConfig(project.projectId),
         ]);
         if (cancelled) return;
+        const cost = costResult.status === "fulfilled" ? costResult.value : null;
+        const report = reportResult.status === "fulfilled" ? reportResult.value : null;
+        const budget = budgetResult.status === "fulfilled" ? budgetResult.value : null;
         setBackendCost(cost);
         setBackendReport(report);
-        setBackendStatus("idle");
+        setBackendBudgetConfig(budget);
+        if (budget?.budgetMode === "limited" && Number.isFinite(budget.budgetAmountMln)) {
+          setBudgetMln(Math.max(0, budget.budgetAmountMln));
+        }
+        setBackendStatus(cost || report ? "idle" : "error");
+        setBackendBudgetStatus(budget ? "idle" : "error");
+        setBackendBudgetMessage(budget ? null : "Backend-бюджет ещё не задан, используется локальное значение.");
       })
       .catch(() => {
         if (cancelled) return;
         setBackendCost(null);
         setBackendReport(null);
+        setBackendBudgetConfig(null);
         setBackendStatus("error");
+        setBackendBudgetStatus("error");
+        setBackendBudgetMessage("Backend-бюджет недоступен, используется локальное значение.");
       });
     return () => {
       cancelled = true;
@@ -149,6 +225,69 @@ export function CalculatorPage() {
   const objectLines = useMemo(() => buildProjectReportObjectLines(project), [project]);
 
   const structuralProfile = useMemo(() => buildStructuralProfile(project), [project]);
+  const reportEstimate = useMemo(
+    () => estimateFromBackendCost(estimate, backendCost, scoredAssets),
+    [backendCost, estimate, scoredAssets],
+  );
+
+  const persistBackendBudget = useCallback(async () => {
+    if (project.source !== "backend" || typeof project.version !== "number") {
+      setBackendBudgetMessage("Сначала загрузите или сохраните проект в backend.");
+      return;
+    }
+    setBackendBudgetStatus("saving");
+    setBackendBudgetMessage(null);
+    try {
+      const config = await updateBackendBudgetConfig(project.projectId, {
+        budgetMode: "limited",
+        budgetAmountMln: budgetMln,
+      });
+      setBackendBudgetConfig(config);
+      setBackendBudgetStatus("idle");
+      setBackendBudgetMessage("Backend-бюджет сохранён.");
+    } catch {
+      setBackendBudgetStatus("error");
+      setBackendBudgetMessage("Не удалось сохранить бюджет на backend.");
+    }
+  }, [budgetMln, project.projectId, project.source, project.version]);
+
+  const checkFirstBackendBudgetPick = useCallback(async () => {
+    if (project.source !== "backend" || typeof project.version !== "number") {
+      setBackendBudgetMessage("Backend-проверка доступна для сохранённого backend-проекта.");
+      return;
+    }
+    const pick = budgetResult.picks.find((item) => item.included) ?? budgetResult.picks[0];
+    if (!pick) {
+      setBackendBudgetMessage("Нет кандидатов для проверки бюджета.");
+      return;
+    }
+    const assetId = projectAssetIdForCalculatorAsset(project, pick.assetId);
+    const echelonId = projectLayerIdForCalculatorEchelon(project, pick.echelonId);
+    if (!assetId || !echelonId) {
+      setBackendBudgetMessage("Не удалось сопоставить кандидата с backend asset/layer.");
+      return;
+    }
+    setBackendBudgetStatus("checking");
+    setBackendBudgetMessage(null);
+    try {
+      const check: BackendBudgetCheck = await checkBackendProjectBudget(project.projectId, {
+        assetId,
+        quantity: 1,
+        echelonId,
+      });
+      setBackendBudgetStatus("idle");
+      setBackendBudgetMessage(
+        check.budgetMode === "unlimited"
+          ? `Backend: бюджет не ограничен, требуется ${formatMln(check.requiredMln)}.`
+          : check.fits
+            ? `Backend: ${pick.assetName} помещается, остаток ${formatMln(check.remainingMln)}.`
+            : `Backend: ${pick.assetName} не помещается, нужно ${formatMln(check.requiredMln)}, остаток ${formatMln(check.remainingMln)}.`,
+      );
+    } catch {
+      setBackendBudgetStatus("error");
+      setBackendBudgetMessage("Backend-проверка бюджета недоступна.");
+    }
+  }, [budgetResult.picks, project]);
 
   const placedCount = calculateProjectTotalUnits(project);
   const positionsCount = calculateProjectTotalObjects(project);
@@ -275,6 +414,12 @@ export function CalculatorPage() {
               budgetMln={budgetMln}
               setBudgetMln={setBudgetMln}
               result={budgetResult}
+              backendEnabled={project.source === "backend" && typeof project.version === "number"}
+              backendBudgetConfig={backendBudgetConfig}
+              backendBudgetStatus={backendBudgetStatus}
+              backendBudgetMessage={backendBudgetMessage}
+              onPersistBackendBudget={persistBackendBudget}
+              onCheckBackendBudget={checkFirstBackendBudgetPick}
               onApplySelection={() => applyBudgetSelection(budgetResult.picks)}
             />
           ) : null}
@@ -290,7 +435,7 @@ export function CalculatorPage() {
       <div className="hidden print:block">
         <CalculatorReport
           objectLines={objectLines}
-          myEstimate={estimate}
+          myEstimate={reportEstimate}
           structuralProfile={structuralProfile}
           scoredAssets={scoredAssets}
           budgetResult={budgetResult}
@@ -613,13 +758,29 @@ function BudgetTab({
   budgetMln,
   setBudgetMln,
   result,
+  backendEnabled,
+  backendBudgetConfig,
+  backendBudgetStatus,
+  backendBudgetMessage,
+  onPersistBackendBudget,
+  onCheckBackendBudget,
   onApplySelection,
 }: {
   budgetMln: number;
   setBudgetMln: (v: number) => void;
   result: ReturnType<typeof fitToBudget>;
+  backendEnabled: boolean;
+  backendBudgetConfig: BackendBudgetConfig | null;
+  backendBudgetStatus: BackendBudgetStatus;
+  backendBudgetMessage: string | null;
+  onPersistBackendBudget: () => void;
+  onCheckBackendBudget: () => void;
   onApplySelection: () => void;
 }) {
+  const isBackendBusy =
+    backendBudgetStatus === "loading" ||
+    backendBudgetStatus === "saving" ||
+    backendBudgetStatus === "checking";
   return (
     <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
       <aside className="lg:sticky lg:top-6 lg:self-start">
@@ -649,6 +810,32 @@ function BudgetTab({
             Порядок закупки: сначала первоочередные (зелёные) по убыванию балла, затем средний и последний
             приоритет. Жадный отбор в&nbsp;рамках бюджета.
           </p>
+          {backendEnabled ? (
+            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs text-blue-900">
+              <p className="font-mono uppercase tracking-wider text-blue-600">
+                Backend budget · {backendBudgetConfig?.budgetMode ?? "local"}
+              </p>
+              {backendBudgetMessage ? <p className="mt-1 leading-relaxed">{backendBudgetMessage}</p> : null}
+              <div className="mt-3 grid gap-2">
+                <button
+                  type="button"
+                  onClick={onPersistBackendBudget}
+                  disabled={isBackendBusy}
+                  className="h-9 rounded-lg border border-blue-200 bg-white px-3 font-semibold text-blue-700 transition hover:border-blue-400 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {backendBudgetStatus === "saving" ? "Сохранение…" : "Сохранить бюджет на сервере"}
+                </button>
+                <button
+                  type="button"
+                  onClick={onCheckBackendBudget}
+                  disabled={isBackendBusy}
+                  className="h-9 rounded-lg border border-blue-200 bg-white px-3 font-semibold text-blue-700 transition hover:border-blue-400 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {backendBudgetStatus === "checking" ? "Проверка…" : "Проверить кандидата на сервере"}
+                </button>
+              </div>
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={onApplySelection}

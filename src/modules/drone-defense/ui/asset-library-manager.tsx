@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CloseOutlined,
   DeleteOutlined,
+  DownloadOutlined,
   EditOutlined,
+  FileTextOutlined,
   PlusOutlined,
   ReloadOutlined,
   SaveOutlined,
@@ -15,6 +17,13 @@ import {
   updateDefenseAsset,
   type DefenseAssetMutationInput,
 } from "@/modules/drone-defense/infra/asset-library-api";
+import {
+  buildAssetDocumentDownloadUrl,
+  createAssetDocument,
+  deleteAssetDocument,
+  listAssetDocuments,
+  type AssetDocument,
+} from "@/modules/drone-defense/infra/asset-documents-api";
 import styles from "./drone-defense-prototype.module.css";
 import type {
   DefenseAsset,
@@ -50,6 +59,11 @@ type AssetFormState = {
   description: string;
   isPublic: boolean;
   enterpriseId: string;
+};
+
+type DocumentFormState = {
+  name: string;
+  url: string;
 };
 
 const categoryOptions: Array<{ value: DefenseAssetCategory; label: string }> = [
@@ -90,6 +104,13 @@ function emptyForm(): AssetFormState {
     description: "",
     isPublic: true,
     enterpriseId: "",
+  };
+}
+
+function emptyDocumentForm(): DocumentFormState {
+  return {
+    name: "",
+    url: "",
   };
 }
 
@@ -205,8 +226,42 @@ export function AssetLibraryManager({
   const [form, setForm] = useState<AssetFormState>(() => (selectedAsset ? formFromAsset(selectedAsset) : emptyForm()));
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<AssetDocument[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
+  const [documentSaving, setDocumentSaving] = useState(false);
+  const [documentForm, setDocumentForm] = useState<DocumentFormState>(() => emptyDocumentForm());
   const usedAssetIds = useMemo(() => new Set(placedObjects.map((object) => object.assetId)), [placedObjects]);
   const selectedAssetUsed = Boolean(selectedAsset && usedAssetIds.has(selectedAsset.id));
+  const selectedAssetIdForDocuments = selectedAsset?.id;
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve()
+      .then(async () => {
+        if (!selectedAssetIdForDocuments) {
+          setDocuments([]);
+          setDocumentsError(null);
+          setDocumentsLoading(false);
+          return;
+        }
+        setDocumentsLoading(true);
+        setDocumentsError(null);
+        const items = await listAssetDocuments(selectedAssetIdForDocuments);
+        if (cancelled) return;
+        setDocuments(items);
+        setDocumentsLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDocuments([]);
+        setDocumentsError("Не удалось загрузить документы.");
+        setDocumentsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAssetIdForDocuments]);
 
   const startCreate = () => {
     setMode("create");
@@ -268,6 +323,47 @@ export function AssetLibraryManager({
       setLocalError("Не удалось удалить карточку на сервере.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const addDocument = async () => {
+    if (!selectedAsset) return;
+    const name = documentForm.name.trim();
+    const url = documentForm.url.trim();
+    if (!name || !url) {
+      setDocumentsError("Укажите название и ссылку на документ.");
+      return;
+    }
+    setDocumentSaving(true);
+    setDocumentsError(null);
+    try {
+      const document = await createAssetDocument({
+        assetId: selectedAsset.id,
+        name,
+        storageKey: url,
+        downloadUrl: url,
+      });
+      setDocuments((current) => [document, ...current]);
+      setDocumentForm(emptyDocumentForm());
+      onMessage(`Документ ${document.name} прикреплён к карточке`);
+    } catch {
+      setDocumentsError("Не удалось сохранить документ на сервере.");
+    } finally {
+      setDocumentSaving(false);
+    }
+  };
+
+  const removeDocument = async (document: AssetDocument) => {
+    setDocumentSaving(true);
+    setDocumentsError(null);
+    try {
+      await deleteAssetDocument(document.id);
+      setDocuments((current) => current.filter((item) => item.id !== document.id));
+      onMessage(`Документ ${document.name} удалён`);
+    } catch {
+      setDocumentsError("Не удалось удалить документ на сервере.");
+    } finally {
+      setDocumentSaving(false);
     }
   };
 
@@ -463,6 +559,77 @@ export function AssetLibraryManager({
               </button>
             ) : null}
           </div>
+        </div>
+      ) : null}
+
+      {selectedAsset ? (
+        <div className={`${styles.prototypeFormCard} mt-3 grid gap-2 bg-slate-50 p-2`}>
+          <div className="flex items-center justify-between gap-2">
+            <p className={`${styles.prototypeCardTitle} flex items-center gap-2`}>
+              <FileTextOutlined />
+              Документы
+            </p>
+            <span className={styles.prototypeMeta}>{documents.length}</span>
+          </div>
+
+          {documentsLoading ? <p className={`${styles.prototypeMeta} text-blue-600`}>Загрузка документов…</p> : null}
+          {documentsError ? <p className={styles.prototypeNoticeWarning}>{documentsError}</p> : null}
+
+          <div className="grid gap-1.5">
+            {documents.length === 0 && !documentsLoading ? (
+              <p className={styles.prototypeMeta}>Документы к карточке пока не прикреплены.</p>
+            ) : null}
+            {documents.map((document) => (
+              <div key={document.id} className={`${styles.prototypeInlineCard} gap-2`}>
+                <div className="min-w-0">
+                  <p className={`${styles.prototypeCardTitle} truncate`}>{document.name}</p>
+                  <p className={`${styles.prototypeMeta} truncate`}>{document.mimeType || "application/octet-stream"}</p>
+                </div>
+                <a
+                  className={styles.prototypeIconButton}
+                  href={document.downloadUrl || buildAssetDocumentDownloadUrl(document.id)}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Открыть документ"
+                  aria-label="Открыть документ"
+                >
+                  <DownloadOutlined />
+                </a>
+                <button
+                  type="button"
+                  className={`${styles.prototypeIconButton} cursor-pointer`}
+                  onClick={() => void removeDocument(document)}
+                  disabled={documentSaving}
+                  title="Удалить документ"
+                  aria-label="Удалить документ"
+                >
+                  <DeleteOutlined />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <input
+            className={styles.prototypeField}
+            value={documentForm.name}
+            onChange={(event) => setDocumentForm((current) => ({ ...current, name: event.target.value }))}
+            placeholder="Название документа"
+          />
+          <input
+            className={styles.prototypeField}
+            value={documentForm.url}
+            onChange={(event) => setDocumentForm((current) => ({ ...current, url: event.target.value }))}
+            placeholder="URL или storage key"
+          />
+          <button
+            type="button"
+            className={`${styles.prototypeButtonPrimary} cursor-pointer px-3 disabled:cursor-wait`}
+            onClick={() => void addDocument()}
+            disabled={documentSaving}
+          >
+            <PlusOutlined />
+            Прикрепить документ
+          </button>
         </div>
       ) : null}
     </div>

@@ -4,9 +4,13 @@ import { readFileSync } from "node:fs";
 import { buildAssetDocumentDownloadUrl, buildAssetDocumentsListUrl } from "@/modules/drone-defense/infra/asset-documents-api";
 import {
   compareBackendProjects,
+  checkBackendProjectBudget,
   getBackendProjectCost,
   getBackendProjectReport,
+  getBackendBudgetConfig,
+  updateBackendBudgetConfig,
 } from "@/modules/defense-calculator/infra/backend-project-api";
+import { getBackendApiBaseUrl } from "@/modules/drone-defense/infra/backend-proxy";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -35,6 +39,9 @@ async function main() {
   await getBackendProjectCost("proj-1");
   await getBackendProjectReport("proj-1", { hideCost: true });
   await compareBackendProjects("proj-1", "proj-2");
+  await getBackendBudgetConfig("proj-1");
+  await updateBackendBudgetConfig("proj-1", { budgetMode: "limited", budgetAmountMln: 9300 });
+  await checkBackendProjectBudget("proj-1", { assetId: "asset-1", quantity: 2, echelonId: "layer-1" });
 
   assert(String(calls[0]?.input) === "/api/v1/projects/cost?id=proj-1", "cost helper must call /projects/cost");
   assert(
@@ -44,6 +51,26 @@ async function main() {
   assert(
     String(calls[2]?.input) === "/api/v1/projects/compare?id1=proj-1&id2=proj-2",
     "compare helper must call /projects/compare",
+  );
+  assert(String(calls[3]?.input) === "/api/v1/projects/budget?id=proj-1", "budget helper must call /projects/budget");
+  assert(String(calls[4]?.input) === "/api/v1/projects/budget?id=proj-1", "budget update helper must call /projects/budget");
+  assert(calls[4]?.init?.method === "PUT", "budget update helper must use PUT");
+  assert(
+    String(calls[5]?.input) === "/api/v1/projects/budget/check?id=proj-1",
+    "budget check helper must call /projects/budget/check",
+  );
+  assert(calls[5]?.init?.method === "POST", "budget check helper must use POST");
+
+  process.env.FORTIS_API_BASE_URL = "http://backend:8090";
+  delete process.env.BACKEND_URL;
+  assert(
+    getBackendApiBaseUrl() === "http://backend:8090/api/v1",
+    "backend proxy must use FORTIS_API_BASE_URL in Docker deployments",
+  );
+  process.env.BACKEND_URL = "http://backend:8090/api/v1";
+  assert(
+    getBackendApiBaseUrl() === "http://backend:8090/api/v1",
+    "backend proxy must keep explicit BACKEND_URL support",
   );
 
   const proxySource = readFileSync("src/proxy.ts", "utf8");
@@ -71,8 +98,12 @@ async function main() {
   );
   const assetLibraryManagerSource = readFileSync("src/modules/drone-defense/ui/asset-library-manager.tsx", "utf8");
   assert(
-    !assetLibraryManagerSource.includes("Не удалось загрузить документы"),
-    "asset library manager must not show backend documents UI while backend flow is opt-in",
+    assetLibraryManagerSource.includes("Не удалось загрузить документы"),
+    "asset library manager must expose backend-backed documents UI",
+  );
+  assert(
+    assetLibraryManagerSource.includes("createAssetDocument"),
+    "asset library manager must create document metadata through backend API",
   );
 
   console.log("backend-integration-contract.test.ts: contracts passed");

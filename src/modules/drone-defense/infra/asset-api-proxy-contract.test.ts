@@ -31,28 +31,8 @@ async function runProxyContract() {
   );
 
   assert(
-    rules.some((rule) => rule.source === "/api/v1/enterprises" && rule.destination === "http://localhost:8090/api/v1/enterprises"),
-    "enterprise list/get route must proxy same-origin /api/v1/enterprises to backend without a trailing slash",
-  );
-
-  assert(
-    rules.some((rule) => rule.source === "/api/v1/assets" && rule.destination === "http://localhost:8090/api/v1/assets"),
-    "asset list/create route must proxy same-origin /api/v1/assets to backend without a trailing slash",
-  );
-
-  assert(
-    rules.some((rule) => rule.source === "/api/v1/assets/get" && rule.destination === "http://localhost:8090/api/v1/assets/get"),
-    "asset get route must proxy to backend /api/v1/assets/get",
-  );
-
-  assert(
-    rules.some((rule) => rule.source === "/api/v1/assets/update" && rule.destination === "http://localhost:8090/api/v1/assets/update"),
-    "asset update route must proxy to backend /api/v1/assets/update",
-  );
-
-  assert(
-    rules.some((rule) => rule.source === "/api/v1/assets/delete" && rule.destination === "http://localhost:8090/api/v1/assets/delete"),
-    "asset delete route must proxy to backend /api/v1/assets/delete",
+    rules.some((rule) => rule.source === "/api/v1/:path*" && rule.destination === "http://localhost:8090/api/v1/:path*"),
+    "all same-origin /api/v1 paths must proxy to the backend, including endpoints added after deploy",
   );
 }
 

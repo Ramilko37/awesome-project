@@ -1,4 +1,17 @@
-const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8090/api/v1";
+function withApiV1(url: string) {
+  const trimmed = url.trim().replace(/\/+$/, "");
+  return trimmed.endsWith("/api/v1") ? trimmed : `${trimmed}/api/v1`;
+}
+
+export function getBackendApiBaseUrl() {
+  return withApiV1(
+    process.env.BACKEND_URL?.trim() ||
+      process.env.FORTIS_API_BASE_URL?.trim() ||
+      process.env.NEXT_PUBLIC_FORTIS_API_BASE_URL?.trim() ||
+      "http://localhost:8090",
+  );
+}
+
 const ACCESS_TOKEN_COOKIE = "access-token";
 
 export type BackendError = {
@@ -46,7 +59,7 @@ function withForwardedAuth(initHeaders: HeadersInit | undefined, request: Reques
 // Performs a server-side request to the Go backend.
 // Returns parsed JSON on success; throws an object {status, error} on failure.
 export async function backendFetch(path: string, init?: RequestInit, options: { request?: Request } = {}): Promise<unknown> {
-  const response = await fetch(`${BACKEND_URL}${path}`, {
+  const response = await fetch(`${getBackendApiBaseUrl()}${path}`, {
     ...init,
     headers: withForwardedAuth(init?.headers, options.request),
     cache: "no-store",
