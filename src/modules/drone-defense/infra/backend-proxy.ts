@@ -65,12 +65,14 @@ export async function backendFetch(path: string, init?: RequestInit, options: { 
     cache: "no-store",
   });
 
-  const text = await response.text();
-  const parsed = text ? JSON.parse(text) : null;
-
   if (!response.ok) {
+    const text = await response.text();
+    const parsed = text ? JSON.parse(text) : null;
     throw { status: response.status, error: mapError(response.status, parsed) };
   }
+
+  const text = await response.text();
+  const parsed = text ? JSON.parse(text) : null;
   return parsed;
 }
 

@@ -250,12 +250,14 @@ export function AssetLibraryManager({
         const items = await listAssetDocuments(selectedAssetIdForDocuments);
         if (cancelled) return;
         setDocuments(items);
-        setDocumentsLoading(false);
       })
       .catch(() => {
         if (cancelled) return;
         setDocuments([]);
         setDocumentsError("Не удалось загрузить документы.");
+      })
+      .finally(() => {
+        if (cancelled) return;
         setDocumentsLoading(false);
       });
     return () => {

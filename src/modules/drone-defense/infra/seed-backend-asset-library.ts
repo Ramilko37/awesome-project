@@ -33,11 +33,12 @@ export function buildPublicAssetSeedPayloads() {
 
 async function readJson<T>(input: URL | string, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
-  const bodyText = await response.text();
-  const body = bodyText ? (JSON.parse(bodyText) as T) : (undefined as T);
   if (!response.ok) {
+    const bodyText = await response.text();
     throw new Error(`HTTP ${response.status} for ${String(input)}: ${bodyText}`);
   }
+  const bodyText = await response.text();
+  const body = bodyText ? (JSON.parse(bodyText) as T) : (undefined as T);
   return body;
 }
 
@@ -58,15 +59,15 @@ export async function seedBackendPublicAssetLibrary() {
     return legacyId ? !existingLegacyIds.has(legacyId) : true;
   });
 
-  for (const payload of missingPayloads) {
-    await readJson<BackendAssetPayload>(buildBackendUrl("/api/v1/assets"), {
+  await Promise.all(
+    missingPayloads.map((payload) => readJson<BackendAssetPayload>(buildBackendUrl("/api/v1/assets"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
-    });
-  }
+    })),
+  );
 
   const afterAssets = await listBackendPublicAssets();
   return {

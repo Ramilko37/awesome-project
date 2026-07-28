@@ -188,7 +188,7 @@ export function RetrospectiveAnalysisPage() {
                   const point = points[eventType];
                   if (!point) return null;
                   return (
-                    <g key={`${eventType}-${index}`}>
+                    <g key={eventType}>
                       <circle
                         cx={point.x}
                         cy={point.y}

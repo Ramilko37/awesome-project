@@ -338,12 +338,11 @@ export function MogCompositionEditor({
   const isDirty = isMogDirty(baselineProfile, draft);
 
   const applyDraft = (updater: (current: PlacedDefenseCompoundProfile) => PlacedDefenseCompoundProfile) => {
-    setDraft((current) => {
-      const next = syncMogDraft(updater(current));
-      setCoverageInputs(buildMogCoverageInputMap(next));
-      onPreviewChange({ compoundProfile: next });
-      return next;
-    });
+    const next = syncMogDraft(updater(draft));
+
+    setDraft(next);
+    setCoverageInputs(buildMogCoverageInputMap(next));
+    onPreviewChange({ compoundProfile: next });
   };
 
   const setCoverageInputValue = (

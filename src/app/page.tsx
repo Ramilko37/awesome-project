@@ -423,19 +423,19 @@ export default function HeroPage() {
             className="flex flex-wrap items-center justify-center gap-3 mt-2"
             style={{ opacity: heroSection.inView ? 1 : 0, transform: heroSection.inView ? "translateY(0)" : "translateY(16px)", transition: "opacity 0.7s ease 300ms, transform 0.7s ease 300ms" }}
           >
-            <a
+            <Link
               href="/prototype"
-              className="flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 px-6 py-3 text-[14px] font-semibold text-white transition-all duration-200 shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40"
+              className="flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 px-6 py-3 text-[14px] font-semibold text-white transition-colors duration-200 shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40"
             >
               Открыть конфигуратор
               <ArrowRight className="h-4 w-4" />
-            </a>
-            <a
+            </Link>
+            <Link
               href="/dashboard"
-              className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-white/12 bg-white/80 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/9 px-6 py-3 text-[14px] font-medium text-slate-700 dark:text-slate-300 transition-all duration-200"
+              className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-white/12 bg-white/80 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/9 px-6 py-3 text-[14px] font-medium text-slate-700 dark:text-slate-300 transition-colors duration-200"
             >
               Открыть платформу
-            </a>
+            </Link>
           </div>
 
           <div

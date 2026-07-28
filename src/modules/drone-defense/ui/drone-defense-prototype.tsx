@@ -483,22 +483,21 @@ export function DroneDefensePrototype() {
   };
 
   const addPolygonDraftPoint = (point: Coordinates) => {
-    setLayerWizardState((current) => {
-      if (!current || current.draft.geometryMode !== "polygon") return current;
-      if (current.draft.polygonClosed) {
-        setLastPlacementMessage("Контур уже замкнут. Очистите или отмените точку, чтобы продолжить.");
-        return current;
-      }
-      setLastPlacementMessage(`Точка контура ${current.draft.polygonCoordinates.length + 1} добавлена`);
-      return {
-        ...current,
-        draft: {
-          ...current.draft,
-          polygonCoordinates: [...current.draft.polygonCoordinates, point],
-          polygonClosed: false,
-        },
-      };
+    if (!layerWizardState || layerWizardState.draft.geometryMode !== "polygon") return;
+    if (layerWizardState.draft.polygonClosed) {
+      setLastPlacementMessage("Контур уже замкнут. Очистите или отмените точку, чтобы продолжить.");
+      return;
+    }
+
+    setLayerWizardState({
+      ...layerWizardState,
+      draft: {
+        ...layerWizardState.draft,
+        polygonCoordinates: [...layerWizardState.draft.polygonCoordinates, point],
+        polygonClosed: false,
+      },
     });
+    setLastPlacementMessage(`Точка контура ${layerWizardState.draft.polygonCoordinates.length + 1} добавлена`);
   };
 
   const handleLocatePlacement = (placement: { id: string; mapRef?: { lon: number; lat: number } }) => {
@@ -570,13 +569,12 @@ export function DroneDefensePrototype() {
   };
 
   const toggleObjectVisibilityMode = () => {
-    setShowAllEchelonObjects((current) => {
-      const next = !current;
-      setLastPlacementMessage(
-        next ? "Объекты: все эшелоны" : `Объекты: ${selectedLayer?.code ?? "активный эшелон"}`,
-      );
-      return next;
-    });
+    const next = !showAllEchelonObjects;
+
+    setShowAllEchelonObjects(next);
+    setLastPlacementMessage(
+      next ? "Объекты: все эшелоны" : `Объекты: ${selectedLayer?.code ?? "активный эшелон"}`,
+    );
   };
 
   const scrollLayerStrip = (direction: "left" | "right") => {

@@ -38,6 +38,12 @@ type DropdownMenuItem = {
   onSelect: () => void;
 };
 
+function dropdownMenuItemKey(item: DropdownMenuItem) {
+  if (item.id) return item.id;
+  if (typeof item.label === "string" || typeof item.label === "number") return `label:${item.label}`;
+  return `label:${String(item.label)}`;
+}
+
 export function DropdownMenu({
   icon,
   iconOnly = false,
@@ -162,7 +168,7 @@ export function DropdownMenu({
             <button
               data-danger={item.danger || undefined}
               disabled={item.disabled}
-              key={item.id ?? index}
+              key={dropdownMenuItemKey(item)}
               onClick={() => {
                 item.onSelect();
                 close(true);

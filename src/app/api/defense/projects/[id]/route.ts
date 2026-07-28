@@ -15,8 +15,7 @@ export async function GET(request: Request, { params }: Ctx) {
 }
 
 export async function PUT(request: Request, { params }: Ctx) {
-  const { id } = await params;
-  const body = await request.text();
+  const [{ id }, body] = await Promise.all([params, request.text()]);
   try {
     const data = await backendFetch(`/projects/update?id=${encodeURIComponent(id)}`, { method: "PUT", body }, { request });
     return Response.json(data);

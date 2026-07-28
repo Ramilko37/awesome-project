@@ -9,7 +9,7 @@ import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from "react";
-import { useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 const DRAG_THRESHOLD = 6; // px before we commit to drag mode
 
@@ -98,8 +98,24 @@ export function DefenseToolIcon({
 
   const rootRef = useRef<HTMLDivElement>(null);
   const ghostRef = useRef<HTMLDivElement | null>(null);
-  const infoRef = useRef<AssetInfo>({ title: "", imageUrl: "" });
-  infoRef.current = { title: `${name}\n${coverageLabel}`, imageUrl: withBasePath(previewImageUrl) };
+  const cleanupDragRef = useRef<(() => void) | null>(null);
+  const dragPreviewInfo = useMemo<AssetInfo>(
+    () => ({ title: `${name}\n${coverageLabel}`, imageUrl: withBasePath(previewImageUrl) }),
+    [coverageLabel, name, previewImageUrl],
+  );
+
+  useEffect(
+    () => () => {
+      cleanupDragRef.current?.();
+      cleanupDragRef.current = null;
+      const ghost = ghostRef.current;
+      if (ghost) {
+        ghost.remove();
+        ghostRef.current = null;
+      }
+    },
+    [],
+  );
 
   // ── helpers ──────────────────────────────────────────────────────────
 
@@ -113,15 +129,15 @@ export function DefenseToolIcon({
       "background:rgba(255,255,255,0.96);box-shadow:0 12px 28px rgba(15,23,42,0.24);" +
       "pointer-events:none;will-change:transform;font:12px system-ui,sans-serif;color:#0f172a;";
         const img = document.createElement("img");
-        img.src = infoRef.current.imageUrl;
+        img.src = dragPreviewInfo.imageUrl;
     img.style.cssText = "width:42px;height:42px;object-fit:cover;display:block;border-radius:6px;background:#f1f5f9;";
     const text = document.createElement("div");
     text.style.cssText = "min-width:0;display:grid;gap:2px;";
     const titleLine = document.createElement("strong");
-    titleLine.textContent = name;
+    titleLine.textContent = dragPreviewInfo.title.split("\n")[0] ?? name;
     titleLine.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;";
     const metaLine = document.createElement("span");
-    metaLine.textContent = coverageLabel;
+    metaLine.textContent = dragPreviewInfo.title.split("\n")[1] ?? coverageLabel;
     metaLine.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#64748b;font-size:11px;";
     text.appendChild(titleLine);
     text.appendChild(metaLine);
@@ -164,6 +180,7 @@ export function DefenseToolIcon({
     const target = event.target as HTMLElement;
     if (isControlTarget(target)) return;
 
+    cleanupDragRef.current?.();
     const startClientX = event.clientX;
     const startClientY = event.clientY;
     let dragging = false;
@@ -179,14 +196,22 @@ export function DefenseToolIcon({
       }
     };
 
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
+    function cleanupPointerDrag() {
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", onEnd, true);
+      window.removeEventListener("pointercancel", onEnd, true);
+      cleanupDragRef.current = null;
       destroyGhost();
-    };
+    }
 
+    function onEnd() {
+      cleanupPointerDrag();
+    }
+
+    cleanupDragRef.current = cleanupPointerDrag;
     window.addEventListener("pointermove", onMove, { capture: true });
-    window.addEventListener("pointerup", onUp, { capture: true });
+    window.addEventListener("pointerup", onEnd, { capture: true });
+    window.addEventListener("pointercancel", onEnd, { capture: true });
   };
 
   // ── render ───────────────────────────────────────────────────────────

@@ -5,6 +5,8 @@ export function generateStaticParams() {
   return mockSites.map((site) => ({ id: site.id }));
 }
 
-export default function Page({ params }: { params: { id: string } }) {
-  return <SiteDetailPage siteId={params.id} />;
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+
+  return <SiteDetailPage siteId={id} />;
 }
