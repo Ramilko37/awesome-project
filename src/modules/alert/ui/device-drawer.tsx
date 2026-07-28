@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { MapPin, Radio, Video, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ThreatEvent } from "@/shared/types/defense";
-import { threatLevelColor } from "./event-card";
-import { mockSensorReadings } from "./radar-scope";
+import { threatLevelColor } from "./event-format";
+import { mockSensorReadings } from "./sensor-readings";
 import { CameraPanel, RadarPanel, RFPanel, AcousticPanel } from "./sensor-panels";
 
 export function DeviceDrawer({ event, onClose }: { event: ThreatEvent; onClose: () => void }) {

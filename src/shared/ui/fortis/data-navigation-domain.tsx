@@ -84,6 +84,21 @@ type EchelonTreeItemProps = {
   warning?: boolean;
 };
 
+const ECHELON_TREE_LEVEL_COLORS: Record<string, string> = {
+  A: "var(--fortis-cyan-500)",
+  L1: "var(--fortis-blue-500)",
+  L2: "var(--fortis-cyan-500)",
+  L3: "var(--fortis-violet-500)",
+  L4: "var(--fortis-amber-600)",
+};
+
+const COVERAGE_STATUS_COLORS = [
+  "var(--fortis-blue-500)",
+  "var(--fortis-cyan-500)",
+  "var(--fortis-violet-500)",
+  "var(--fortis-amber-600)",
+];
+
 export function EchelonTreeItem({
   color,
   count,
@@ -99,13 +114,6 @@ export function EchelonTreeItem({
   title,
   warning,
 }: EchelonTreeItemProps) {
-  const colors: Record<string, string> = {
-    A: "var(--fortis-cyan-500)",
-    L1: "var(--fortis-blue-500)",
-    L2: "var(--fortis-cyan-500)",
-    L3: "var(--fortis-violet-500)",
-    L4: "var(--fortis-amber-600)",
-  };
   return (
     <button
       aria-current={current ? "true" : undefined}
@@ -118,7 +126,7 @@ export function EchelonTreeItem({
       disabled={disabled}
       onClick={onSelect}
       role="treeitem"
-      style={{ "--fortis-level": color ?? colors[level] ?? "var(--fortis-blue-500)" } as CSSProperties}
+      style={{ "--fortis-level": color ?? ECHELON_TREE_LEVEL_COLORS[level] ?? "var(--fortis-blue-500)" } as CSSProperties}
       title={title}
       type="button"
     >
@@ -134,5 +142,5 @@ export function EchelonTreeItem({
   );
 }
 export function BudgetMetric({ comparison, label, status = "neutral", value }: { comparison?: string; label: string; status?: "neutral" | "warning" | "danger"; value: string }) { return <section className="fortis-metric"><span>{label}</span><strong className="fortis-metric__value">{value}</strong>{comparison ? <Status label={comparison} tone={status === "danger" ? "danger" : status === "warning" ? "warning" : "neutral"} /> : null}</section>; }
-export function CoverageStatus({ entries }: { entries: { label: string; pattern: "solid" | "dashed" | "dotted"; value: string }[] }) { const colors = ["var(--fortis-blue-500)", "var(--fortis-cyan-500)", "var(--fortis-violet-500)", "var(--fortis-amber-600)"]; return <section className="fortis-card">{entries.map((entry, index) => <div className="fortis-coverage-row" key={entry.label}><span><i className="fortis-line-key" data-pattern={entry.pattern} style={{ "--fortis-level": colors[index] } as CSSProperties} /> {entry.label}</span><strong className="fortis-mono">{entry.value}</strong></div>)}</section>; }
+export function CoverageStatus({ entries }: { entries: { label: string; pattern: "solid" | "dashed" | "dotted"; value: string }[] }) { return <section className="fortis-card">{entries.map((entry, index) => <div className="fortis-coverage-row" key={entry.label}><span><i className="fortis-line-key" data-pattern={entry.pattern} style={{ "--fortis-level": COVERAGE_STATUS_COLORS[index] } as CSSProperties} /> {entry.label}</span><strong className="fortis-mono">{entry.value}</strong></div>)}</section>; }
 export function WarningStack({ warnings }: { warnings: { action?: ReactNode; detail: string; title: string }[] }) { return <section className="fortis-warning-stack">{warnings.map((warning) => <div className="fortis-card__title" key={warning.title}><span><strong>{warning.title}</strong><br /><small>{warning.detail}</small></span>{warning.action}</div>)}</section>; }

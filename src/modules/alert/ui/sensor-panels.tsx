@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RadarScope } from "./radar-scope";
 import { CompassRose } from "./compass-rose";
-import type { SensorReading } from "./radar-scope";
+import type { SensorReading } from "./sensor-readings";
 
 // ─── Shared props ─────────────────────────────────────────────────────────────
 

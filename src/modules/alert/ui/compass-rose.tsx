@@ -1,10 +1,11 @@
 "use client";
 
+const COMPASS_DIRECTIONS = ["С", "СВ", "В", "ЮВ", "Ю", "ЮЗ", "З", "СЗ"];
+
 export function CompassRose({ bearing }: { bearing: number }) {
   const size = 240;
   const cx = size / 2;
   const r = cx - 10;
-  const dirs = ["С", "СВ", "В", "ЮВ", "Ю", "ЮЗ", "З", "СЗ"];
 
   return (
     <svg width={size} height={size} className="block">
@@ -21,7 +22,7 @@ export function CompassRose({ bearing }: { bearing: number }) {
         );
       })}
 
-      {dirs.map((d, i) => {
+      {COMPASS_DIRECTIONS.map((d, i) => {
         const a = (i * 45 - 90) * (Math.PI / 180);
         const tr = r - 16;
         return (

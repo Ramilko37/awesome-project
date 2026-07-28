@@ -54,6 +54,13 @@ export type DefenseToolIconProps = {
   onRemove: () => void;
 };
 
+function isControlTarget(target: HTMLElement) {
+  return Boolean(
+    target.closest("input,select,textarea,a") ||
+      target.closest('button[title="Ввести координаты"]'),
+  );
+}
+
 export function DefenseToolIcon({
   assetId,
   name,
@@ -161,16 +168,6 @@ export function DefenseToolIcon({
       ghostRef.current = null;
     }
   }
-
-  // ── control target detection ─────────────────────────────────────────
-
-  const isControlTarget = (target: HTMLElement) =>
-    Boolean(
-        target.closest("input,select,textarea,a") ||
-        target.closest(
-          'button[title="Ввести координаты"]',
-        ),
-    );
 
   // ── unified pointer handler ──────────────────────────────────────────
 

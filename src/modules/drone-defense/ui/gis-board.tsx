@@ -195,6 +195,8 @@ type MapToolMarker = SlotBuildIcon & {
   y: number;
 };
 
+const EMPTY_MAP_TOOL_MARKERS: MapToolMarker[] = [];
+
 export function GisBoard({
   className = "",
   facilities,
@@ -505,7 +507,7 @@ export function GisBoard({
     });
   }, [boardSize.height, boardSize.width, echelonModel.placements, viewState]);
 
-  const mapToolMarkers: MapToolMarker[] = [];
+  const mapToolMarkers = EMPTY_MAP_TOOL_MARKERS;
 
   const placementById = useMemo(
     () => new Map(configuration.placements.map((placement) => [placement.id, placement])),

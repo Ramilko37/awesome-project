@@ -250,14 +250,6 @@ export const defenseLayerStatusColor: Record<DefenseLayerStatus, string> = {
   missing_data: "#8a94a5",
 };
 
-export const assetCatalog: AssetCatalogItem[] = [
-  { kind: "operator_substation", label: "Операторная / подстанция", tone: "cyan" },
-  { kind: "scaffolding", label: "Защитные леса", tone: "green" },
-  { kind: "fbs_enclosure", label: "ФБС-защита", tone: "amber" },
-  { kind: "perimeter_barrier", label: "Периметральный барьер", tone: "orange" },
-  { kind: "cable_mesh", label: "Сеточная завеса", tone: "steel" },
-];
-
 export const objectDefaultsByKind: Record<
   ObjectKind,
   Pick<SceneObject, "coverageRadiusM" | "elevation" | "zones" | "defenseRole" | "costMln" | "effectiveness">
@@ -342,96 +334,6 @@ export const objectDefaultsByKind: Record<
     costMln: 14,
     effectiveness: 0.52,
   },
-};
-
-function createScenarioObject(
-  id: string,
-  kind: ProtectiveObjectKind,
-  label: string,
-  position: [number, number, number],
-  overrides: Partial<Pick<SceneObject, "coverageRadiusM" | "elevation" | "zones" | "defenseRole" | "costMln" | "effectiveness" | "assignment">> = {},
-): SceneObject {
-  const defaults = objectDefaultsByKind[kind];
-  return {
-    id,
-    kind,
-    label,
-    position,
-    radius: overrides.coverageRadiusM ?? defaults.coverageRadiusM,
-    coverageRadiusM: overrides.coverageRadiusM ?? defaults.coverageRadiusM,
-    elevation: overrides.elevation ?? defaults.elevation,
-    zones: overrides.zones ?? defaults.zones,
-    assignment: overrides.assignment ?? "Сетка Альфа",
-    defenseRole: overrides.defenseRole ?? defaults.defenseRole,
-    costMln: overrides.costMln ?? defaults.costMln,
-    effectiveness: overrides.effectiveness ?? defaults.effectiveness,
-  };
-}
-
-const baselineScenario: SceneObject[] = [
-  createScenarioObject("baseline-command-operator", "operator_substation", "Операторная / подстанция 01", [-18, 0, 220], {
-    costMln: 38,
-  }),
-  createScenarioObject("baseline-tank-fbs", "fbs_enclosure", "ФБС-защита резервуарного парка", [174, 0, 174], {
-    costMln: 28,
-  }),
-  createScenarioObject("baseline-reactor-scaffold", "scaffolding", "Защитные леса реакторного блока", [10, 0, 176], {
-    costMln: 24,
-  }),
-  createScenarioObject("baseline-south-barrier", "perimeter_barrier", "ФБС-линия южного периметра", [52, 0, 75], {
-    costMln: 20,
-  }),
-  createScenarioObject("baseline-substation-mesh", "cable_mesh", "Сетка у подстанции", [-55, 0, 272], {
-    costMln: 16,
-  }),
-  createScenarioObject("baseline-west-fbs", "fbs_enclosure", "ФБС-защита западной емкостной зоны", [-71, 0, -201], {
-    costMln: 24,
-  }),
-  createScenarioObject("baseline-west-scaffold", "scaffolding", "Защитные леса колонных аппаратов", [-235, 0, -199], {
-    costMln: 22,
-  }),
-  createScenarioObject("baseline-east-barrier", "perimeter_barrier", "ФБС-линия восточного въезда", [297, 0, -300], {
-    costMln: 22,
-  }),
-];
-
-const perimeterAdditions: SceneObject[] = [
-  createScenarioObject("perimeter-storage-fbs", "fbs_enclosure", "ФБС-контур склада сырья", [148, 0, 156], {
-    costMln: 25,
-    coverageRadiusM: 125,
-  }),
-  createScenarioObject("perimeter-north-mesh", "cable_mesh", "Северная тросовая завеса", [35, 0, 254], {
-    costMln: 16,
-    coverageRadiusM: 115,
-  }),
-  createScenarioObject("perimeter-east-mesh", "cable_mesh", "Восточная сеточная завеса", [190, 0, -103], {
-    costMln: 17,
-    coverageRadiusM: 120,
-  }),
-  createScenarioObject("perimeter-west-barrier", "perimeter_barrier", "Западная ФБС-линия", [-193, 0, -300], {
-    costMln: 22,
-    coverageRadiusM: 130,
-  }),
-  createScenarioObject("perimeter-east-storage-barrier", "perimeter_barrier", "ФБС-линия восточного склада", [393, 0, -219], {
-    costMln: 24,
-    coverageRadiusM: 130,
-  }),
-  createScenarioObject("perimeter-operator-mesh", "cable_mesh", "Тыловая сетка операторной", [-210, 0, -121], {
-    costMln: 22,
-    coverageRadiusM: 120,
-  }),
-];
-
-export const scenarioPresets: Record<ScenarioId, SceneObject[]> = {
-  baseline: baselineScenario,
-  balanced: [
-    ...baselineScenario,
-    createScenarioObject("balanced-ew-mesh", "cable_mesh", "РЭБ / сеточная зона L4-L7", [35, 0, 254], {
-      costMln: 31,
-      coverageRadiusM: 120,
-    }),
-  ],
-  reinforced: [...baselineScenario, ...perimeterAdditions],
 };
 
 export const scenarioStats: Record<ScenarioId, DefenseStats> = {
@@ -554,10 +456,6 @@ export const threatTracks: ThreatTrack[] = [
     outcomeByScenario: { baseline: "breach", balanced: "breach", reinforced: "neutralized" },
   },
 ];
-
-export function cloneScenario(id: ScenarioId) {
-  return scenarioPresets[id].map((item) => ({ ...item, position: [...item.position] as [number, number, number] }));
-}
 
 export function snapToGrid(value: number, step = 0.5) {
   return Math.round(value / step) * step;

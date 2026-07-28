@@ -2,10 +2,8 @@
 // See docs/product/defense-calculator-spec.md §2.
 
 import type {
-  AssetScore,
   Criterion,
   CriterionScores,
-  DefenseAsset,
   PriorityColor,
   PriorityThresholds,
 } from "@/modules/defense-calculator/domain/calculator-types";
@@ -26,20 +24,6 @@ export function priorityForScore(score: number, thresholds: PriorityThresholds):
   if (score >= thresholds.green) return "green";
   if (score >= thresholds.orange) return "orange";
   return "red";
-}
-
-/** Convenience: score + priority for one asset. */
-export function scoreAsset(
-  asset: DefenseAsset,
-  criteria: Criterion[],
-  thresholds: PriorityThresholds,
-): AssetScore {
-  const weightedScore = computeWeightedScore(asset.scores, criteria);
-  return {
-    assetId: asset.id,
-    weightedScore,
-    priority: priorityForScore(weightedScore, thresholds),
-  };
 }
 
 /** True if the criteria weights form a valid set (sum to 100). */

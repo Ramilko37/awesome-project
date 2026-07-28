@@ -357,13 +357,6 @@ export async function fetchAssetLibrary(options: FetchAssetLibraryOptions = {}) 
   return items.map(normalizeDefenseAssetPayload);
 }
 
-export async function getDefenseAsset(id: string) {
-  const response = await getApiJson<BackendAssetPayload>(`${assetLibraryPath}/get`, {
-    query: { id },
-  });
-  return normalizeDefenseAssetPayload(response);
-}
-
 export async function createDefenseAsset(data: DefenseAssetMutationInput) {
   const response = await postApiJson<BackendAssetPayload>(assetLibraryPath, {
     body: serializeDefenseAssetMutation(data),

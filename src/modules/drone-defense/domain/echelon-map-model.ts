@@ -156,19 +156,6 @@ function layerColor(layer: DefenseLayer): [number, number, number] {
   return layerColors[layer.id] ?? fallbackLayerColors[(layer.order - 1) % fallbackLayerColors.length];
 }
 
-export function findNextBuildableCatalogGroupForLayer({
-  layerId,
-  catalogGroups,
-  placements,
-}: {
-  layerId: DefenseLayerId;
-  catalogGroups: EchelonBuildCatalogGroup[];
-  placements: Configuration["placements"];
-}) {
-  const placedCatalogGroupIds = new Set(placements.flatMap((placement) => (placement.catalogGroupId ? [placement.catalogGroupId] : [])));
-  return catalogGroups.find((group) => group.layerId === layerId && !placedCatalogGroupIds.has(group.id)) ?? null;
-}
-
 function projectMeters(center: GeoPoint, eastM: number, northM: number): [number, number] {
   const lat = center.lat + northM / 111_320;
   const lon = center.lon + eastM / (111_320 * Math.cos(center.lat * (Math.PI / 180)));

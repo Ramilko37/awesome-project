@@ -1,15 +1,10 @@
 import {
   defenseItems,
   defensePresetConfigurations,
-  getDefenseItemByCalculatorAssetId,
   getDefenseItemById,
 } from "@/shared/config/defense-catalog";
 import type {
-  BudgetSelection,
   DefenseItem,
-  EchelonCost,
-  EchelonCoverage,
-  PriorityItem,
   SelectedConfiguration,
   SelectedConfigurationToPlacementsArgs,
 } from "@/shared/types/defense-configuration";
@@ -131,82 +126,6 @@ export function calculateTotalCost(configuration: SelectedConfiguration, catalog
   return Math.round(total * 10) / 10;
 }
 
-export function calculateTotalUnits(configuration: SelectedConfiguration): number {
-  return Object.values(configuration.selectedItems).reduce((acc, quantity) => acc + quantity, 0);
-}
-
-export function calculateTotalPositions(configuration: SelectedConfiguration): number {
-  return Object.values(configuration.selectedItems).filter((quantity) => quantity > 0).length;
-}
-
-export function calculateCostByEchelon(configuration: SelectedConfiguration, catalog = defenseItems): EchelonCost[] {
-  const byEchelon = new Map<string, EchelonCost>();
-  Object.entries(configuration.selectedItems).forEach(([itemId, quantity]) => {
-    const item = catalog.find((candidate) => candidate.id === itemId);
-    if (!item?.echelonId) return;
-    const previous = byEchelon.get(item.echelonId) ?? {
-      echelonId: item.echelonId,
-      echelonName: item.echelonId,
-      totalMln: 0,
-    };
-    byEchelon.set(item.echelonId, {
-      ...previous,
-      totalMln: Math.round((previous.totalMln + calculateItemCost(item, quantity)) * 10) / 10,
-    });
-  });
-  return [...byEchelon.values()];
-}
-
-export function calculateCoverageByEchelon(configuration: SelectedConfiguration, catalog = defenseItems): EchelonCoverage[] {
-  const weightsByEchelon = new Map<string, number[]>();
-  Object.entries(configuration.selectedItems).forEach(([itemId, quantity]) => {
-    const item = catalog.find((candidate) => candidate.id === itemId);
-    if (!item?.echelonId || quantity <= 0) return;
-    const values = weightsByEchelon.get(item.echelonId) ?? [];
-    values.push(item.coverageWeight ?? item.score);
-    weightsByEchelon.set(item.echelonId, values);
-  });
-  return [...weightsByEchelon.entries()].map(([echelonId, values]) => ({
-    echelonId,
-    coveredPct: values.reduce((acc, value) => acc + value, 0) / values.length / 100,
-  }));
-}
-
-export function calculatePriorityList(configuration: SelectedConfiguration, catalog = defenseItems): PriorityItem[] {
-  return Object.entries(configuration.selectedItems)
-    .flatMap(([itemId, quantity]) => {
-      const item = catalog.find((candidate) => candidate.id === itemId);
-      if (!item || quantity <= 0) return [];
-      return [{ itemId, title: item.title, score: item.score, priority: item.priority, quantity }];
-    })
-    .sort((a, b) => b.score - a.score);
-}
-
-export function calculateBudgetSelection(
-  _configuration: SelectedConfiguration,
-  catalog: DefenseItem[],
-  budgetMln: number,
-): BudgetSelection {
-  let spentMln = 0;
-  const selectedItems: Record<string, number> = {};
-
-  [...catalog]
-    .filter((item) => item.pricePerUnitMln !== null)
-    .sort((a, b) => b.score - a.score)
-    .forEach((item) => {
-      const price = item.pricePerUnitMln ?? 0;
-      if (spentMln + price > budgetMln) return;
-      selectedItems[item.id] = 1;
-      spentMln += price;
-    });
-
-  return {
-    selectedItems,
-    spentMln: Math.round(spentMln * 10) / 10,
-    remainingMln: Math.round((budgetMln - spentMln) * 10) / 10,
-  };
-}
-
 export function applyBudgetPicksToConfiguration(
   configuration: SelectedConfiguration,
   picks: BudgetPickLike[],
@@ -256,8 +175,4 @@ export function selectedConfigurationToPlacements({
       },
     ];
   });
-}
-
-export function calculatorAssetIdToDefenseItemId(assetId: string): string | null {
-  return getDefenseItemByCalculatorAssetId(assetId)?.id ?? getDefenseItemById(assetId)?.id ?? null;
 }

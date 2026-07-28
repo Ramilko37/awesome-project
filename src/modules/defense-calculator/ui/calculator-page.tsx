@@ -56,6 +56,13 @@ const PRIORITY_TEXT: Record<PriorityColor, string> = {
   orange: "text-amber-600",
   red: "text-rose-600",
 };
+const CONFIGURE_CARD_CLASS = "rounded-2xl border border-slate-200 bg-white ";
+const PROJECT_OBJECT_STATUS_LABEL: Record<DefenseProject["placedObjects"][number]["status"], string> = {
+  planned: "План",
+  active: "Активен",
+  inactive: "Отключён",
+  maintenance: "Сервис",
+};
 
 type BackendStatus = "idle" | "loading" | "error";
 type BackendBudgetStatus = "idle" | "loading" | "saving" | "checking" | "error";
@@ -599,13 +606,6 @@ function ConfigureTab({
   objectLines: ProjectObjectReportLine[];
 }) {
   const objectLinesById = new Map(objectLines.map((line) => [line.objectId, line]));
-  const card = "rounded-2xl border border-slate-200 bg-white ";
-  const statusLabel: Record<DefenseProject["placedObjects"][number]["status"], string> = {
-    planned: "План",
-    active: "Активен",
-    inactive: "Отключён",
-    maintenance: "Сервис",
-  };
   const layerSections = [...project.layers].sort((a, b) => a.order - b.order).map((layer) => {
     const summary = layerSummaries.find((item) => item.layerId === layer.id);
     const placedObjects = project.placedObjects.filter((object) => object.layerId === layer.id);
@@ -643,7 +643,7 @@ function ConfigureTab({
       <div className="space-y-4">
         {layerSections.map(({ layer, objectRows, totalMln, coveragePct, conflictCount, rangeLabel }) => {
           return (
-            <section key={layer.id} className={`${card} p-4`}>
+            <section key={layer.id} className={`${CONFIGURE_CARD_CLASS} p-4`}>
               <div className="flex items-baseline justify-between gap-3 border-b border-slate-200 pb-3 ">
                 <div className="flex items-baseline gap-2.5">
                   <span className="rounded-md bg-slate-200 px-2 py-0.5 font-mono text-[11px] font-bold text-blue-700">
@@ -708,7 +708,7 @@ function ConfigureTab({
                           <span className="mx-1.5 text-slate-300">·</span>
                           <span className="text-slate-400">{priorityLabel[priority]}</span>
                           <span className="mx-1.5 text-slate-300">·</span>
-                          <span className="text-slate-400">{statusLabel[object.status]}</span>
+                          <span className="text-slate-400">{PROJECT_OBJECT_STATUS_LABEL[object.status]}</span>
                         </p>
                         {objectLine?.isCompoundPost ? (
                           <>

@@ -27,7 +27,7 @@ type ScaledGlbModelProps = {
 
 const EPSILON = 1e-5;
 
-export function getUpAxisCorrection(upAxis?: "Y" | "Z"): [number, number, number] {
+function getUpAxisCorrection(upAxis?: "Y" | "Z"): [number, number, number] {
   if (upAxis === "Z") return [-Math.PI / 2, 0, 0];
   return [0, 0, 0];
 }

@@ -332,10 +332,6 @@ export function getDefenseItemByMapGroupId(groupId: string): DefenseItem | undef
   return defenseItems.find((item) => item.mapCatalogGroupIds.includes(groupId));
 }
 
-export function getDefenseItemByCalculatorAssetId(assetId: string): DefenseItem | undefined {
-  return defenseItems.find((item) => item.calculatorAssetId === assetId);
-}
-
 export const defensePresetConfigurations = [
   {
     id: "nak",

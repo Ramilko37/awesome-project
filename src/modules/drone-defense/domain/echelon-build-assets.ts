@@ -326,10 +326,6 @@ export function getBuildAssetForCatalogGroup(groupId: string) {
   return buildAssetByGroupId.get(groupId) ?? null;
 }
 
-export function getBuildAssetsForLayer(layerId: DefenseLayerId) {
-  return buildAssetIcons.filter((asset) => asset.layerId === layerId);
-}
-
 export function getBuildOptionForCatalogGroup({
   groupId,
   placements,

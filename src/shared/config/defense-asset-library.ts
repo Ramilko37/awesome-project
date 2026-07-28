@@ -512,7 +512,3 @@ export const defenseAssetLibrary: DefenseAsset[] = defenseItems.map((item) => {
     mapCatalogGroupIds: item.mapCatalogGroupIds,
   };
 });
-
-export function getDefenseAssetById(assetId: string): DefenseAsset | undefined {
-  return defenseAssetLibrary.find((item) => item.id === assetId);
-}

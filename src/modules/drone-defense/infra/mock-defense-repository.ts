@@ -6,7 +6,6 @@ import {
   defenseLayers,
   facilities,
   hexCells,
-  threatRoutes,
 } from "@/modules/drone-defense/infra/mock-defense-data";
 import type {
   Configuration,
@@ -34,14 +33,6 @@ export async function getCatalog(): Promise<DefenseCatalogResponse> {
 
 export async function getFacilities() {
   return facilities;
-}
-
-export async function getThreatRoutes() {
-  return threatRoutes;
-}
-
-export async function getHexCells() {
-  return hexCells;
 }
 
 export async function getLayers(

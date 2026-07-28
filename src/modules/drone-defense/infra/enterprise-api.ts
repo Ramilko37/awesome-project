@@ -77,10 +77,3 @@ export async function fetchEnterprises(options: FetchEnterprisesOptions = {}) {
   const items = Array.isArray(response) ? response : response.items ?? [];
   return items.map(normalizeEnterprisePayload);
 }
-
-export async function getEnterprise(id: string) {
-  const response = await getApiJson<BackendEnterprisePayload>(enterprisesPath, {
-    query: { id },
-  });
-  return normalizeEnterprisePayload(response);
-}

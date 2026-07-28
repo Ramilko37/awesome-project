@@ -11,6 +11,8 @@ import {
 import { scenarioLabels, type ScenarioId } from "../domain/prototype-types";
 import styles from "./drone-defense-prototype.module.css";
 
+const VISIBLE_SCENARIOS: ScenarioId[] = ["baseline", "balanced", "reinforced"];
+
 export function Topbar({
   scenario,
   onScenarioChange,
@@ -24,8 +26,6 @@ export function Topbar({
   demoMode?: boolean;
   onToggleDemo?: () => void;
 }) {
-  const visibleScenarios: ScenarioId[] = ["baseline", "balanced", "reinforced"];
-
   return (
     <header className={styles.topbar}>
       <div className={styles.brand}>
@@ -42,7 +42,7 @@ export function Topbar({
       </div>
 
       <nav className={styles.scenarioTabs} aria-label="Сценарий и разделы">
-        {visibleScenarios.map((id) => (
+        {VISIBLE_SCENARIOS.map((id) => (
           <button
             key={id}
             className={id === scenario ? styles.activeTab : styles.tab}

@@ -99,11 +99,3 @@ export function getAssetDimensions(assetType: AssetType): AssetDimensions {
 export function isAssetType(value: string): value is AssetType {
   return value in DEFAULT_ASSET_DIMENSIONS;
 }
-
-export function getAssetDimensionsSafe(assetType: string): AssetDimensions | null {
-  if (!isAssetType(assetType)) {
-    return null;
-  }
-
-  return DEFAULT_ASSET_DIMENSIONS[assetType];
-}

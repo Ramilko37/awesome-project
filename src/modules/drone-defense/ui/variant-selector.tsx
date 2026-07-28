@@ -154,26 +154,3 @@ export function VariantSaveButton({
     </>
   );
 }
-
-export function VariantSelector() {
-  const { saving } = useVariantMeta();
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        flexWrap: "wrap",
-      }}
-    >
-      <VariantStatusButton />
-      <VariantSaveButton />
-      <Button size="small" onClick={() => setOpen(true)} disabled={saving}>
-        Сохранить как…
-      </Button>
-      <VariantsModal open={open} onClose={() => setOpen(false)} />
-    </div>
-  );
-}

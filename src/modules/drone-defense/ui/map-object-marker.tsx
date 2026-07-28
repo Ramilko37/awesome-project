@@ -15,9 +15,9 @@ import {
 import { useCallback, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import type { EchelonMapPlacement } from "@/modules/drone-defense/domain/echelon-map-model";
 
-export type MapMarkerState = "default" | "hover" | "selected" | "disabled" | "warning" | "conflict" | "inactive";
+type MapMarkerState = "default" | "hover" | "selected" | "disabled" | "warning" | "conflict" | "inactive";
 
-export const ASSET_CATEGORY_COLORS: Record<string, string> = {
+const ASSET_CATEGORY_COLORS: Record<string, string> = {
   "early-warning": "#10b981",
   detection: "#2563eb",
   classification: "#38bdf8",
@@ -45,12 +45,12 @@ const layerCategoryFallback: Record<string, string> = {
   layer_09_hardening: "engineering-protection",
 };
 
-export function getAssetCategoryColor(placement: EchelonMapPlacement) {
+function getAssetCategoryColor(placement: EchelonMapPlacement) {
   const category = placement.markerCategory ?? layerCategoryFallback[placement.layerId] ?? "infrastructure";
   return ASSET_CATEGORY_COLORS[category] ?? ASSET_CATEGORY_COLORS.infrastructure;
 }
 
-export function getAssetMarkerIcon(placement: EchelonMapPlacement): ReactNode {
+function getAssetMarkerIcon(placement: EchelonMapPlacement): ReactNode {
   const category = placement.markerCategory ?? layerCategoryFallback[placement.layerId] ?? "infrastructure";
   const label = placement.label.toLowerCase();
   if (label.includes("osint")) return <GlobalOutlined />;
@@ -87,13 +87,13 @@ export function getAssetMarkerIcon(placement: EchelonMapPlacement): ReactNode {
   }
 }
 
-export function getMarkerState(placement: EchelonMapPlacement, isHovered: boolean): MapMarkerState {
+function getMarkerState(placement: EchelonMapPlacement, isHovered: boolean): MapMarkerState {
   if (placement.isSelected) return "selected";
   if (isHovered) return "hover";
   return "default";
 }
 
-export function shouldShowLabel({
+function shouldShowLabel({
   zoom,
   isSelected,
   isHovered,
