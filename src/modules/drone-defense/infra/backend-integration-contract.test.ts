@@ -10,7 +10,9 @@ import {
   getBackendBudgetConfig,
   updateBackendBudgetConfig,
 } from "@/modules/defense-calculator/infra/backend-project-api";
+import { saveVariantAsNew } from "@/modules/drone-defense/infra/api-client";
 import { getBackendApiBaseUrl } from "@/modules/drone-defense/infra/backend-proxy";
+import type { DefenseProject } from "@/shared/types/defense-project";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -42,6 +44,21 @@ async function main() {
   await getBackendBudgetConfig("proj-1");
   await updateBackendBudgetConfig("proj-1", { budgetMode: "limited", budgetAmountMln: 9300 });
   await checkBackendProjectBudget("proj-1", { assetId: "asset-1", quantity: 2, echelonId: "layer-1" });
+  await saveVariantAsNew({
+    name: "Local draft",
+    project: {
+      schemaVersion: 1,
+      projectId: "current",
+      projectName: "Local draft",
+      baseObject: { id: "obj-1", name: "Object Alpha", center: { lat: 55.75, lng: 37.62 } },
+      layers: [],
+      assetLibrary: [],
+      placedObjects: [],
+      mode: "view",
+      source: "custom",
+      updatedAt: "2026-07-28T07:50:00.000Z",
+    } as DefenseProject,
+  });
 
   assert(String(calls[0]?.input) === "/api/v1/projects/cost?id=proj-1", "cost helper must call /projects/cost");
   assert(
@@ -60,6 +77,13 @@ async function main() {
     "budget check helper must call /projects/budget/check",
   );
   assert(calls[5]?.init?.method === "POST", "budget check helper must use POST");
+  assert(String(calls[6]?.input) === "/api/defense/projects", "variant save must use frontend project BFF");
+  const localDraftPayload = JSON.parse(String(calls[6]?.init?.body)) as { enterpriseId?: string; projectJson?: string };
+  assert(
+    !("enterpriseId" in localDraftPayload),
+    "variant save must omit local non-UUID baseObject id from backend enterpriseId",
+  );
+  assert(typeof localDraftPayload.projectJson === "string", "variant save must still send full projectJson");
 
   process.env.FORTIS_API_BASE_URL = "http://backend:8090";
   delete process.env.BACKEND_URL;

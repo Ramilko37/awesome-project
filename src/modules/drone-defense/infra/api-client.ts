@@ -80,11 +80,30 @@ export function loadVariant(id: string): Promise<DefenseProject> {
   return readVariantJson<DefenseProject>(`/api/defense/projects/${encodeURIComponent(id)}`);
 }
 
+const backendUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function uuidOrUndefined(value: string | undefined | null) {
+  return value && backendUuidPattern.test(value) ? value : undefined;
+}
+
+function backendEnterpriseId(project: DefenseProject) {
+  return uuidOrUndefined(project.enterpriseId) ?? uuidOrUndefined(project.baseObject.id);
+}
+
+function exportBackendProjectJson(project: DefenseProject) {
+  const enterpriseId = backendEnterpriseId(project);
+  return exportDefenseProjectJson({
+    ...project,
+    enterpriseId,
+  });
+}
+
 function projectUpdatePayload(args: { name: string; project: DefenseProject }) {
+  const enterpriseId = backendEnterpriseId(args.project);
   return {
     name: args.name,
-    enterpriseId: args.project.enterpriseId ?? args.project.baseObject.id,
-    projectJson: exportDefenseProjectJson(args.project),
+    ...(enterpriseId ? { enterpriseId } : {}),
+    projectJson: exportBackendProjectJson(args.project),
     ...(typeof args.project.version === "number" ? { version: args.project.version } : {}),
   };
 }
