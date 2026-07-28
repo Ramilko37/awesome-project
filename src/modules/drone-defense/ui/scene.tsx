@@ -233,16 +233,16 @@ function FenceFromPerimeter() {
   const [a, b, c, d] = plantSite.perimeterPoints;
   const fenceHeight = plantSite.fenceHeight;
   const segments = [
-    { pos: [(a[0] + b[0]) / 2, 0, a[1]], size: [Math.abs(b[0] - a[0]), fenceHeight, 0.35] as [number, number, number] },
-    { pos: [(d[0] + c[0]) / 2, 0, d[1]], size: [Math.abs(c[0] - d[0]), fenceHeight, 0.35] as [number, number, number] },
-    { pos: [a[0], 0, (a[1] + d[1]) / 2], size: [0.35, fenceHeight, Math.abs(d[1] - a[1])] as [number, number, number] },
-    { pos: [b[0], 0, (b[1] + c[1]) / 2], size: [0.35, fenceHeight, Math.abs(c[1] - b[1])] as [number, number, number] },
+    { id: "north", pos: [(a[0] + b[0]) / 2, 0, a[1]], size: [Math.abs(b[0] - a[0]), fenceHeight, 0.35] as [number, number, number] },
+    { id: "south", pos: [(d[0] + c[0]) / 2, 0, d[1]], size: [Math.abs(c[0] - d[0]), fenceHeight, 0.35] as [number, number, number] },
+    { id: "west", pos: [a[0], 0, (a[1] + d[1]) / 2], size: [0.35, fenceHeight, Math.abs(d[1] - a[1])] as [number, number, number] },
+    { id: "east", pos: [b[0], 0, (b[1] + c[1]) / 2], size: [0.35, fenceHeight, Math.abs(c[1] - b[1])] as [number, number, number] },
   ];
 
   return (
     <group>
-      {segments.map((segment, index) => (
-        <mesh key={index} position={[segment.pos[0], fenceHeight / 2, segment.pos[2]]}>
+      {segments.map((segment) => (
+        <mesh key={segment.id} position={[segment.pos[0], fenceHeight / 2, segment.pos[2]]}>
           <boxGeometry args={segment.size} />
           <meshStandardMaterial color="#8793a2" metalness={0.18} roughness={0.58} />
         </mesh>
@@ -394,8 +394,8 @@ function PlantObjectMesh({ item }: { item: PlantMapObject }) {
           <boxGeometry args={[width, 0.5, depth]} />
           <meshStandardMaterial color="#8f99a7" metalness={0.12} roughness={0.7} />
         </mesh>
-        {[-1, 1].flatMap((x) => [-1, 1].map((z) => [x, z] as const)).map(([sx, sz], idx) => (
-          <mesh key={idx} castShadow position={[sx * (width / 2 - 0.8), height / 2 - 0.2, sz * (depth / 2 - 0.8)]}>
+        {[-1, 1].flatMap((x) => [-1, 1].map((z) => [x, z] as const)).map(([sx, sz]) => (
+          <mesh key={`${sx}:${sz}`} castShadow position={[sx * (width / 2 - 0.8), height / 2 - 0.2, sz * (depth / 2 - 0.8)]}>
             <boxGeometry args={[0.45, height - 0.4, 0.45]} />
             <meshStandardMaterial color="#7d8794" metalness={0.18} roughness={0.62} />
           </mesh>
@@ -421,8 +421,8 @@ function PlantObjectMesh({ item }: { item: PlantMapObject }) {
           <boxGeometry args={[rampLength, 0.65, width]} />
           <meshStandardMaterial color="#9aa2ae" roughness={0.88} />
         </mesh>
-        {[-1, 1].flatMap((x) => [-1, 1].map((z) => [x, z] as const)).map(([sx, sz], idx) => (
-          <mesh key={idx} castShadow position={[sx * (deckLength * 0.35), height / 2 - 0.2, sz * (width / 2 - 0.8)]}>
+        {[-1, 1].flatMap((x) => [-1, 1].map((z) => [x, z] as const)).map(([sx, sz]) => (
+          <mesh key={`${sx}:${sz}`} castShadow position={[sx * (deckLength * 0.35), height / 2 - 0.2, sz * (width / 2 - 0.8)]}>
             <boxGeometry args={[0.65, height - 0.4, 0.65]} />
             <meshStandardMaterial color="#76808d" roughness={0.74} />
           </mesh>
@@ -471,8 +471,8 @@ function PlantObjectMesh({ item }: { item: PlantMapObject }) {
   if (item.type === "protected_column_group") {
     return (
       <group>
-        {[-1, 1].flatMap((x) => [-1, 1].map((z) => [x, z] as const)).map(([gx, gz], idx) => (
-          <mesh key={idx} castShadow position={[gx * width * 0.22, height * 0.45, gz * depth * 0.2]}>
+        {[-1, 1].flatMap((x) => [-1, 1].map((z) => [x, z] as const)).map(([gx, gz]) => (
+          <mesh key={`${gx}:${gz}`} castShadow position={[gx * width * 0.22, height * 0.45, gz * depth * 0.2]}>
             <cylinderGeometry args={[2.2, 2.5, height * 0.9, 12]} />
             <meshStandardMaterial color="#8f9aa9" metalness={0.2} roughness={0.56} />
           </mesh>

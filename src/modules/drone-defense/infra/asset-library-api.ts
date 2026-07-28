@@ -1,4 +1,4 @@
-import { buildApiV1Url, deleteApiJson, getApiJson, postApiJson, putApiJson } from "@/shared/lib/api-client";
+import { buildApiV1Url, deleteApiJson, postApiJson, putApiJson, readJson } from "@/shared/lib/api-client";
 import type {
   DefenseAsset,
   DefenseAssetCategory,
@@ -21,11 +21,6 @@ export type DefenseAssetMutationInput = Partial<DefenseAsset> & {
 };
 
 type BackendAssetPayload = Record<string, unknown>;
-
-type BackendAssetListResponse = {
-  items?: BackendAssetPayload[];
-  totalItems?: number;
-};
 
 const assetLibraryPath = "/assets";
 
@@ -257,6 +252,12 @@ export function buildAssetLibraryUrl(options: FetchAssetLibraryOptions = {}) {
   });
 }
 
+function buildAssetLibraryBffUrl(options: FetchAssetLibraryOptions = {}) {
+  const backendUrl = buildAssetLibraryUrl(options);
+  const query = backendUrl.includes("?") ? `?${backendUrl.split("?")[1]}` : "";
+  return `/api/defense/assets${query}`;
+}
+
 export function normalizeDefenseAssetPayload(payload: BackendAssetPayload): DefenseAsset {
   const category = mapBackendCategory(stringValue(payload, "category"));
   const roles = (stringArrayValue(payload, "roles") ?? []).map(mapBackendRole);
@@ -344,17 +345,11 @@ export function serializeDefenseAssetMutation(input: DefenseAssetMutationInput |
 }
 
 export async function fetchAssetLibrary(options: FetchAssetLibraryOptions = {}) {
-  const response = await getApiJson<BackendAssetListResponse | BackendAssetPayload[]>(assetLibraryPath, {
-    query: {
-      enterpriseId: options.enterpriseId,
-      isPublic: options.isPublic,
-      category: options.category,
-      limit: options.limit,
-      offset: options.offset,
-    },
-  });
+  const response = await readJson<{ items?: DefenseAsset[]; totalItems?: number } | DefenseAsset[]>(
+    buildAssetLibraryBffUrl(options),
+  );
   const items = Array.isArray(response) ? response : response.items ?? [];
-  return items.map(normalizeDefenseAssetPayload);
+  return items;
 }
 
 export async function createDefenseAsset(data: DefenseAssetMutationInput) {

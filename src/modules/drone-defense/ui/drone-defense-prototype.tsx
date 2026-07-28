@@ -33,6 +33,7 @@ import { EchelonObjectsList } from "@/modules/drone-defense/ui/echelon-objects-l
 import { MogCompositionEditor } from "@/modules/drone-defense/ui/mog-composition-editor";
 import { FacilityDrilldown } from "@/modules/drone-defense/ui/facility-drilldown";
 import { VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
+import { useDefenseVariantsStore } from "@/modules/drone-defense/domain/use-defense-variants-store";
 import styles from "./drone-defense-prototype.module.css";
 import {
   type AssetCatalogItem,
@@ -61,7 +62,13 @@ import { MAX_DEFENSE_PROJECT_LAYERS, useDefenseProjectStore } from "@/shared/lib
 import { useMapViewStore } from "@/shared/lib/use-map-view-store";
 import type { LayerInsertOption } from "@/shared/lib/defense-project";
 import type { DefenseLayer, DefenseLayerId } from "@/shared/types/drone-defense";
-import type { Coordinates, EditableDefenseLayer, LayerSummary, ProtectedObjectOption } from "@/shared/types/defense-project";
+import type {
+  Coordinates,
+  DefenseProject,
+  EditableDefenseLayer,
+  LayerSummary,
+  ProtectedObjectOption,
+} from "@/shared/types/defense-project";
 import type {
   DragEvent as ReactDragEvent,
   MouseEvent as ReactMouseEvent,
@@ -70,6 +77,7 @@ import type {
 } from "react";
 
 const defenseAssetDragMimeType = "application/x-fortis-defense-asset";
+const prototypeAutosaveDelayMs = 1200;
 
 type PrototypeUiState = {
   selectedSlotId: string | null;
@@ -391,6 +399,7 @@ function PrototypeLayerTitle({
 
 export function DroneDefensePrototype() {
   const searchParams = useSearchParams();
+  const backendProjectId = searchParams.get("projectId") ?? searchParams.get("project");
   const [prototypeUiState, dispatchPrototypeUi] = useReducer(
     prototypeUiReducer,
     initialPrototypeUiState,
@@ -521,17 +530,105 @@ export function DroneDefensePrototype() {
     upsertAssetInLibrary,
     removeAssetFromLibrary,
   } = useDefenseProjectStore();
+  const {
+    error: variantError,
+    ensureBackendVariant,
+    loadVariant,
+  } = useDefenseVariantsStore();
+  const [backendSaveReady, setBackendSaveReady] = useState(false);
+  const bootstrapKeyRef = useRef<string | null>(null);
+  const autosaveTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     void init();
   }, [init]);
 
   useEffect(() => {
+    const bootstrapKey = backendProjectId ?? "__default__";
+    if (bootstrapKeyRef.current === bootstrapKey) return;
+    bootstrapKeyRef.current = bootstrapKey;
+    let cancelled = false;
+
     restoreProjectFromLocalStorage();
     restoreMapViewFromLocalStorage();
     void refreshAssetLibrary({ isPublic: true, limit: 100 });
     void refreshProtectedObjects({ limit: 100 });
-  }, [refreshAssetLibrary, refreshProtectedObjects, restoreMapViewFromLocalStorage, restoreProjectFromLocalStorage]);
+    setBackendSaveReady(false);
+
+    void (async () => {
+      if (backendProjectId) await loadVariant(backendProjectId);
+      else await ensureBackendVariant("Тестовый терминал Екатеринбург");
+      if (!cancelled) setBackendSaveReady(true);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (bootstrapKeyRef.current === bootstrapKey) bootstrapKeyRef.current = null;
+    };
+  }, [
+    backendProjectId,
+    ensureBackendVariant,
+    loadVariant,
+    refreshAssetLibrary,
+    refreshProtectedObjects,
+    restoreMapViewFromLocalStorage,
+    restoreProjectFromLocalStorage,
+  ]);
+
+  useEffect(() => {
+    if (!backendSaveReady) return;
+
+    const clearAutosaveTimer = () => {
+      if (!autosaveTimerRef.current) return;
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    };
+
+    const scheduleAutosave = (nextProject: DefenseProject) => {
+      const variants = useDefenseVariantsStore.getState();
+      const canSave =
+        Boolean(variants.activeVariantId) &&
+        nextProject.source === "backend" &&
+        !variants.conflictState &&
+        variants.loadStatus !== "loading" &&
+        variants.saveStatus !== "saving" &&
+        nextProject.updatedAt !== variants.lastSavedProjectUpdatedAt;
+
+      if (!canSave) {
+        clearAutosaveTimer();
+        return;
+      }
+
+      clearAutosaveTimer();
+      autosaveTimerRef.current = window.setTimeout(() => {
+        autosaveTimerRef.current = null;
+        void useDefenseVariantsStore.getState().overwriteActiveVariant();
+      }, prototypeAutosaveDelayMs);
+    };
+
+    scheduleAutosave(useDefenseProjectStore.getState().project);
+    const unsubscribeProject = useDefenseProjectStore.subscribe((state, previous) => {
+      if (state.project.updatedAt === previous.project.updatedAt) return;
+      scheduleAutosave(state.project);
+    });
+    const unsubscribeVariants = useDefenseVariantsStore.subscribe((state, previous) => {
+      const saveStateChanged =
+        state.activeVariantId !== previous.activeVariantId ||
+        state.conflictState !== previous.conflictState ||
+        state.lastSavedProjectUpdatedAt !== previous.lastSavedProjectUpdatedAt ||
+        state.loadStatus !== previous.loadStatus ||
+        state.saveStatus !== previous.saveStatus;
+
+      if (saveStateChanged) scheduleAutosave(useDefenseProjectStore.getState().project);
+    });
+
+    return () => {
+      unsubscribeProject();
+      unsubscribeVariants();
+      clearAutosaveTimer();
+    };
+  }, [backendSaveReady]);
+
   const selectedProtectedObject = useMemo(
     () =>
       protectedObjects.find((item) => item.id === project.baseObject.id) ?? {
@@ -574,6 +671,7 @@ export function DroneDefensePrototype() {
   const layerSummaries = useMemo(() => calculateLayerSummaries(project), [project]);
   const requestedView = searchParams.get("view");
   const activeView = requestedView === "scenario-modeling" || requestedView === "3d" ? "drilldown" : view;
+  const topError = error ?? variantError;
   const assetCatalogItems = useMemo(
     () => getAssetCatalogItems(project, selectedLayer?.code, project.placedObjects),
     [project, selectedLayer?.code],
@@ -1260,9 +1358,9 @@ export function DroneDefensePrototype() {
       ) : null}
 
       <main className={styles.prototypeMain}>
-        {error ? (
+        {topError ? (
           <div className={`${styles.prototypeNoticeDanger} absolute left-4 top-4 z-30 shadow`}>
-            {error}
+            {topError}
           </div>
         ) : null}
         {loading ? (

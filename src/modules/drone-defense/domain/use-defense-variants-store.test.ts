@@ -152,7 +152,34 @@ async function main() {
   assert(useDefenseProjectStore.getState().project.version === 8, "overwrite success must update project.version");
   console.log("overwriteActiveVariant version: OK");
 
-  // 7. 409 Conflict becomes a user-visible conflict state.
+  // 7. Pending local changes made during a save must survive the backend response.
+  resetStore();
+  useDefenseProjectStore.getState().replaceProject({ ...minimalProject("C"), source: "backend" });
+  useDefenseVariantsStore.setState({ activeVariantId: "C", activeVariantName: "name-C" });
+  fetchHandler = (method) => {
+    if (method === "PUT") {
+      useDefenseProjectStore.getState().replaceProject({
+        ...minimalProject("C"),
+        source: "backend",
+        updatedAt: "2026-06-12T15:00:00.000Z",
+      });
+      return { ok: true, status: 200, data: summary({ projectId: "C", name: "name-C", version: 8, updatedAt: "2026-06-12T16:00:00.000Z" }) };
+    }
+    return { ok: true, status: 200, data: { items: [summary({ projectId: "C", name: "name-C", version: 8 })], totalItems: 1 } };
+  };
+  await useDefenseVariantsStore.getState().overwriteActiveVariant();
+  assert(useDefenseProjectStore.getState().project.version === 8, "pending project must receive the next backend version");
+  assert(
+    useDefenseProjectStore.getState().project.updatedAt === "2026-06-12T15:00:00.000Z",
+    "pending local changes must not be overwritten by save response metadata",
+  );
+  assert(
+    useDefenseVariantsStore.getState().lastSavedProjectUpdatedAt === "2026-06-12T16:00:00.000Z",
+    "save stamp must still track the backend-confirmed save",
+  );
+  console.log("overwriteActiveVariant pending changes: OK");
+
+  // 8. 409 Conflict becomes a user-visible conflict state.
   resetStore();
   useDefenseProjectStore.getState().replaceProject(minimalProject("D"));
   useDefenseVariantsStore.setState({ activeVariantId: "D", activeVariantName: "name-D" });
@@ -169,6 +196,52 @@ async function main() {
     "409 must tell the user to reload the current version",
   );
   console.log("overwriteActiveVariant conflict: OK");
+
+  // 9. ensureBackendVariant creates the first backend-backed variant for a local project.
+  resetStore();
+  fetchHandler = (method, url) => {
+    if (method === "POST") return { ok: true, status: 200, data: summary({ projectId: "E", name: "name-E", version: 1 }) };
+    if (method === "GET" && url === "/api/defense/projects") {
+      const hasPosted = fetchCalls.some((call) => call.method === "POST");
+      return {
+        ok: true,
+        status: 200,
+        data: { items: hasPosted ? [summary({ projectId: "E", name: "name-E", version: 1 })] : [], totalItems: hasPosted ? 1 : 0 },
+      };
+    }
+    return { ok: true, status: 200, data: { items: [summary({ projectId: "E", name: "name-E", version: 1 })], totalItems: 1 } };
+  };
+  await useDefenseVariantsStore.getState().ensureBackendVariant("name-E");
+  assert(fetchCalls.some((call) => call.method === "POST"), "ensureBackendVariant must POST when no saved variant exists");
+  assert(useDefenseVariantsStore.getState().activeVariantId === "E", "ensureBackendVariant must create an active backend variant");
+  assert(useDefenseProjectStore.getState().project.source === "backend", "ensureBackendVariant must mark project as backend-backed");
+  assert(useDefenseVariantsStore.getState().lastSavedProjectUpdatedAt === summary({ projectId: "E" }).updatedAt, "ensureBackendVariant must remember saved stamp");
+  console.log("ensureBackendVariant create: OK");
+
+  // 10. concurrent ensureBackendVariant calls share one in-flight create request.
+  resetStore();
+  fetchHandler = (method) => {
+    if (method === "POST") return { ok: true, status: 200, data: summary({ projectId: "G", name: "name-G", version: 1 }) };
+    return { ok: true, status: 200, data: { items: [summary({ projectId: "G", name: "name-G", version: 1 })], totalItems: 1 } };
+  };
+  await Promise.all([
+    useDefenseVariantsStore.getState().ensureBackendVariant("name-G"),
+    useDefenseVariantsStore.getState().ensureBackendVariant("name-G"),
+  ]);
+  assert(fetchCalls.filter((call) => call.method === "POST").length === 1, "concurrent ensureBackendVariant must only POST once");
+  assert(useDefenseVariantsStore.getState().activeVariantId === "G", "concurrent ensureBackendVariant must activate the created variant");
+  console.log("ensureBackendVariant in-flight: OK");
+
+  // 11. ensureBackendVariant adopts an already restored backend project without posting a duplicate.
+  resetStore();
+  useDefenseProjectStore.getState().replaceProject({ ...minimalProject("F"), source: "backend" });
+  fetchHandler = () => {
+    throw new Error("ensureBackendVariant must not call fetch for restored backend projects");
+  };
+  await useDefenseVariantsStore.getState().ensureBackendVariant("ignored");
+  assert(useDefenseVariantsStore.getState().activeVariantId === "F", "ensureBackendVariant must adopt restored backend id");
+  assert(fetchCalls.length === 0, "ensureBackendVariant must not duplicate an existing backend project");
+  console.log("ensureBackendVariant restored backend: OK");
 
   console.log("use-defense-variants-store.test.ts: variants store contracts passed");
 }

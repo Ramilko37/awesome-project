@@ -105,21 +105,22 @@ async function main() {
 
   const proxySource = readFileSync("src/proxy.ts", "utf8");
   assert(
-    proxySource.includes("FORTIS_AUTH_ENABLED"),
-    "proxy auth guard must be feature-flagged while backend auth is not deployed",
+    !proxySource.includes("FORTIS_AUTH_ENABLED"),
+    "prototype auth guard must no longer be disabled by an env flag",
   );
   assert(
-    proxySource.includes("authGuardEnabled"),
-    "proxy must keep protected routes open by default unless auth guard is enabled",
+    proxySource.includes('const protectedRoutes = ["/prototype"]'),
+    "proxy must guard prototype by default",
   );
   assert(proxySource.includes("access-token"), "proxy must check access-token cookie");
-  assert(proxySource.includes("/prototype/:path*"), "proxy must still be able to guard /prototype when enabled");
-  assert(proxySource.includes("/calculator/:path*"), "proxy must still be able to guard /calculator when enabled");
+  assert(proxySource.includes("/prototype/:path*"), "proxy must guard /prototype");
+  assert(!proxySource.includes("/calculator/:path*"), "calculator must not be pulled into the prototype auth change");
   assert(proxySource.includes("/login"), "proxy must redirect to login");
 
   const loginSource = readFileSync("src/app/api/auth/login/route.ts", "utf8");
   assert(loginSource.includes("HttpOnly"), "login route must write HttpOnly cookie");
   assert(!loginSource.includes("localStorage"), "login route must not use localStorage");
+  assert(readFileSync("src/modules/auth/ui/login-page.tsx", "utf8").includes("Вход в систему"), "login page must be localized");
 
   const defenseStudioShellSource = readFileSync("src/modules/drone-defense/ui/defense-studio-shell.tsx", "utf8");
   assert(
@@ -137,8 +138,30 @@ async function main() {
   );
   assert(
     assetLibraryManagerSource.includes("const SHOW_ASSET_DOCUMENTS_IN_DEMO = false") &&
-      assetLibraryManagerSource.includes("SHOW_ASSET_DOCUMENTS_IN_DEMO && selectedAsset"),
+    assetLibraryManagerSource.includes("SHOW_ASSET_DOCUMENTS_IN_DEMO && selectedAsset"),
     "asset library documents integration must stay hidden in the current /prototype demo",
+  );
+  const assetLibraryApiSource = readFileSync("src/modules/drone-defense/infra/asset-library-api.ts", "utf8");
+  assert(
+    assetLibraryApiSource.includes("/api/defense/assets"),
+    "asset library reads must use the auth-aware frontend BFF instead of direct /api/v1 rewrite",
+  );
+  const assetRouteSource = readFileSync("src/app/api/defense/assets/route.ts", "utf8");
+  assert(assetRouteSource.includes("backendFetch"), "asset BFF route must forward requests through backendFetch");
+  assert(
+    assetRouteSource.includes("normalizeDefenseAssetPayload") && assetRouteSource.includes("defenseAssetLibrary"),
+    "asset BFF route must normalize backend assets and keep a local fallback for demo",
+  );
+  const prototypeSource = readFileSync("src/modules/drone-defense/ui/drone-defense-prototype.tsx", "utf8");
+  assert(
+    prototypeSource.includes("if (bootstrapKeyRef.current === bootstrapKey) bootstrapKeyRef.current = null"),
+    "prototype bootstrap cleanup must allow React Strict Mode remount to enable backend saves",
+  );
+  assert(
+    prototypeSource.includes("useDefenseProjectStore.subscribe") &&
+      prototypeSource.includes("useDefenseVariantsStore.subscribe") &&
+      prototypeSource.includes("overwriteActiveVariant"),
+    "prototype autosave must subscribe to project/variant store changes and call overwriteActiveVariant",
   );
 
   console.log("backend-integration-contract.test.ts: contracts passed");

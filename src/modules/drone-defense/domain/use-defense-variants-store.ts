@@ -18,12 +18,14 @@ type VariantsState = {
   activeVariantId: string | null;
   activeVariantName: string | null;
   conflictState: { projectId: string; message: string } | null;
+  lastSavedProjectUpdatedAt: string | null;
   listStatus: Status;
   saveStatus: "idle" | "saving" | "error";
   loadStatus: Status;
   error: string | null;
 
   fetchVariants: () => Promise<void>;
+  ensureBackendVariant: (name?: string) => Promise<void>;
   saveAsNewVariant: (name: string) => Promise<void>;
   overwriteActiveVariant: () => Promise<void>;
   loadVariant: (id: string) => Promise<void>;
@@ -50,11 +52,26 @@ function withBackendContext(project: DefenseProject, summary: VariantSummary): D
   };
 }
 
+function savedProjectResult(submittedProject: DefenseProject, summary: VariantSummary) {
+  const latestProject = useDefenseProjectStore.getState().project;
+  const hasPendingLocalChanges = latestProject.updatedAt !== submittedProject.updatedAt;
+  const sourceProject = hasPendingLocalChanges ? latestProject : submittedProject;
+  const project = withBackendContext(sourceProject, summary);
+
+  return {
+    project: hasPendingLocalChanges ? { ...project, updatedAt: latestProject.updatedAt } : project,
+    savedUpdatedAt: summary.updatedAt || submittedProject.updatedAt,
+  };
+}
+
+let ensureBackendVariantPromise: Promise<void> | null = null;
+
 export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
   variants: [],
   activeVariantId: null,
   activeVariantName: null,
   conflictState: null,
+  lastSavedProjectUpdatedAt: null,
   listStatus: "idle",
   saveStatus: "idle",
   loadStatus: "idle",
@@ -70,13 +87,42 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
     }
   },
 
+  ensureBackendVariant: async (name) => {
+    if (ensureBackendVariantPromise) return ensureBackendVariantPromise;
+    if (get().activeVariantId) return;
+    ensureBackendVariantPromise = (async () => {
+      const project = useDefenseProjectStore.getState().project;
+      if (project.source === "backend" && project.projectId && typeof project.version === "number") {
+        set({
+          activeVariantId: project.projectId,
+          activeVariantName: project.projectName,
+          lastSavedProjectUpdatedAt: project.updatedAt,
+          conflictState: null,
+          error: null,
+        });
+        return;
+      }
+
+      await get().saveAsNewVariant(name?.trim() || project.projectName || "Тестовый терминал Екатеринбург");
+    })().finally(() => {
+      ensureBackendVariantPromise = null;
+    });
+    return ensureBackendVariantPromise;
+  },
+
   saveAsNewVariant: async (name) => {
     set({ saveStatus: "saving", error: null, conflictState: null });
     try {
       const project = useDefenseProjectStore.getState().project;
       const summary = await apiSaveVariantAsNew({ name, project });
-      useDefenseProjectStore.getState().replaceProject(withBackendContext(project, summary));
-      set({ saveStatus: "idle", activeVariantId: summary.projectId, activeVariantName: summary.name });
+      const saved = savedProjectResult(project, summary);
+      useDefenseProjectStore.getState().replaceProject(saved.project);
+      set({
+        saveStatus: "idle",
+        activeVariantId: summary.projectId,
+        activeVariantName: summary.name,
+        lastSavedProjectUpdatedAt: saved.savedUpdatedAt,
+      });
       await get().fetchVariants();
     } catch (err) {
       set({ saveStatus: "error", error: message(err) });
@@ -94,8 +140,14 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
         name: activeVariantName ?? project.projectName,
         project,
       });
-      useDefenseProjectStore.getState().replaceProject(withBackendContext(project, summary));
-      set({ saveStatus: "idle", activeVariantName: summary.name });
+      const saved = savedProjectResult(project, summary);
+      useDefenseProjectStore.getState().replaceProject(saved.project);
+      set({
+        saveStatus: "idle",
+        activeVariantId: summary.projectId,
+        activeVariantName: summary.name,
+        lastSavedProjectUpdatedAt: saved.savedUpdatedAt,
+      });
       await get().fetchVariants();
     } catch (err) {
       const errorMessage = isVersionConflict(err)
@@ -125,6 +177,7 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
         loadStatus: "idle",
         activeVariantId: project.projectId,
         activeVariantName: known?.name ?? project.projectName,
+        lastSavedProjectUpdatedAt: project.updatedAt,
         conflictState: null,
       });
     } catch (err) {
@@ -137,7 +190,7 @@ export const useDefenseVariantsStore = create<VariantsState>((set, get) => ({
     try {
       await apiDeleteVariant(id);
       if (get().activeVariantId === id) {
-        set({ activeVariantId: null, activeVariantName: null });
+        set({ activeVariantId: null, activeVariantName: null, lastSavedProjectUpdatedAt: null });
       }
       await get().fetchVariants();
     } catch (err) {

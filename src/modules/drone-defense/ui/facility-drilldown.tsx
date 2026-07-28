@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   CompassOutlined,
   ControlOutlined,
@@ -159,6 +159,12 @@ export function FacilityDrilldown({
     messageApi.info(`${removedLabel} удален`);
   }, [messageApi, objects, onLocalPlacementRemove, selectedId]);
 
+  const deleteSelectedFromKeyboard = useEffectEvent((event: KeyboardEvent) => {
+    if (!selectedId) return;
+    event.preventDefault();
+    deleteSelected();
+  });
+
   const duplicateSelected = () => {
     if (!selectedObject) return;
     const copy: SceneObject = {
@@ -202,14 +208,12 @@ export function FacilityDrilldown({
       const tagName = target?.tagName?.toLowerCase();
       const isTypingTarget = tagName === "input" || tagName === "textarea" || target?.isContentEditable;
       if (isTypingTarget) return;
-      if (!selectedId) return;
-      event.preventDefault();
-      deleteSelected();
+      deleteSelectedFromKeyboard(event);
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [deleteSelected, selectedId]);
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

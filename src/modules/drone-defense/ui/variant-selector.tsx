@@ -4,17 +4,41 @@ import { useState } from "react";
 import { SaveOutlined } from "@ant-design/icons";
 import { Button, theme } from "antd";
 import { useDefenseVariantsStore } from "@/modules/drone-defense/domain/use-defense-variants-store";
+import { resolveVariantUiState } from "@/modules/drone-defense/domain/variant-ui-state";
 import { VariantsModal } from "@/modules/drone-defense/ui/variants-modal";
+import { useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
 
 function useVariantMeta() {
   const { token } = theme.useToken();
-  const { activeVariantId, activeVariantName, saveStatus, overwriteActiveVariant } =
+  const projectVersion = useDefenseProjectStore((state) => state.project.version);
+  const { activeVariantId, activeVariantName, conflictState, saveStatus, overwriteActiveVariant } =
     useDefenseVariantsStore();
 
   const isDraft = !activeVariantId;
   const saving = saveStatus === "saving";
-  const label = isDraft ? "Черновик (не сохранён)" : activeVariantName;
-  const dotColor = isDraft ? token.colorWarning : token.colorSuccess;
+  const uiState = resolveVariantUiState({
+    activeVariantId,
+    conflict: Boolean(conflictState),
+    saveStatus,
+    version: projectVersion,
+  });
+  const statusLabel =
+    uiState.saveState === "saving"
+      ? "сохраняем"
+      : uiState.saveState === "error"
+        ? "ошибка сохранения"
+        : uiState.saveState === "conflict"
+          ? "конфликт версии"
+          : uiState.version;
+  const label = isDraft ? "Создание проекта..." : `${activeVariantName ?? "Текущий проект"} · ${statusLabel}`;
+  const dotColor =
+    uiState.saveState === "saving"
+      ? token.colorInfo
+      : uiState.saveState === "error" || uiState.saveState === "conflict"
+        ? token.colorError
+        : isDraft
+          ? token.colorWarning
+          : token.colorSuccess;
 
   return {
     token,

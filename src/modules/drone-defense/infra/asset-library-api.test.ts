@@ -2,6 +2,7 @@
 
 import {
   buildAssetLibraryUrl,
+  fetchAssetLibrary,
   normalizeDefenseAssetPayload,
   serializeDefenseAssetMutation,
 } from "@/modules/drone-defense/infra/asset-library-api";
@@ -93,4 +94,45 @@ assert(partial.coverageType === "none", "missing coverage type must default to n
 assert(partial.deploymentType === "static", "missing deployment type must default to static");
 assert(partial.placementType === "map-object", "missing placement type must default to map-object");
 
-console.log("asset-library-api.test.ts: asset library API contracts passed");
+let requestedUrl = "";
+Object.defineProperty(globalThis, "fetch", {
+  value: async (input: RequestInfo | URL) => {
+    requestedUrl = String(input);
+    return new Response(
+      JSON.stringify({
+        items: [
+          {
+            id: "fallback-radar",
+            name: "Локальная РЛС",
+            category: "detection",
+            roles: ["detect"],
+            pricePerUnitMln: 42,
+            currency: "RUB",
+            unitLabel: "шт",
+            coverageType: "circle",
+            coverageRadius: 12000,
+            placementType: "map-object",
+            deploymentType: "mobile",
+            recommendedLayerCodes: ["L2"],
+          },
+        ],
+      }),
+      { status: 200 },
+    );
+  },
+  configurable: true,
+  writable: true,
+});
+
+async function main() {
+  const assets = await fetchAssetLibrary({ isPublic: true, limit: 100 });
+  assert(requestedUrl === "/api/defense/assets?isPublic=true&limit=100", "asset library reads must go through auth-aware BFF");
+  assert(assets[0]?.coverageRadius === 12000, "BFF asset payload must not be normalized as backend kilometers twice");
+
+  console.log("asset-library-api.test.ts: asset library API contracts passed");
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

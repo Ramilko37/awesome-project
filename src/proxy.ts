@@ -1,14 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const protectedRoutes = ["/prototype", "/calculator", "/workspace"];
-const authGuardEnabled = process.env.FORTIS_AUTH_ENABLED === "true";
+const protectedRoutes = ["/prototype"];
 
 function isProtectedPath(pathname: string) {
   return protectedRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
 }
 
 export function proxy(request: NextRequest) {
-  if (!authGuardEnabled || !isProtectedPath(request.nextUrl.pathname)) {
+  if (!isProtectedPath(request.nextUrl.pathname)) {
     return NextResponse.next();
   }
 
@@ -23,5 +22,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/prototype/:path*", "/calculator/:path*", "/workspace/:path*"],
+  matcher: ["/prototype/:path*"],
 };

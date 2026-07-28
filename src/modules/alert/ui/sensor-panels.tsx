@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { RefreshCw, Target, Radio, Activity, ScanLine, Wifi, Volume2, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,25 @@ type PanelProps = {
   onRefresh: () => void;
   refreshing: boolean;
 };
+
+function useClientClock() {
+  const [time, setTime] = useState({ full: "--:--:--", short: "--:--" });
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      setTime({
+        full: now.toLocaleTimeString("ru-RU"),
+        short: now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+      });
+    };
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return time;
+}
 
 // ─── AcousticMeter ────────────────────────────────────────────────────────────
 
@@ -53,6 +73,7 @@ function AcousticMeter({ level, bearing }: { level: number; bearing: number }) {
 export function CameraPanel({ reading, onRefresh, refreshing }: PanelProps) {
   const confidence = reading.cameraConfidence ?? 0;
   const confColor = confidence > 75 ? "text-red-500" : confidence > 50 ? "text-amber-500" : "text-sky-400";
+  const clock = useClientClock();
 
   return (
     <div className="flex flex-col gap-3">
@@ -82,7 +103,7 @@ export function CameraPanel({ reading, onRefresh, refreshing }: PanelProps) {
         <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
           <span className="text-[10px] text-slate-400 font-mono bg-black/60 px-1.5 py-0.5 rounded">IR MODE</span>
           <span className="text-[10px] text-slate-400 font-mono bg-black/60 px-1.5 py-0.5 rounded">
-            {new Date().toLocaleTimeString("ru-RU")}
+            {clock.full}
           </span>
         </div>
         <Video className="h-10 w-10 text-slate-700" />
@@ -116,7 +137,7 @@ export function CameraPanel({ reading, onRefresh, refreshing }: PanelProps) {
           />
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Уверенность классификации · последнее обновление {new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+          Уверенность классификации · последнее обновление {clock.short}
         </p>
       </div>
 
