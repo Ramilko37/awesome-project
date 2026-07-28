@@ -1,3 +1,16 @@
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - next
+  - eslint-config-next
+  - '@next/env'
+  - '@next/eslint-plugin-next'
+  - '@next/swc-*'
+  - react-is
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  - semver@6.3.1
+  - eslint-import-resolver-typescript@3.10.1
+
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
