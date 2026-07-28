@@ -30,19 +30,19 @@ function normalizeOptionalText(value: string | undefined) {
   return value?.trim() ?? "—";
 }
 
-function buildCompoundCompositionSummary(profile: PlacedDefenseCompoundProfile) {
-  const equipment = profile.equipment
-    ?.filter((item) => Number(item.quantity) > 0)
-    .map((item) => `${item.label}: ${item.quantity}`)
+function buildQuantitySummary(items: { label: string; quantity: number | string }[] | undefined) {
+  return items
+    ?.flatMap((item) => (Number(item.quantity) > 0 ? [`${item.label}: ${item.quantity}`] : []))
     .join(", ");
+}
+
+function buildCompoundCompositionSummary(profile: PlacedDefenseCompoundProfile) {
+  const equipment = buildQuantitySummary(profile.equipment);
   return `Пост: ${normalizeOptionalText(profile.postType)} · Л/с: ${normalizeOptionalText(profile.personnelCount)} · Подотчётность: ${normalizeOptionalText(profile.accountability)} · Оснащение: ${equipment || "—"}`;
 }
 
 function buildCompoundWeaponSummary(profile: PlacedDefenseCompoundProfile) {
-  const weapons = profile.weapons
-    ?.filter((item) => Number(item.quantity) > 0)
-    .map((item) => `${item.label}: ${item.quantity}`)
-    .join(", ");
+  const weapons = buildQuantitySummary(profile.weapons);
   if (weapons) return `Оружие: ${weapons}`;
   return `Оружие: ${normalizeOptionalText(profile.armament)} · Ед.: ${normalizeOptionalText(profile.weaponUnits)}`;
 }
@@ -51,10 +51,10 @@ function buildCompoundAzimuthSummary(profile: PlacedDefenseCompoundProfile) {
   const azimuth = Number.isFinite(profile.azimuth) ? `${profile.azimuth}°` : "—";
   const visibleCoverageIds = new Set(getVisibleMogCoverageWeaponIds(profile));
   const visibleCoverageWeapons = profile.weapons
-    ?.filter((item) => visibleCoverageIds.has(item.id) && Number(item.quantity) > 0)
-    .map((item) => {
+    ?.flatMap((item) => {
+      if (!visibleCoverageIds.has(item.id) || Number(item.quantity) <= 0) return [];
       const coverageSettings = getMogWeaponCoverageSettings(profile, item.id);
-      return `${item.label} (${coverageSettings.azimuth}°/${coverageSettings.sectorWidthDeg}°)`;
+      return [`${item.label} (${coverageSettings.azimuth}°/${coverageSettings.sectorWidthDeg}°)`];
     })
     .join(", ");
   const coverageWeaponLabel = visibleCoverageWeapons ? ` · На карте: ${visibleCoverageWeapons}` : "";

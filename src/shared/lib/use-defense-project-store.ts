@@ -460,9 +460,7 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
     },
     replaceProject: (project) => applyProject(project, set),
     applyBudgetSelection: (picks) => {
-      const lines = picks
-        .filter((pick) => pick.included)
-        .map((pick) => ({ assetId: pick.assetId, quantity: 1 }));
+      const lines = picks.flatMap((pick) => (pick.included ? [{ assetId: pick.assetId, quantity: 1 }] : []));
       applyProject({ ...applyAssetQuantityDraftsToProject(get().project, lines), source: "custom" }, set);
       set({ budgetApplied: true });
     },

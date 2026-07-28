@@ -422,8 +422,8 @@ export function DefenseCatalogTab() {
                 </div>
                 <h5>Средства эшелона</h5>
                 <ul className={styles.assetListInline}>
-                  {assets.filter((asset) => asset.defenseLayerIds.includes(detailLayer.id)).map((asset) => (
-                    <li key={asset.id}>{asset.name}</li>
+                  {assets.flatMap((asset) => (
+                    asset.defenseLayerIds.includes(detailLayer.id) ? [<li key={asset.id}>{asset.name}</li>] : []
                   ))}
                 </ul>
               </div>

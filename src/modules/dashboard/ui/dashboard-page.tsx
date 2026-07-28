@@ -89,7 +89,7 @@ export function DashboardPage() {
                   <div className="flex items-center gap-3">
                     <div className="flex-1 h-1.5 rounded-full bg-secondary max-w-24 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-accent transition-all"
+                        className="h-full rounded-full bg-accent transition-[width,opacity]"
                         style={{ width: `${coverage}%`, opacity: coverage === 0 ? 0.2 : 1 }}
                       />
                     </div>

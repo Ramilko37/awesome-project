@@ -29,7 +29,7 @@ function AcousticMeter({ level, bearing }: { level: number; bearing: number }) {
           return (
             <div
               key={i}
-              className="flex-1 rounded-sm transition-all"
+              className="flex-1 rounded-sm transition-[height,background-color]"
               style={{
                 height: `${h}%`,
                 background: active
@@ -94,6 +94,7 @@ export function CameraPanel({ reading, onRefresh, refreshing }: PanelProps) {
             <Target className="h-3 w-3" /> AI Классификация
           </span>
           <button
+            type="button"
             onClick={onRefresh}
             className="flex items-center gap-1 text-[11px] text-accent hover:text-accent/80 cursor-pointer transition-colors"
           >
@@ -107,7 +108,7 @@ export function CameraPanel({ reading, onRefresh, refreshing }: PanelProps) {
         </div>
         <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
           <div
-            className="h-full rounded-full transition-all"
+            className="h-full rounded-full transition-[width,background-color]"
             style={{
               width: `${confidence}%`,
               background: confidence > 75 ? "#ef4444" : confidence > 50 ? "#f59e0b" : "#38bdf8",

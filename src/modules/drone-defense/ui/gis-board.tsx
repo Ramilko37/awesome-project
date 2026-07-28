@@ -530,7 +530,7 @@ export function GisBoard({
       if (!placement.slotId) continue;
       counts.set(placement.slotId, (counts.get(placement.slotId) ?? 0) + 1);
     }
-    return new Set([...counts.entries()].filter(([, count]) => count > 1).map(([slotId]) => slotId));
+    return new Set([...counts.entries()].flatMap(([slotId, count]) => (count > 1 ? [slotId] : [])));
   }, [configuration.placements]);
 
   const resolveMarkerState = useCallback(

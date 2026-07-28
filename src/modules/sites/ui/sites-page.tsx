@@ -60,7 +60,7 @@ function SiteCard({ site }: { site: Site }) {
           <div className="flex items-center gap-2">
             <div className="flex-1 h-1 rounded-full bg-secondary overflow-hidden">
               <div
-                className="h-full rounded-full bg-accent transition-all"
+                className="h-full rounded-full bg-accent transition-[width,opacity]"
                 style={{ width: `${site.coveragePercent}%`, opacity: site.coveragePercent === 0 ? 0.2 : 1 }}
               />
             </div>

@@ -933,32 +933,32 @@ function SceneUnit({
   viewMode: ViewMode;
   placementActive: boolean;
 }) {
-  const [dragging, setDragging] = useState(false);
+  const draggingRef = useRef(false);
+  const dragIntersection = useMemo(() => new THREE.Vector3(), []);
   const markerScale = 2.9;
   const markerInnerRadius = 0.85 * markerScale;
   const markerOuterRadius = (selected ? 1.02 : 0.95) * markerScale;
 
   const handlePointerDown = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
-    setDragging(true);
+    draggingRef.current = true;
     onDragStart();
     onSelect();
     (event.target as Element).setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event: ThreeEvent<PointerEvent>) => {
-    if (!dragging) return;
+    if (!draggingRef.current) return;
     event.stopPropagation();
-    const intersection = new THREE.Vector3();
-    if (event.ray.intersectPlane(levelPlane, intersection)) {
-      const snapped = snapPosition(intersection.x, intersection.z);
+    if (event.ray.intersectPlane(levelPlane, dragIntersection)) {
+      const snapped = snapPosition(dragIntersection.x, dragIntersection.z);
       onMove(item.id, snapped.x, snapped.z);
     }
   };
 
   const handlePointerUp = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
-    setDragging(false);
+    draggingRef.current = false;
     onDragEnd();
     (event.target as Element).releasePointerCapture(event.pointerId);
   };
@@ -1026,7 +1026,7 @@ function ImpactPulse({
   const domeColor = isBreach ? "#ff9a3d" : "#70c9ff";
 
   useFrame(({ clock }) => {
-    const age = Math.max(0, clock.getElapsedTime() - startedAt);
+    const age = Math.max(0, clock.elapsedTime - startedAt);
     const life = Math.min(1, age / HIT_EFFECT_DURATION_SEC);
     const ringScale = 1 + life * (isBreach ? 14 : 8);
     const domeScale = 0.95 + life * (isBreach ? 5.4 : 3.2);
@@ -1116,22 +1116,46 @@ function DroneSwarm({
     [gltf.scene],
   );
   const refs = useRef<Array<THREE.Group | null>>([]);
-  const runtimeRef = useRef<DroneRuntimeState[]>(initialDroneRuntime());
+  const runtimeRef = useRef<DroneRuntimeState[] | null>(null);
+  if (runtimeRef.current === null) {
+    runtimeRef.current = initialDroneRuntime();
+  }
   const effectSequenceRef = useRef(0);
-  const statusRef = useRef<ThreatStatus[]>(threatTracks.map(() => "detected"));
+  const statusRef = useRef<ThreatStatus[] | null>(null);
+  if (statusRef.current === null) {
+    statusRef.current = threatTracks.map(() => "detected");
+  }
+  const effectsRef = useRef<ThreatEffect[]>([]);
+  const frameStateDirtyRef = useRef(false);
   const [statuses, setStatuses] = useState<ThreatStatus[]>(() => threatTracks.map(() => "detected"));
   const [effects, setEffects] = useState<ThreatEffect[]>([]);
 
+  useEffect(() => {
+    if (!enabled) return;
+    const flushFrameState = () => {
+      if (!frameStateDirtyRef.current || !statusRef.current) return;
+      frameStateDirtyRef.current = false;
+      setStatuses([...statusRef.current]);
+      setEffects([...effectsRef.current]);
+    };
+    const intervalId = window.setInterval(flushFrameState, 100);
+    flushFrameState();
+    return () => window.clearInterval(intervalId);
+  }, [enabled]);
+
   useFrame(({ clock }, delta) => {
     if (!enabled) return;
-    const elapsed = clock.getElapsedTime();
+    const elapsed = clock.elapsedTime;
+    if (!statusRef.current) return;
     const nextStatuses = [...statusRef.current];
     const nextEffects: ThreatEffect[] = [];
     let statusChanged = false;
+    const runtime = runtimeRef.current;
+    if (!runtime) return;
 
     threatTracks.forEach((track, index) => {
       const node = refs.current[index];
-      const state = runtimeRef.current[index];
+      const state = runtime[index];
       if (!node || !state) return;
 
       const outcome = track.outcomeByScenario[scenario];
@@ -1179,13 +1203,21 @@ function DroneSwarm({
 
     if (statusChanged) {
       statusRef.current = nextStatuses;
-      setStatuses(nextStatuses);
+      frameStateDirtyRef.current = true;
+    }
+    if (effectsRef.current.length > 0) {
+      const liveEffects = effectsRef.current.filter((effect) => elapsed - effect.startedAt < HIT_EFFECT_DURATION_SEC);
+      if (liveEffects.length !== effectsRef.current.length) {
+        effectsRef.current = liveEffects;
+        frameStateDirtyRef.current = true;
+      }
     }
     if (nextEffects.length > 0) {
-      setEffects((prev) => [
-        ...prev.filter((effect) => elapsed - effect.startedAt < HIT_EFFECT_DURATION_SEC),
+      effectsRef.current = [
+        ...effectsRef.current,
         ...nextEffects,
-      ].slice(-24));
+      ].slice(-24);
+      frameStateDirtyRef.current = true;
     }
   });
 
@@ -1372,6 +1404,7 @@ export function PrototypeScene({
   const gridCellColor = isDark ? "#4f89d5" : "#2f7dd3";
   const gridSectionColor = isDark ? "#79a8e2" : "#1f5fa6";
   const groundColor = isDark ? "#213140" : plantSite.groundColor;
+  const placementIntersection = useMemo(() => new THREE.Vector3(), []);
 
   const handleDragStart = () => {
     if (orbitRef.current) orbitRef.current.enabled = false;
@@ -1383,11 +1416,10 @@ export function PrototypeScene({
 
   const handlePlacementMove = (event: ThreeEvent<PointerEvent>) => {
     if (!placingKind) return;
-    const intersection = new THREE.Vector3();
-    if (event.ray.intersectPlane(levelPlane, intersection)) {
+    if (event.ray.intersectPlane(levelPlane, placementIntersection)) {
       const snapped = viewMode === "hex"
-        ? snapToHexCenter(intersection.x, intersection.z, HEX_SIZE_M)
-        : { x: snapToGrid(intersection.x), z: snapToGrid(intersection.z) };
+        ? snapToHexCenter(placementIntersection.x, placementIntersection.z, HEX_SIZE_M)
+        : { x: snapToGrid(placementIntersection.x), z: snapToGrid(placementIntersection.z) };
       onPlacementMove(snapped.x, snapped.z);
     }
   };

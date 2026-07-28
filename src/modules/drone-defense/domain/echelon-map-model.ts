@@ -165,7 +165,7 @@ export function findNextBuildableCatalogGroupForLayer({
   catalogGroups: EchelonBuildCatalogGroup[];
   placements: Configuration["placements"];
 }) {
-  const placedCatalogGroupIds = new Set(placements.map((placement) => placement.catalogGroupId).filter(Boolean));
+  const placedCatalogGroupIds = new Set(placements.flatMap((placement) => (placement.catalogGroupId ? [placement.catalogGroupId] : [])));
   return catalogGroups.find((group) => group.layerId === layerId && !placedCatalogGroupIds.has(group.id)) ?? null;
 }
 
@@ -253,11 +253,13 @@ export function buildProtectedObjectInitialViewState({
   facility: Facility;
   layers: DefenseLayer[];
 }): LayerFocusViewState {
-  const nearLayerRadiusM =
-    layers
-      .map((layer) => layer.distanceBandM.max)
-      .filter((radiusM) => radiusM >= 1_500 && radiusM <= protectedObjectContextMaxRadiusM)
-      .sort((a, b) => b - a)[0] ?? protectedObjectContextMinRadiusM;
+  let nearLayerRadiusM = protectedObjectContextMinRadiusM;
+  for (const layer of layers) {
+    const radiusM = layer.distanceBandM.max;
+    if (radiusM >= 1_500 && radiusM <= protectedObjectContextMaxRadiusM && radiusM > nearLayerRadiusM) {
+      nearLayerRadiusM = radiusM;
+    }
+  }
   const contextRadiusM = clamp(
     Math.max(nearLayerRadiusM, protectedObjectContextMinRadiusM),
     protectedObjectContextMinRadiusM,

@@ -1,33 +1,6 @@
 "use client";
 
-import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend,
-} from "recharts";
-
-// ─── Моковые данные для графиков ─────────────────────────────────────────────
-
-const threatsByDay = [
-  { date: "27.04", "Завод Альфа": 0, "Склад Б": 1 },
-  { date: "28.04", "Завод Альфа": 0, "Склад Б": 1 },
-  { date: "29.04", "Завод Альфа": 1, "Склад Б": 0 },
-  { date: "30.04", "Завод Альфа": 0, "Склад Б": 0 },
-  { date: "01.05", "Завод Альфа": 0, "Склад Б": 0 },
-  { date: "02.05", "Завод Альфа": 2, "Склад Б": 0 },
-  { date: "03.05", "Завод Альфа": 0, "Склад Б": 0 },
-  { date: "04.05", "Завод Альфа": 1, "Склад Б": 0 },
-  { date: "05.05", "Завод Альфа": 1, "Склад Б": 0 },
-  { date: "06.05", "Завод Альфа": 0, "Склад Б": 0 },
-  { date: "07.05", "Завод Альфа": 1, "Склад Б": 0 },
-];
-
-const incidentsByZone = [
-  { zone: "North Post",  incidents: 2 },
-  { zone: "Gate Alpha",  incidents: 1 },
-  { zone: "West Fence",  incidents: 1 },
-  { zone: "South Post",  incidents: 1 },
-  { zone: "Inner Yard",  incidents: 0 },
-];
+import dynamic from "next/dynamic";
 
 const uptimeData = [
   { site: "Завод Альфа",      uptime: 99.2, devices: 8 },
@@ -36,36 +9,14 @@ const uptimeData = [
   { site: "КПП Д",            uptime: 0,    devices: 0 },
 ];
 
-const reactionTimes = [
-  { date: "27.04", минуты: null },
-  { date: "28.04", минуты: 4 },
-  { date: "29.04", минуты: 7 },
-  { date: "30.04", минуты: null },
-  { date: "01.05", минуты: null },
-  { date: "02.05", минуты: 3 },
-  { date: "03.05", минуты: null },
-  { date: "04.05", минуты: 5 },
-  { date: "05.05", минуты: 2 },
-  { date: "06.05", минуты: null },
-  { date: "07.05", минуты: 6 },
-];
-
-// ─── Общие стили для Recharts ─────────────────────────────────────────────────
-
 const chartColors = {
-  alpha:   "#38bdf8",
-  beta:    "#818cf8",
   success: "#34d399",
   warning: "#fb923c",
 };
 
-const tooltipStyle = {
-  backgroundColor: "rgba(15,23,42,0.85)",
-  border: "1px solid rgba(148,163,184,0.12)",
-  borderRadius: "8px",
-  fontSize: "12px",
-  color: "#e8edf5",
-};
+const ReportsCharts = dynamic(() => import("@/modules/analytics/ui/reports-charts"), {
+  loading: () => <div className="h-[420px] rounded-xl glass-md border-(--glass-border)" />,
+});
 
 // ─── Компонент карточки-метрики ───────────────────────────────────────────────
 
@@ -100,61 +51,7 @@ export function ReportsPage() {
         <MetricCard label="Uptime систем"         value="95%" sub="по всем объектам" accent />
       </div>
 
-      {/* ── Динамика угроз ───────────────────────────────────────── */}
-      <div className="rounded-xl glass-md border-(--glass-border) p-5 flex flex-col gap-4">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">Динамика угроз по объектам</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">Количество обнаружений за последние 11 дней</p>
-        </div>
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={threatsByDay} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
-            <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} allowDecimals={false} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Line type="monotone" dataKey="Завод Альфа" stroke={chartColors.alpha} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
-            <Line type="monotone" dataKey="Склад Б" stroke={chartColors.beta} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-
-        {/* ── Инциденты по зонам ──────────────────────────────────── */}
-        <div className="rounded-xl glass-md border-(--glass-border) p-5 flex flex-col gap-4">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Инциденты по зонам</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Завод Альфа</p>
-          </div>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={incidentsByZone} margin={{ top: 4, right: 4, bottom: 0, left: -20 }} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <YAxis type="category" dataKey="zone" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={80} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Bar dataKey="incidents" fill={chartColors.alpha} radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* ── Время реакции ───────────────────────────────────────── */}
-        <div className="rounded-xl glass-md border-(--glass-border) p-5 flex flex-col gap-4">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Время реакции оператора</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Минуты от обнаружения до решения</p>
-          </div>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={reactionTimes} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Bar dataKey="минуты" fill={chartColors.warning} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <ReportsCharts />
 
       {/* ── Uptime оборудования ──────────────────────────────────── */}
       <div className="rounded-xl glass-md border-(--glass-border) overflow-hidden">
@@ -177,7 +74,7 @@ export function ReportsPage() {
                   <div className="flex items-center gap-3">
                     <div className="flex-1 h-1.5 rounded-full bg-secondary max-w-32 overflow-hidden">
                       <div
-                        className="h-full rounded-full transition-all"
+                        className="h-full rounded-full transition-[width,background-color]"
                         style={{
                           width: `${uptime}%`,
                           background: uptime > 95 ? chartColors.success : uptime > 70 ? chartColors.warning : "#ef4444",

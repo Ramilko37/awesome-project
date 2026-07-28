@@ -92,8 +92,7 @@ export function DefenseToolIcon({
   const protectionBadge = protectionType;
   const actionText = isZoneObject ? "Нарисовать" : "Перетащите";
   const compoundWeaponSummary = compoundProfile?.weapons
-    ?.filter((item) => Number(item.quantity) > 0)
-    .map((item) => `${item.label}: ${item.quantity}`)
+    ?.flatMap((item) => (Number(item.quantity) > 0 ? [`${item.label}: ${item.quantity}`] : []))
     .join(", ");
 
   const rootRef = useRef<HTMLDivElement>(null);

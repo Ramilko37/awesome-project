@@ -51,9 +51,8 @@ export function buildStructuralProfile(project: DefenseProject): StructuralProfi
     objectsByLayer.set(object.layerId, list);
   }
 
-  const byEchelon: StructuralEchelonProfile[] = summaries
-    .filter((summary) => summary.objectCount > 0)
-    .map((summary) => {
+  const byEchelon: StructuralEchelonProfile[] = summaries.flatMap((summary) => {
+    if (summary.objectCount <= 0) return [];
       const objects = objectsByLayer.get(summary.layerId) ?? [];
       const layerCategories = new Set<string>();
       let layerCoveredObjects = 0;
@@ -63,7 +62,7 @@ export function buildStructuralProfile(project: DefenseProject): StructuralProfi
         layerCategories.add(asset.category);
         if (asset.coverageType !== "none") layerCoveredObjects += 1;
       }
-      return {
+      return [{
         layerId: summary.layerId,
         layerCode: summary.layerCode,
         layerName: summary.layerName,
@@ -72,7 +71,7 @@ export function buildStructuralProfile(project: DefenseProject): StructuralProfi
         categoryCount: layerCategories.size,
         conflictCount: summary.conflictCount,
         coveredObjectCount: layerCoveredObjects,
-      };
+      }];
     });
 
   return {

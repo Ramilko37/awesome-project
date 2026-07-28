@@ -396,9 +396,9 @@ export function MogCompositionEditor({
         nextVisible.add(id);
       }
 
-      const nextVisibleCoverageWeaponIds = (current.weapons ?? [])
-        .map((weapon) => weapon.id)
-        .filter((weaponId) => nextVisible.has(weaponId));
+      const nextVisibleCoverageWeaponIds = (current.weapons ?? []).flatMap((weapon) =>
+        nextVisible.has(weapon.id) ? [weapon.id] : [],
+      );
 
       return {
         ...current,

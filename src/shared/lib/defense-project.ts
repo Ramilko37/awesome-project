@@ -499,17 +499,18 @@ export function validateLayerGeometry(
     };
   }
 
-  const conflicts = project.layers
-    .filter((layer) => layer.id !== ignoredLayerId && layer.id !== draftLayer.id)
-    .map((layer) => ({ layer, radii: getLayerRadii(layer) }))
-    .filter((item) => layersOverlap(radii, item.radii))
-    .map((item) => ({
-      layerId: item.layer.id,
-      layerCode: item.layer.code,
-      layerName: item.layer.name,
-      innerRadiusM: item.radii.innerRadiusM,
-      outerRadiusM: item.radii.outerRadiusM,
-    }));
+  const conflicts = project.layers.flatMap((layer) => {
+    if (layer.id === ignoredLayerId || layer.id === draftLayer.id) return [];
+    const layerRadii = getLayerRadii(layer);
+    if (!layersOverlap(radii, layerRadii)) return [];
+    return [{
+      layerId: layer.id,
+      layerCode: layer.code,
+      layerName: layer.name,
+      innerRadiusM: layerRadii.innerRadiusM,
+      outerRadiusM: layerRadii.outerRadiusM,
+    }];
+  });
 
   if (conflicts.length > 0) {
     return {
@@ -919,9 +920,16 @@ export function deleteLayerFromProject(project: DefenseProject, layerId: string)
       message: "В эшелоне есть размещённые объекты. Сначала удалите или перенесите их.",
     };
   }
-  const layers = project.layers
-    .filter((item) => item.id !== layerId)
-    .map((item, index) => ({ ...item, order: index + 1, isActive: project.activeLayerId === layerId ? index === 0 : item.id === project.activeLayerId }));
+  const layers: DefenseProject["layers"] = [];
+  for (const item of project.layers) {
+    if (item.id === layerId) continue;
+    const index = layers.length;
+    layers.push({
+      ...item,
+      order: index + 1,
+      isActive: project.activeLayerId === layerId ? index === 0 : item.id === project.activeLayerId,
+    });
+  }
   return {
     ok: true,
     project: withUpdatedAt({
@@ -1056,9 +1064,10 @@ export function applyAssetQuantityDraftsToProject(
 export function setAssetQuantityInProject(project: DefenseProject, assetId: string, quantity: number): DefenseProject {
   const normalized = Math.max(0, Math.floor(Number.isFinite(quantity) ? quantity : 0));
   const lineByAsset = new Map<string, number>();
-  project.placedObjects
-    .filter((object) => object.assetId !== assetId)
-    .forEach((object) => lineByAsset.set(object.assetId, (lineByAsset.get(object.assetId) ?? 0) + object.quantity));
+  for (const object of project.placedObjects) {
+    if (object.assetId === assetId) continue;
+    lineByAsset.set(object.assetId, (lineByAsset.get(object.assetId) ?? 0) + object.quantity);
+  }
   if (normalized > 0) lineByAsset.set(assetId, normalized);
   return applyAssetQuantityDraftsToProject(
     project,
@@ -1142,9 +1151,9 @@ function normalizeProjectAssetLibrary(assetLibrary: DefenseProject["assetLibrary
     ...(importedById.get(asset.id) ?? {}),
     ...asset,
   }));
-  const customAssets = (assetLibrary ?? [])
-    .filter((asset) => !canonicalIds.has(asset.id))
-    .map((asset) => ({
+  const customAssets = (assetLibrary ?? []).flatMap((asset) => {
+    if (canonicalIds.has(asset.id)) return [];
+    return [{
       ...asset,
       coverageType: asset.coverageType ?? "none",
       currency: asset.currency ?? "RUB",
@@ -1153,7 +1162,8 @@ function normalizeProjectAssetLibrary(assetLibrary: DefenseProject["assetLibrary
       unitLabel: asset.unitLabel ?? "шт",
       deploymentType: asset.deploymentType ?? "external",
       placementType: asset.placementType ?? "non-physical",
-  }));
+    }];
+  });
   return [...canonicalAssets, ...customAssets];
 }
 

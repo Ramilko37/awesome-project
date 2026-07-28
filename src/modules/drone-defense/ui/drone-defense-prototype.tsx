@@ -447,12 +447,15 @@ export function DroneDefensePrototype() {
     [project, scenarioId],
   );
   const hiddenPlacementIds = useMemo(
-    () =>
-      new Set(
-        project.placedObjects
-          .filter((object) => object.isVisibleOnMap === false)
-          .map((object) => object.id),
-      ),
+    () => {
+      const ids = new Set<string>();
+      for (const object of project.placedObjects) {
+        if (object.isVisibleOnMap === false) {
+          ids.add(object.id);
+        }
+      }
+      return ids;
+    },
     [project.placedObjects],
   );
   const visibleProjectCatalogPlacements = useMemo(

@@ -175,8 +175,8 @@ export function recommendNextMoves(
   const current = evaluateConfiguration(configuration, context);
 
   const candidates = context.catalog.assets
-    .filter((asset) => !configuration.placements.some((placement) => placement.assetId === asset.id))
-    .map((asset) => {
+    .flatMap((asset) => {
+      if (configuration.placements.some((placement) => placement.assetId === asset.id)) return [];
       const candidatePlacement = {
         id: `${configuration.facilityId}-${configuration.scenarioId}-${asset.id}-candidate`,
         assetId: asset.id,
@@ -203,8 +203,9 @@ export function recommendNextMoves(
         candidatePlacement.criticalityBoost *
         candidatePlacement.feasibility;
       const deltaResidualRiskPct = current.baselineRisk > 0 ? deltaRisk / current.baselineRisk : 0;
+      if (deltaTco > budgetRub) return [];
 
-      return {
+      return [{
         candidateAssetId: asset.id,
         candidateAssetName: asset.name,
         affectedLayerIds: asset.layerIds,
@@ -213,9 +214,8 @@ export function recommendNextMoves(
         deltaResidualRiskPct,
         deltaTco,
         score,
-      } satisfies Recommendation;
+      } satisfies Recommendation];
     })
-    .filter((recommendation) => recommendation.deltaTco <= budgetRub)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 
