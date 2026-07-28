@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { BulbOutlined, MoonOutlined, PrinterOutlined } from "@ant-design/icons";
@@ -56,7 +56,120 @@ const PRIORITY_TEXT: Record<PriorityColor, string> = {
   red: "text-rose-600",
 };
 
+type BackendStatus = "idle" | "loading" | "error";
 type BackendBudgetStatus = "idle" | "loading" | "saving" | "checking" | "error";
+type BackendProjectState = {
+  backendCost: BackendCostCalculation | null;
+  backendReport: BackendProjectReport | null;
+  backendBudgetConfig: BackendBudgetConfig | null;
+  backendStatus: BackendStatus;
+  backendBudgetStatus: BackendBudgetStatus;
+  backendBudgetMessage: string | null;
+};
+type BackendProjectAction =
+  | { type: "reset" }
+  | { type: "loading" }
+  | {
+      type: "loaded";
+      cost: BackendCostCalculation | null;
+      report: BackendProjectReport | null;
+      budget: BackendBudgetConfig | null;
+    }
+  | { type: "loadError" }
+  | { type: "budgetMessage"; message: string }
+  | { type: "budgetSaving" }
+  | { type: "budgetSaved"; config: BackendBudgetConfig }
+  | { type: "budgetSaveError" }
+  | { type: "budgetChecking" }
+  | { type: "budgetChecked"; message: string }
+  | { type: "budgetCheckError" };
+
+const initialBackendProjectState: BackendProjectState = {
+  backendCost: null,
+  backendReport: null,
+  backendBudgetConfig: null,
+  backendStatus: "idle",
+  backendBudgetStatus: "idle",
+  backendBudgetMessage: null,
+};
+
+function backendProjectReducer(
+  state: BackendProjectState,
+  action: BackendProjectAction,
+): BackendProjectState {
+  switch (action.type) {
+    case "reset":
+      return initialBackendProjectState;
+    case "loading":
+      return {
+        ...state,
+        backendStatus: "loading",
+        backendBudgetStatus: "loading",
+      };
+    case "loaded":
+      return {
+        backendCost: action.cost,
+        backendReport: action.report,
+        backendBudgetConfig: action.budget,
+        backendStatus: action.cost || action.report ? "idle" : "error",
+        backendBudgetStatus: action.budget ? "idle" : "error",
+        backendBudgetMessage: action.budget ? null : "Backend-бюджет ещё не задан, используется локальное значение.",
+      };
+    case "loadError":
+      return {
+        backendCost: null,
+        backendReport: null,
+        backendBudgetConfig: null,
+        backendStatus: "error",
+        backendBudgetStatus: "error",
+        backendBudgetMessage: "Backend-бюджет недоступен, используется локальное значение.",
+      };
+    case "budgetMessage":
+      return {
+        ...state,
+        backendBudgetMessage: action.message,
+      };
+    case "budgetSaving":
+      return {
+        ...state,
+        backendBudgetStatus: "saving",
+        backendBudgetMessage: null,
+      };
+    case "budgetSaved":
+      return {
+        ...state,
+        backendBudgetConfig: action.config,
+        backendBudgetStatus: "idle",
+        backendBudgetMessage: "Backend-бюджет сохранён.",
+      };
+    case "budgetSaveError":
+      return {
+        ...state,
+        backendBudgetStatus: "error",
+        backendBudgetMessage: "Не удалось сохранить бюджет на backend.",
+      };
+    case "budgetChecking":
+      return {
+        ...state,
+        backendBudgetStatus: "checking",
+        backendBudgetMessage: null,
+      };
+    case "budgetChecked":
+      return {
+        ...state,
+        backendBudgetStatus: "idle",
+        backendBudgetMessage: action.message,
+      };
+    case "budgetCheckError":
+      return {
+        ...state,
+        backendBudgetStatus: "error",
+        backendBudgetMessage: "Backend-проверка бюджета недоступна.",
+      };
+    default:
+      return state;
+  }
+}
 
 function formatDistance(meters: number) {
   if (meters >= 1000) return `${(meters / 1000).toLocaleString("ru-RU", { maximumFractionDigits: 1 })} км`;
@@ -122,12 +235,18 @@ function estimateFromBackendCost(
 export function CalculatorPage() {
   const [tab, setTab] = useState<Tab>("configure");
   const [budgetMln, setBudgetMln] = useState(9300);
-  const [backendCost, setBackendCost] = useState<BackendCostCalculation | null>(null);
-  const [backendReport, setBackendReport] = useState<BackendProjectReport | null>(null);
-  const [backendBudgetConfig, setBackendBudgetConfig] = useState<BackendBudgetConfig | null>(null);
-  const [backendStatus, setBackendStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [backendBudgetStatus, setBackendBudgetStatus] = useState<BackendBudgetStatus>("idle");
-  const [backendBudgetMessage, setBackendBudgetMessage] = useState<string | null>(null);
+  const [backendProjectState, dispatchBackendProject] = useReducer(
+    backendProjectReducer,
+    initialBackendProjectState,
+  );
+  const {
+    backendCost,
+    backendReport,
+    backendBudgetConfig,
+    backendStatus,
+    backendBudgetStatus,
+    backendBudgetMessage,
+  } = backendProjectState;
   const {
     project,
     applyBudgetSelection,
@@ -142,12 +261,7 @@ export function CalculatorPage() {
   useEffect(() => {
     if (project.source !== "backend" || typeof project.version !== "number") {
       Promise.resolve().then(() => {
-        setBackendCost(null);
-        setBackendReport(null);
-        setBackendBudgetConfig(null);
-        setBackendStatus("idle");
-        setBackendBudgetStatus("idle");
-        setBackendBudgetMessage(null);
+        dispatchBackendProject({ type: "reset" });
       });
       return;
     }
@@ -155,8 +269,7 @@ export function CalculatorPage() {
     Promise.resolve()
       .then(async () => {
         if (cancelled) return;
-        setBackendStatus("loading");
-        setBackendBudgetStatus("loading");
+        dispatchBackendProject({ type: "loading" });
         const [costResult, reportResult, budgetResult] = await Promise.allSettled([
           getBackendProjectCost(project.projectId),
           getBackendProjectReport(project.projectId),
@@ -166,24 +279,14 @@ export function CalculatorPage() {
         const cost = costResult.status === "fulfilled" ? costResult.value : null;
         const report = reportResult.status === "fulfilled" ? reportResult.value : null;
         const budget = budgetResult.status === "fulfilled" ? budgetResult.value : null;
-        setBackendCost(cost);
-        setBackendReport(report);
-        setBackendBudgetConfig(budget);
+        dispatchBackendProject({ type: "loaded", cost, report, budget });
         if (budget?.budgetMode === "limited" && Number.isFinite(budget.budgetAmountMln)) {
           setBudgetMln(Math.max(0, budget.budgetAmountMln));
         }
-        setBackendStatus(cost || report ? "idle" : "error");
-        setBackendBudgetStatus(budget ? "idle" : "error");
-        setBackendBudgetMessage(budget ? null : "Backend-бюджет ещё не задан, используется локальное значение.");
       })
       .catch(() => {
         if (cancelled) return;
-        setBackendCost(null);
-        setBackendReport(null);
-        setBackendBudgetConfig(null);
-        setBackendStatus("error");
-        setBackendBudgetStatus("error");
-        setBackendBudgetMessage("Backend-бюджет недоступен, используется локальное значение.");
+        dispatchBackendProject({ type: "loadError" });
       });
     return () => {
       cancelled = true;
@@ -232,60 +335,59 @@ export function CalculatorPage() {
 
   const persistBackendBudget = useCallback(async () => {
     if (project.source !== "backend" || typeof project.version !== "number") {
-      setBackendBudgetMessage("Сначала загрузите или сохраните проект в backend.");
+      dispatchBackendProject({ type: "budgetMessage", message: "Сначала загрузите или сохраните проект в backend." });
       return;
     }
-    setBackendBudgetStatus("saving");
-    setBackendBudgetMessage(null);
+    dispatchBackendProject({ type: "budgetSaving" });
     try {
       const config = await updateBackendBudgetConfig(project.projectId, {
         budgetMode: "limited",
         budgetAmountMln: budgetMln,
       });
-      setBackendBudgetConfig(config);
-      setBackendBudgetStatus("idle");
-      setBackendBudgetMessage("Backend-бюджет сохранён.");
+      dispatchBackendProject({ type: "budgetSaved", config });
     } catch {
-      setBackendBudgetStatus("error");
-      setBackendBudgetMessage("Не удалось сохранить бюджет на backend.");
+      dispatchBackendProject({ type: "budgetSaveError" });
     }
   }, [budgetMln, project.projectId, project.source, project.version]);
 
   const checkFirstBackendBudgetPick = useCallback(async () => {
     if (project.source !== "backend" || typeof project.version !== "number") {
-      setBackendBudgetMessage("Backend-проверка доступна для сохранённого backend-проекта.");
+      dispatchBackendProject({
+        type: "budgetMessage",
+        message: "Backend-проверка доступна для сохранённого backend-проекта.",
+      });
       return;
     }
     const pick = budgetResult.picks.find((item) => item.included) ?? budgetResult.picks[0];
     if (!pick) {
-      setBackendBudgetMessage("Нет кандидатов для проверки бюджета.");
+      dispatchBackendProject({ type: "budgetMessage", message: "Нет кандидатов для проверки бюджета." });
       return;
     }
     const assetId = projectAssetIdForCalculatorAsset(project, pick.assetId);
     const echelonId = projectLayerIdForCalculatorEchelon(project, pick.echelonId);
     if (!assetId || !echelonId) {
-      setBackendBudgetMessage("Не удалось сопоставить кандидата с backend asset/layer.");
+      dispatchBackendProject({
+        type: "budgetMessage",
+        message: "Не удалось сопоставить кандидата с backend asset/layer.",
+      });
       return;
     }
-    setBackendBudgetStatus("checking");
-    setBackendBudgetMessage(null);
+    dispatchBackendProject({ type: "budgetChecking" });
     try {
       const check: BackendBudgetCheck = await checkBackendProjectBudget(project.projectId, {
         assetId,
         quantity: 1,
         echelonId,
       });
-      setBackendBudgetStatus("idle");
-      setBackendBudgetMessage(
+      const message =
         check.budgetMode === "unlimited"
           ? `Backend: бюджет не ограничен, требуется ${formatMln(check.requiredMln)}.`
           : check.fits
             ? `Backend: ${pick.assetName} помещается, остаток ${formatMln(check.remainingMln)}.`
-            : `Backend: ${pick.assetName} не помещается, нужно ${formatMln(check.requiredMln)}, остаток ${formatMln(check.remainingMln)}.`,
-      );
+            : `Backend: ${pick.assetName} не помещается, нужно ${formatMln(check.requiredMln)}, остаток ${formatMln(check.remainingMln)}.`;
+      dispatchBackendProject({ type: "budgetChecked", message });
     } catch {
-      setBackendBudgetStatus("error");
-      setBackendBudgetMessage("Backend-проверка бюджета недоступна.");
+      dispatchBackendProject({ type: "budgetCheckError" });
     }
   }, [budgetResult.picks, project]);
 

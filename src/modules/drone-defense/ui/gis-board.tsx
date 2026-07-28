@@ -395,11 +395,6 @@ export function GisBoard({
   }, [currentBaseMapSource.id]);
 
   useEffect(() => {
-    if (baseMapSourceId === currentBaseMapSource.id) return;
-    onSelectBaseMapSource(currentBaseMapSource.id);
-  }, [baseMapSourceId, currentBaseMapSource.id, onSelectBaseMapSource]);
-
-  useEffect(() => {
     if (!isBaseMapMenuOpen) return;
 
     const handlePointerDown = (event: PointerEvent) => {

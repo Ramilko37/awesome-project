@@ -11,6 +11,8 @@ const backendProxySource = readFileSync("src/modules/drone-defense/infra/backend
 const seedBackendSource = readFileSync("src/modules/drone-defense/infra/seed-backend-asset-library.ts", "utf8");
 const assetManagerSource = readFileSync("src/modules/drone-defense/ui/asset-library-manager.tsx", "utf8");
 const homePageSource = readFileSync("src/app/page.tsx", "utf8");
+const gisBoardSource = readFileSync("src/modules/drone-defense/ui/gis-board.tsx", "utf8");
+const calculatorPageSource = readFileSync("src/modules/defense-calculator/ui/calculator-page.tsx", "utf8");
 
 function assert(condition, message) {
   if (!condition) {
@@ -113,4 +115,23 @@ assert(
     homePageSource.includes("<Link") &&
     !homePageSource.includes('href="/prototype"\n              className="flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 px-6 py-3 text-[14px] font-semibold text-white transition-all'),
   "Home page internal navigation must use Next Link and avoid transition-all",
+);
+
+assert(
+  !gisBoardSource.includes("onSelectBaseMapSource(currentBaseMapSource.id)"),
+  "GisBoard must not pass derived basemap fallback data back to its parent from an effect",
+);
+assert(
+  calculatorPageSource.includes("useReducer") &&
+    !calculatorPageSource.includes("setBackendCost") &&
+    !calculatorPageSource.includes("setBackendReport") &&
+    !calculatorPageSource.includes("setBackendBudgetConfig"),
+  "CalculatorPage must group related backend project state in a reducer",
+);
+assert(
+  prototypeSource.includes("useReducer") &&
+    !prototypeSource.includes("const [selectedSlotId") &&
+    !prototypeSource.includes("const [activeToolId") &&
+    !prototypeSource.includes("const [lastPlacementMessage"),
+  "DroneDefensePrototype must group related local GIS UI state in a reducer",
 );

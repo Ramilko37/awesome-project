@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   AppstoreOutlined,
   CloseOutlined,
@@ -57,9 +57,78 @@ import { useMapViewStore } from "@/shared/lib/use-map-view-store";
 import type { LayerInsertOption } from "@/shared/lib/defense-project";
 import type { DefenseLayer, DefenseLayerId } from "@/shared/types/drone-defense";
 import type { Coordinates, ProtectedObjectOption } from "@/shared/types/defense-project";
-import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
+import type {
+  DragEvent as ReactDragEvent,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+  SetStateAction,
+} from "react";
 
 const defenseAssetDragMimeType = "application/x-fortis-defense-asset";
+
+type PrototypeUiState = {
+  selectedSlotId: string | null;
+  catalogQuery: string;
+  isCatalogTrayOpen: boolean;
+  activeToolId: string | null;
+  isLayerPanelExpanded: boolean;
+  showAllEchelonObjects: boolean;
+  layerWizardState: LayerWizardState | null;
+  pendingLayerDeletionId: string | null;
+  hoveredLayerId: string | null;
+  layerStripState: { canScrollLeft: boolean; canScrollRight: boolean };
+  coordinatePlacementAssetId: string | null;
+  coordinatePlacementValidation: CoordinatePlacementValidationState | null;
+  pointerDraggedAssetId: string | null;
+  lastPlacementMessage: string | null;
+  locateTarget: { lon: number; lat: number; at: number } | null;
+  isEchelonObjectsPanelOpen: boolean;
+  echelonObjectsLayerId: DefenseLayerId | null;
+  isEchelonObjectsCollapsed: boolean;
+};
+
+type PrototypeUiAction = {
+  [Key in keyof PrototypeUiState]: {
+    type: "setField";
+    key: Key;
+    value: SetStateAction<PrototypeUiState[Key]>;
+  };
+}[keyof PrototypeUiState];
+
+const initialPrototypeUiState: PrototypeUiState = {
+  selectedSlotId: null,
+  catalogQuery: "",
+  isCatalogTrayOpen: true,
+  activeToolId: null,
+  isLayerPanelExpanded: true,
+  showAllEchelonObjects: false,
+  layerWizardState: null,
+  pendingLayerDeletionId: null,
+  hoveredLayerId: null,
+  layerStripState: { canScrollLeft: false, canScrollRight: false },
+  coordinatePlacementAssetId: null,
+  coordinatePlacementValidation: null,
+  pointerDraggedAssetId: null,
+  lastPlacementMessage: null,
+  locateTarget: null,
+  isEchelonObjectsPanelOpen: false,
+  echelonObjectsLayerId: null,
+  isEchelonObjectsCollapsed: false,
+};
+
+function resolveStateAction<T>(current: T, value: SetStateAction<T>) {
+  return typeof value === "function" ? (value as (current: T) => T)(current) : value;
+}
+
+function prototypeUiReducer(state: PrototypeUiState, action: PrototypeUiAction): PrototypeUiState {
+  const currentValue = state[action.key];
+  const nextValue = resolveStateAction(
+    currentValue,
+    action.value as SetStateAction<typeof currentValue>,
+  );
+  if (Object.is(currentValue, nextValue)) return state;
+  return { ...state, [action.key]: nextValue };
+}
 
 function protectedObjectToFacility(object: ProtectedObjectOption) {
   return {
@@ -133,24 +202,91 @@ function layerWizardStoreDraft(draft: LayerWizardDraft) {
 
 export function DroneDefensePrototype() {
   const searchParams = useSearchParams();
-  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
-  const [catalogQuery, setCatalogQuery] = useState("");
-  const [isCatalogTrayOpen, setIsCatalogTrayOpen] = useState(true);
-  const [activeToolId, setActiveToolId] = useState<string | null>(null);
-  const [isLayerPanelExpanded, setIsLayerPanelExpanded] = useState(true);
-  const [showAllEchelonObjects, setShowAllEchelonObjects] = useState(false);
-  const [layerWizardState, setLayerWizardState] = useState<LayerWizardState | null>(null);
-  const [pendingLayerDeletionId, setPendingLayerDeletionId] = useState<string | null>(null);
-  const [hoveredLayerId, setHoveredLayerId] = useState<string | null>(null);
-  const [layerStripState, setLayerStripState] = useState({ canScrollLeft: false, canScrollRight: false });
-  const [coordinatePlacementAssetId, setCoordinatePlacementAssetId] = useState<string | null>(null);
-  const [coordinatePlacementValidation, setCoordinatePlacementValidation] = useState<CoordinatePlacementValidationState | null>(null);
-  const [pointerDraggedAssetId, setPointerDraggedAssetId] = useState<string | null>(null);
-  const [lastPlacementMessage, setLastPlacementMessage] = useState<string | null>(null);
-  const [locateTarget, setLocateTarget] = useState<{ lon: number; lat: number; at: number } | null>(null);
-  const [isEchelonObjectsPanelOpen, setIsEchelonObjectsPanelOpen] = useState(false);
-  const [echelonObjectsLayerId, setEchelonObjectsLayerId] = useState<DefenseLayerId | null>(null);
-  const [isEchelonObjectsCollapsed, setIsEchelonObjectsCollapsed] = useState(false);
+  const [prototypeUiState, dispatchPrototypeUi] = useReducer(
+    prototypeUiReducer,
+    initialPrototypeUiState,
+  );
+  const {
+    selectedSlotId,
+    catalogQuery,
+    isCatalogTrayOpen,
+    activeToolId,
+    isLayerPanelExpanded,
+    showAllEchelonObjects,
+    layerWizardState,
+    pendingLayerDeletionId,
+    hoveredLayerId,
+    layerStripState,
+    coordinatePlacementAssetId,
+    coordinatePlacementValidation,
+    pointerDraggedAssetId,
+    lastPlacementMessage,
+    locateTarget,
+    isEchelonObjectsPanelOpen,
+    echelonObjectsLayerId,
+    isEchelonObjectsCollapsed,
+  } = prototypeUiState;
+  const prototypeUiSetters = useMemo(() => {
+    const setPrototypeUiField = <Key extends keyof PrototypeUiState>(
+      key: Key,
+      value: SetStateAction<PrototypeUiState[Key]>,
+    ) => {
+      dispatchPrototypeUi({ type: "setField", key, value } as PrototypeUiAction);
+    };
+
+    return {
+      setSelectedSlotId: (value: SetStateAction<string | null>) => setPrototypeUiField("selectedSlotId", value),
+      setCatalogQuery: (value: SetStateAction<string>) => setPrototypeUiField("catalogQuery", value),
+      setIsCatalogTrayOpen: (value: SetStateAction<boolean>) => setPrototypeUiField("isCatalogTrayOpen", value),
+      setActiveToolId: (value: SetStateAction<string | null>) => setPrototypeUiField("activeToolId", value),
+      setIsLayerPanelExpanded: (value: SetStateAction<boolean>) => setPrototypeUiField("isLayerPanelExpanded", value),
+      setShowAllEchelonObjects: (value: SetStateAction<boolean>) =>
+        setPrototypeUiField("showAllEchelonObjects", value),
+      setLayerWizardState: (value: SetStateAction<LayerWizardState | null>) =>
+        setPrototypeUiField("layerWizardState", value),
+      setPendingLayerDeletionId: (value: SetStateAction<string | null>) =>
+        setPrototypeUiField("pendingLayerDeletionId", value),
+      setHoveredLayerId: (value: SetStateAction<string | null>) => setPrototypeUiField("hoveredLayerId", value),
+      setLayerStripState: (value: SetStateAction<PrototypeUiState["layerStripState"]>) =>
+        setPrototypeUiField("layerStripState", value),
+      setCoordinatePlacementAssetId: (value: SetStateAction<string | null>) =>
+        setPrototypeUiField("coordinatePlacementAssetId", value),
+      setCoordinatePlacementValidation: (value: SetStateAction<CoordinatePlacementValidationState | null>) =>
+        setPrototypeUiField("coordinatePlacementValidation", value),
+      setPointerDraggedAssetId: (value: SetStateAction<string | null>) =>
+        setPrototypeUiField("pointerDraggedAssetId", value),
+      setLastPlacementMessage: (value: SetStateAction<string | null>) =>
+        setPrototypeUiField("lastPlacementMessage", value),
+      setLocateTarget: (value: SetStateAction<PrototypeUiState["locateTarget"]>) =>
+        setPrototypeUiField("locateTarget", value),
+      setIsEchelonObjectsPanelOpen: (value: SetStateAction<boolean>) =>
+        setPrototypeUiField("isEchelonObjectsPanelOpen", value),
+      setEchelonObjectsLayerId: (value: SetStateAction<DefenseLayerId | null>) =>
+        setPrototypeUiField("echelonObjectsLayerId", value),
+      setIsEchelonObjectsCollapsed: (value: SetStateAction<boolean>) =>
+        setPrototypeUiField("isEchelonObjectsCollapsed", value),
+    };
+  }, []);
+  const {
+    setSelectedSlotId,
+    setCatalogQuery,
+    setIsCatalogTrayOpen,
+    setActiveToolId,
+    setIsLayerPanelExpanded,
+    setShowAllEchelonObjects,
+    setLayerWizardState,
+    setPendingLayerDeletionId,
+    setHoveredLayerId,
+    setLayerStripState,
+    setCoordinatePlacementAssetId,
+    setCoordinatePlacementValidation,
+    setPointerDraggedAssetId,
+    setLastPlacementMessage,
+    setLocateTarget,
+    setIsEchelonObjectsPanelOpen,
+    setEchelonObjectsLayerId,
+    setIsEchelonObjectsCollapsed,
+  } = prototypeUiSetters;
   const layerStripRef = useRef<HTMLDivElement | null>(null);
   const {
     currentBaseMapSourceId,
@@ -429,7 +565,7 @@ export function DroneDefensePrototype() {
       strip.removeEventListener("scroll", syncLayerStripState);
       window.removeEventListener("resize", syncLayerStripState);
     };
-  }, [orderedProjectLayers, showCompactLayerPanel]);
+  }, [orderedProjectLayers, setLayerStripState, showCompactLayerPanel]);
 
   const draftForInsertOption = (option: LayerInsertOption | undefined): Pick<LayerWizardState, "draft" | "insertPosition"> => {
     const innerRadiusM = option?.minInnerRadiusM ?? 0;
@@ -730,7 +866,7 @@ export function DroneDefensePrototype() {
       window.removeEventListener("mouseup", clearPointerDrag);
       window.removeEventListener("dragend", clearPointerDrag);
     };
-  }, [pointerDraggedAssetId]);
+  }, [pointerDraggedAssetId, setPointerDraggedAssetId]);
 
   const checkCoordinatePlacement = (input: CoordinatePlacementInput) => {
     if (!coordinatePlacementAsset || !selectedLayer) {
