@@ -3,6 +3,7 @@
 import { AimOutlined, DragOutlined, EnvironmentOutlined } from "@ant-design/icons";
 import Image from "next/image";
 import { withBasePath } from "@/shared/lib/base-path";
+import { prototypeRu } from "@/shared/config/prototype-ru";
 import type { DefenseAssetLibraryItem } from "@/shared/types/defense-project";
 import type {
   DragEvent as ReactDragEvent,
@@ -87,7 +88,7 @@ export function DefenseToolIcon({
   const isZoneObject = placementType === "zone-object";
   const canDrag = canAdd;
   const isCompoundPost = compoundProfile?.kind === "compound-post";
-  const title = disabledReason ?? `${name}: ${rangeLabel}. Перетащите на карту внутри выбранного эшелона`;
+  const title = disabledReason ?? prototypeRu.cards.dragTooltip(name, rangeLabel);
   const coverageText = coverageLabel;
   const costText = `Базовая стоимость поста: ${priceLabel}`;
   const counterText = isZoneObject
@@ -97,7 +98,7 @@ export function DefenseToolIcon({
         : `На карте: ${installedCount}`;
   const placementBadge = isZoneObject ? "Зона" : "Карта";
   const protectionBadge = protectionType;
-  const actionText = isZoneObject ? "Нарисовать" : "Перетащите";
+  const actionText = isZoneObject ? prototypeRu.cards.draw : prototypeRu.cards.drag;
   const compoundWeaponSummary = compoundProfile?.weapons
     ?.flatMap((item) => (Number(item.quantity) > 0 ? [`${item.label}: ${item.quantity}`] : []))
     .join(", ");
@@ -230,7 +231,7 @@ export function DefenseToolIcon({
       role="button"
       tabIndex={0}
       aria-pressed={isSelected}
-      aria-label={`${name}. ${counterText}. Перетащите на карту`}
+      aria-label={prototypeRu.cards.dragAria(name, counterText)}
       title={title}
       draggable={canDrag}
       onDragStart={(event) => {

@@ -20,6 +20,10 @@ import {
 import { Dropdown, Modal } from "antd";
 import { useDefenseStudioStore, studioPreviewData } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import { buildEchelonMapModel } from "@/modules/drone-defense/domain/echelon-map-model";
+import {
+  DEFAULT_PROTECTION_TYPE_VISIBILITY,
+  isMogVisibleInMap,
+} from "@/modules/drone-defense/domain/protection-visibility";
 import { placedObjectsToMapPlacements } from "@/modules/drone-defense/domain/project-map-adapter";
 import { AssetLibraryManager } from "@/modules/drone-defense/ui/asset-library-manager";
 import { CoordinatePlacementPanel, type CoordinatePlacementInput } from "@/modules/drone-defense/ui/coordinate-placement-panel";
@@ -40,6 +44,7 @@ import {
   validateLayerDraft,
 } from "@/shared/lib/defense-project";
 import { getPolygonCoordinates } from "@/shared/lib/defense-layer-geometry";
+import { prototypeRu } from "@/shared/config/prototype-ru";
 import {
   buildWizardLayer,
   formatDistance,
@@ -56,7 +61,7 @@ import { MAX_DEFENSE_PROJECT_LAYERS, useDefenseProjectStore } from "@/shared/lib
 import { useMapViewStore } from "@/shared/lib/use-map-view-store";
 import type { LayerInsertOption } from "@/shared/lib/defense-project";
 import type { DefenseLayer, DefenseLayerId } from "@/shared/types/drone-defense";
-import type { Coordinates, ProtectedObjectOption } from "@/shared/types/defense-project";
+import type { Coordinates, EditableDefenseLayer, LayerSummary, ProtectedObjectOption } from "@/shared/types/defense-project";
 import type {
   DragEvent as ReactDragEvent,
   MouseEvent as ReactMouseEvent,
@@ -83,7 +88,7 @@ type PrototypeUiState = {
   lastPlacementMessage: string | null;
   locateTarget: { lon: number; lat: number; at: number } | null;
   isEchelonObjectsPanelOpen: boolean;
-  echelonObjectsLayerId: DefenseLayerId | null;
+  echelonObjectsLayerId: string | null;
   isEchelonObjectsCollapsed: boolean;
 };
 
@@ -200,6 +205,190 @@ function layerWizardStoreDraft(draft: LayerWizardDraft) {
   };
 }
 
+type PrototypeLayerStripItemProps = {
+  layer: EditableDefenseLayer;
+  summary: LayerSummary | undefined;
+  totalLayers: number;
+  objectCount: number;
+  isSelected: boolean;
+  isHovered: boolean;
+  onHoverLayer: (layerId: string | null) => void;
+  onSelectLayer: (layerId: string) => void;
+  onOpenObjects: (layerId: string) => void;
+  onEditLayer: (layerId: string) => void;
+  onRequestDelete: (layerId: string) => void;
+  onToggleVisibility: (layerId: string, isVisible: boolean) => void;
+};
+
+function PrototypeLayerStripItem({
+  layer,
+  summary,
+  totalLayers,
+  objectCount,
+  isSelected,
+  isHovered,
+  onHoverLayer,
+  onSelectLayer,
+  onOpenObjects,
+  onEditLayer,
+  onRequestDelete,
+  onToggleVisibility,
+}: PrototypeLayerStripItemProps) {
+  const layerStateLabel = isSelected && layer.isVisible === false
+    ? "Активный · скрыт"
+    : layer.isLocked
+      ? "Базовый"
+      : isSelected
+        ? "Активный"
+        : layer.isVisible === false
+          ? "Скрыт"
+          : null;
+  const layerDeleteState = describeLayerDeletion(totalLayers, objectCount);
+  const titleParts = splitLayerTitle(layer.code, layer.name);
+  const layerMenuItems = [
+    {
+      key: "objects",
+      icon: <AppstoreOutlined />,
+      label: "Открыть объекты эшелона",
+      onClick: () => onOpenObjects(layer.id as DefenseLayerId),
+    },
+    {
+      key: "edit",
+      icon: <EditOutlined />,
+      label: "Настроить эшелон",
+      onClick: () => onEditLayer(layer.id),
+    },
+    {
+      key: "delete",
+      icon: <DeleteOutlined />,
+      danger: true,
+      disabled: !layerDeleteState.canDelete,
+      label: (
+        <div className="py-0.5">
+          <p>Удалить эшелон</p>
+          {!layerDeleteState.canDelete ? (
+            <p className="mt-1 max-w-48 whitespace-normal text-[11px] font-medium text-slate-400">
+              {layerDeleteState.reason}
+            </p>
+          ) : null}
+        </div>
+      ),
+      onClick: () => {
+        if (!layerDeleteState.canDelete) return;
+        onRequestDelete(layer.id);
+      },
+    },
+  ];
+
+  return (
+    <div
+      className={styles.prototypeLayerCard}
+      data-selected={isSelected ? "true" : "false"}
+      data-hovered={isHovered ? "true" : "false"}
+      onMouseEnter={() => onHoverLayer(layer.id)}
+      onMouseLeave={() => onHoverLayer(null)}
+    >
+      <div className={styles.prototypeLayerActions}>
+        <button
+          type="button"
+          className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleVisibility(layer.id, layer.isVisible === false);
+          }}
+          title={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
+          aria-label={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
+        >
+          {layer.isVisible === false ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+        </button>
+        <Dropdown
+          trigger={["click"]}
+          placement="bottomRight"
+          arrow
+          menu={{
+            items: layerMenuItems,
+            className: "min-w-[13rem]",
+          }}
+        >
+          <button
+            type="button"
+            className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
+            onClick={(event) => event.stopPropagation()}
+            aria-label="Открыть меню эшелона"
+          >
+            <MoreOutlined />
+          </button>
+        </Dropdown>
+      </div>
+
+      <button
+        type="button"
+        className={styles.prototypeLayerButton}
+        onClick={() => onSelectLayer(layer.id)}
+      >
+        <PrototypeLayerTitle layer={layer} titleParts={titleParts} />
+        <p className={styles.prototypeLayerRange}>
+          {formatLayerRange(summary?.innerRadiusM ?? 0, summary?.outerRadiusM ?? 0)}
+        </p>
+        <p className={styles.prototypeMeta}>
+          {formatLayerObjectMeta(summary?.objectCount ?? 0, summary?.totalMln ?? 0)}
+        </p>
+      </button>
+
+      {layerStateLabel ? (
+        <span className={styles.prototypeLayerStateBadge}>
+          {layerStateLabel}
+        </span>
+      ) : null}
+      {layer.isLocked ? (
+        <span className={`${styles.prototypeLayerLocked} ${styles.prototypeBadgeMuted}`}>
+          locked
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function PrototypeLayerTitle({
+  layer,
+  titleParts,
+}: {
+  layer: EditableDefenseLayer;
+  titleParts: ReturnType<typeof splitLayerTitle>;
+}) {
+  return (
+    <div className="flex items-start gap-2.5 pr-[4.4rem]">
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-start gap-2">
+          <span
+            className={styles.prototypeLayerDot}
+            style={{ backgroundColor: layer.color ?? "#2563eb" }}
+            aria-hidden="true"
+          />
+          <div className="min-w-0 min-h-[2.45rem]" title={`${layer.code} · ${layer.name}`}>
+            <p className={`${styles.prototypeLayerName} truncate`}>
+              {titleParts.primary}
+            </p>
+            {titleParts.secondary ? (
+              <p
+                className={styles.prototypeLayerName}
+                style={{
+                  display: "-webkit-box",
+                  WebkitLineClamp: 1,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {titleParts.secondary}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DroneDefensePrototype() {
   const searchParams = useSearchParams();
   const [prototypeUiState, dispatchPrototypeUi] = useReducer(
@@ -261,7 +450,7 @@ export function DroneDefensePrototype() {
         setPrototypeUiField("locateTarget", value),
       setIsEchelonObjectsPanelOpen: (value: SetStateAction<boolean>) =>
         setPrototypeUiField("isEchelonObjectsPanelOpen", value),
-      setEchelonObjectsLayerId: (value: SetStateAction<DefenseLayerId | null>) =>
+      setEchelonObjectsLayerId: (value: SetStateAction<string | null>) =>
         setPrototypeUiField("echelonObjectsLayerId", value),
       setIsEchelonObjectsCollapsed: (value: SetStateAction<boolean>) =>
         setPrototypeUiField("isEchelonObjectsCollapsed", value),
@@ -461,11 +650,19 @@ export function DroneDefensePrototype() {
   const visibleProjectCatalogPlacements = useMemo(
     () =>
       projectCatalogPlacements.filter(
-        (placement) =>
-          (showAllEchelonObjects || placement.layerId === selectedLayerId) &&
-          !hiddenPlacementIds.has(placement.id),
+        (placement) => {
+          const groupId = placement.catalogGroupId;
+          const asset = project.assetLibrary.find(
+            (item) => item.id === groupId || (groupId ? item.mapCatalogGroupIds?.includes(groupId) : false),
+          );
+          return (
+            (showAllEchelonObjects || placement.layerId === selectedLayerId) &&
+            !hiddenPlacementIds.has(placement.id) &&
+            isMogVisibleInMap(placement, asset, DEFAULT_PROTECTION_TYPE_VISIBILITY)
+          );
+        },
       ),
-    [hiddenPlacementIds, projectCatalogPlacements, selectedLayerId, showAllEchelonObjects],
+    [hiddenPlacementIds, project.assetLibrary, projectCatalogPlacements, selectedLayerId, showAllEchelonObjects],
   );
   const mapConfiguration = useMemo(
     () => ({
@@ -983,8 +1180,8 @@ export function DroneDefensePrototype() {
                 <AppstoreOutlined />
               </div>
               <div className="min-w-0">
-                <h1 className={`${styles.prototypeTitleLarge} truncate`}>Моя карта</h1>
-                <p className={`${styles.prototypeMeta} truncate`}>Defense Configuration Studio</p>
+                <h1 className={`${styles.prototypeTitleLarge} truncate`}>{prototypeRu.workspace.mapTitle}</h1>
+                <p className={`${styles.prototypeMeta} truncate`}>{prototypeRu.workspace.studioName}</p>
               </div>
             </div>
             <div className="mt-3 hidden lg:block">
@@ -1309,155 +1506,29 @@ export function DroneDefensePrototype() {
                       {layerStripState.canScrollLeft ? <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white via-white/80 to-transparent" /> : null}
                       {layerStripState.canScrollRight ? <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white via-white/80 to-transparent" /> : null}
                   <div ref={layerStripRef} className={styles.prototypeLayerStrip}>
-                    {orderedProjectLayers.map((layer) => {
-                      const summary = layerSummaries.find((item) => item.layerId === layer.id);
-                      const isSelected = layer.id === selectedLayer.id;
-                      const isHovered = layer.id === hoveredLayerId;
-                      const layerStateLabel =
-                        isSelected && layer.isVisible === false
-                          ? "Активный · скрыт"
-                          : isSelected
-                            ? "Активный"
-                            : layer.isVisible === false
-                              ? "Скрыт"
-                              : null;
-                      const layerDeleteState = describeLayerDeletion(project.layers.length, objectCountByLayer.get(layer.id) ?? 0);
-                      const titleParts = splitLayerTitle(layer.code, layer.name);
-                      const layerMenuItems = [
-                        {
-                          key: "objects",
-                          icon: <AppstoreOutlined />,
-                          label: "Открыть объекты эшелона",
-                          onClick: () => {
-                            selectLayerWithDefaultSlot(layer.id);
-                            setEchelonObjectsLayerId(layer.id as DefenseLayerId);
-                          },
-                        },
-                        {
-                          key: "edit",
-                          icon: <EditOutlined />,
-                          label: "Настроить эшелон",
-                          onClick: () => {
-                            selectLayerWithDefaultSlot(layer.id);
-                            editSelectedLayer();
-                          },
-                        },
-                        {
-                          key: "delete",
-                          icon: <DeleteOutlined />,
-                          danger: true,
-                          disabled: !layerDeleteState.canDelete,
-                          label: (
-                            <div className="py-0.5">
-                              <p>Удалить эшелон</p>
-                              {!layerDeleteState.canDelete ? (
-                                <p className="mt-1 max-w-48 whitespace-normal text-[11px] font-medium text-slate-400">
-                                  {layerDeleteState.reason}
-                                </p>
-                              ) : null}
-                            </div>
-                          ),
-                          onClick: () => {
-                            if (!layerDeleteState.canDelete) return;
-                            setPendingLayerDeletionId(layer.id);
-                          },
-                        },
-                      ];
-                      return (
-                        <div
-                          key={layer.id}
-                          className={styles.prototypeLayerCard}
-                          data-selected={isSelected ? "true" : "false"}
-                          data-hovered={isHovered ? "true" : "false"}
-                          onMouseEnter={() => setHoveredLayerId(layer.id)}
-                          onMouseLeave={() => setHoveredLayerId((current) => (current === layer.id ? null : current))}
-                        >
-                          <div className={styles.prototypeLayerActions}>
-                            <button
-                              type="button"
-                              className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                toggleLayerVisibility(layer.id, layer.isVisible === false);
-                              }}
-                              title={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
-                              aria-label={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
-                            >
-                              {layer.isVisible === false ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                            </button>
-                            <Dropdown
-                              trigger={["click"]}
-                              placement="bottomRight"
-                              arrow
-                              menu={{
-                                items: layerMenuItems,
-                                className: "min-w-[13rem]",
-                              }}
-                            >
-                              <button
-                                type="button"
-                                className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
-                                onClick={(event) => event.stopPropagation()}
-                                aria-label="Открыть меню эшелона"
-                              >
-                                <MoreOutlined />
-                              </button>
-                            </Dropdown>
-                          </div>
-                          <button
-                            type="button"
-                            className={styles.prototypeLayerButton}
-                            onClick={() => selectLayerWithDefaultSlot(layer.id)}
-                          >
-                            <div className="flex items-start gap-2.5 pr-[4.4rem]">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex min-w-0 items-start gap-2">
-                                  <span
-                                    className={styles.prototypeLayerDot}
-                                    style={{ backgroundColor: layer.color ?? "#2563eb" }}
-                                    aria-hidden="true"
-                                  />
-                                  <div className="min-w-0 min-h-[2.45rem]" title={`${layer.code} · ${layer.name}`}>
-                                    <p className={`${styles.prototypeLayerName} truncate`}>
-                                      {titleParts.primary}
-                                    </p>
-                                    {titleParts.secondary ? (
-                                      <p
-                                        className={styles.prototypeLayerName}
-                                        style={{
-                                          display: "-webkit-box",
-                                          WebkitLineClamp: 1,
-                                          WebkitBoxOrient: "vertical",
-                                          overflow: "hidden",
-                                        }}
-                                      >
-                                        {titleParts.secondary}
-                                      </p>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <p className={styles.prototypeLayerRange}>
-                              {formatLayerRange(summary?.innerRadiusM ?? 0, summary?.outerRadiusM ?? 0)}
-                            </p>
-                            <p className={styles.prototypeMeta}>
-                              {formatLayerObjectMeta(summary?.objectCount ?? 0, summary?.totalMln ?? 0)}
-                            </p>
-                          </button>
-                          {layerStateLabel ? (
-                            <span className={styles.prototypeLayerStateBadge}>
-                              {layerStateLabel}
-                            </span>
-                          ) : null}
-                          {layer.isLocked ? (
-                            <span className={`${styles.prototypeLayerLocked} ${styles.prototypeBadgeMuted}`}>
-                              locked
-                            </span>
-                          ) : null}
-                        </div>
-                      );
-                    })}
+                    {orderedProjectLayers.map((layer) => (
+                      <PrototypeLayerStripItem
+                        key={layer.id}
+                        layer={layer}
+                        summary={layerSummaries.find((item) => item.layerId === layer.id)}
+                        totalLayers={project.layers.length}
+                        objectCount={objectCountByLayer.get(layer.id) ?? 0}
+                        isSelected={layer.id === selectedLayer.id}
+                        isHovered={layer.id === hoveredLayerId}
+                        onHoverLayer={setHoveredLayerId}
+                        onSelectLayer={selectLayerWithDefaultSlot}
+                        onOpenObjects={(layerId) => {
+                          selectLayerWithDefaultSlot(layerId);
+                          setEchelonObjectsLayerId(layerId);
+                        }}
+                        onEditLayer={(layerId) => {
+                          selectLayerWithDefaultSlot(layerId);
+                          editSelectedLayer();
+                        }}
+                        onRequestDelete={setPendingLayerDeletionId}
+                        onToggleVisibility={toggleLayerVisibility}
+                      />
+                    ))}
                   </div>
                     </div>
                     <button

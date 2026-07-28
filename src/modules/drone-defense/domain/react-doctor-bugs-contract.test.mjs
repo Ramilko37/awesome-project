@@ -10,7 +10,7 @@ const projectRouteSource = readFileSync("src/app/api/defense/projects/[id]/route
 const backendProxySource = readFileSync("src/modules/drone-defense/infra/backend-proxy.ts", "utf8");
 const seedBackendSource = readFileSync("src/modules/drone-defense/infra/seed-backend-asset-library.ts", "utf8");
 const assetManagerSource = readFileSync("src/modules/drone-defense/ui/asset-library-manager.tsx", "utf8");
-const homePageSource = readFileSync("src/app/page.tsx", "utf8");
+const homePageSource = readFileSync("src/modules/home/ui/home-page.tsx", "utf8");
 const gisBoardSource = readFileSync("src/modules/drone-defense/ui/gis-board.tsx", "utf8");
 const calculatorPageSource = readFileSync("src/modules/defense-calculator/ui/calculator-page.tsx", "utf8");
 

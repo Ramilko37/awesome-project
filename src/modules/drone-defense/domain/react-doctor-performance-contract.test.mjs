@@ -10,7 +10,6 @@ const reportsChartsSource = readFileSync("src/modules/analytics/ui/reports-chart
 const sceneSource = readFileSync("src/modules/drone-defense/ui/scene.tsx", "utf8");
 const structuralProfileSource = readFileSync("src/modules/defense-calculator/domain/structural-profile.ts", "utf8");
 const evaluationSource = readFileSync("src/modules/drone-defense/domain/evaluation.ts", "utf8");
-const defenseCatalogTabSource = readFileSync("src/modules/drone-defense/ui/defense-catalog/defense-catalog-tab.tsx", "utf8");
 const gisBoardSource = readFileSync("src/modules/drone-defense/ui/gis-board.tsx", "utf8");
 const defenseProjectSource = readFileSync("src/shared/lib/defense-project.ts", "utf8");
 const defenseProjectStoreSource = readFileSync("src/shared/lib/use-defense-project-store.ts", "utf8");
@@ -68,7 +67,6 @@ assert(
 assert(
   !structuralProfileSource.includes(".filter((summary) => summary.objectCount > 0)\n    .map(") &&
     !evaluationSource.includes(".filter((asset) => !configuration.placements.some(") &&
-    !defenseCatalogTabSource.includes("assets.filter((asset) => asset.defenseLayerIds.includes(detailLayer.id)).map(") &&
     !gisBoardSource.includes("[...counts.entries()].filter(([, count]) => count > 1).map(") &&
     !defenseProjectSource.includes(".filter((layer) => layer.id !== ignoredLayerId && layer.id !== draftLayer.id)\n    .map(") &&
     !defenseProjectSource.includes(".filter((item) => item.id !== layerId)\n    .map(") &&

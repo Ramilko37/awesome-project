@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from "react";
 import {
   CloseOutlined,
   DeleteOutlined,
@@ -414,226 +414,292 @@ export function AssetLibraryManager({
       {localError ? <p className={`${styles.prototypeNoticeDanger} mt-2`}>{localError}</p> : null}
 
       {mode !== "closed" ? (
-        <div className={`${styles.prototypeFormCard} mt-3 grid gap-2 bg-slate-50 p-2`}>
-          <div className="flex items-center justify-between gap-2">
-            <p className={styles.prototypeCardTitle}>
-              {mode === "create" ? "Новая карточка" : "Редактирование"}
-            </p>
-            <button
-              type="button"
-              className={`${styles.prototypeIconButton} cursor-pointer`}
-              onClick={() => setMode("closed")}
-              title="Закрыть форму"
-              aria-label="Закрыть форму"
-            >
-              <CloseOutlined />
-            </button>
-          </div>
-
-          <input
-            className={styles.prototypeField}
-            value={form.name}
-            onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-            placeholder="Название"
-          />
-
-          <div className="grid grid-cols-2 gap-2">
-            <select
-              className={styles.prototypeSelect}
-              value={form.category}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, category: event.target.value as DefenseAssetCategory }))
-              }
-            >
-              {categoryOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <select
-              className={styles.prototypeSelect}
-              value={form.coverageType}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, coverageType: event.target.value as DefenseAssetCoverageType }))
-              }
-            >
-              {coverageTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              className={styles.prototypeField}
-              value={form.protectionType}
-              onChange={(event) => setForm((current) => ({ ...current, protectionType: event.target.value }))}
-              placeholder="Тип защиты"
-            />
-            <input
-              className={styles.prototypeField}
-              value={form.recommendedLayerCodes}
-              onChange={(event) => setForm((current) => ({ ...current, recommendedLayerCodes: event.target.value }))}
-              placeholder="Эшелоны: L2, L3"
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <input
-              className={styles.prototypeField}
-              value={form.pricePerUnitMln}
-              onChange={(event) => setForm((current) => ({ ...current, pricePerUnitMln: event.target.value }))}
-              placeholder="млн ₽"
-              inputMode="decimal"
-            />
-            <input
-              className={styles.prototypeField}
-              value={form.coverageRadiusKm}
-              onChange={(event) => setForm((current) => ({ ...current, coverageRadiusKm: event.target.value }))}
-              placeholder="радиус, км"
-              inputMode="decimal"
-            />
-            <input
-              className={styles.prototypeField}
-              value={form.coverageAngle}
-              onChange={(event) => setForm((current) => ({ ...current, coverageAngle: event.target.value }))}
-              placeholder="угол"
-              inputMode="decimal"
-            />
-          </div>
-
-          <input
-            className={styles.prototypeField}
-            value={form.maxEffectiveDistanceKm}
-            onChange={(event) => setForm((current) => ({ ...current, maxEffectiveDistanceKm: event.target.value }))}
-            placeholder="максимальная дальность, км"
-            inputMode="decimal"
-          />
-
-          <textarea
-            className={`${styles.prototypeTextarea} min-h-16 resize-y`}
-            value={form.description}
-            onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-            placeholder="Описание"
-          />
-
-          <label className={`${styles.prototypeInlineCard} text-xs text-slate-600`}>
-            <span>Общий каталог</span>
-            <input
-              type="checkbox"
-              checked={form.isPublic}
-              onChange={(event) => setForm((current) => ({ ...current, isPublic: event.target.checked }))}
-            />
-          </label>
-
-          {!form.isPublic ? (
-            <input
-              className={styles.prototypeField}
-              value={form.enterpriseId}
-              onChange={(event) => setForm((current) => ({ ...current, enterpriseId: event.target.value }))}
-              placeholder="enterpriseId"
-            />
-          ) : null}
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className={`${styles.prototypeButtonPrimary} flex-1 cursor-pointer px-3 disabled:cursor-wait`}
-              onClick={() => void saveAsset()}
-              disabled={saving}
-            >
-              <SaveOutlined />
-              Сохранить
-            </button>
-            {mode === "edit" ? (
-              <button
-                type="button"
-                className={`${styles.prototypeButtonDanger} w-10 cursor-pointer`}
-                onClick={() => void deleteSelectedAsset()}
-                disabled={saving || selectedAssetUsed}
-                title={selectedAssetUsed ? "Средство размещено на карте" : "Удалить средство защиты"}
-                aria-label="Удалить средство защиты"
-              >
-                <DeleteOutlined />
-              </button>
-            ) : null}
-          </div>
-        </div>
+        <AssetEditorForm
+          mode={mode}
+          form={form}
+          setForm={setForm}
+          saving={saving}
+          selectedAssetUsed={selectedAssetUsed}
+          onClose={() => setMode("closed")}
+          onSave={() => void saveAsset()}
+          onDelete={() => void deleteSelectedAsset()}
+        />
       ) : null}
 
       {selectedAsset ? (
-        <div className={`${styles.prototypeFormCard} mt-3 grid gap-2 bg-slate-50 p-2`}>
-          <div className="flex items-center justify-between gap-2">
-            <p className={`${styles.prototypeCardTitle} flex items-center gap-2`}>
-              <FileTextOutlined />
-              Документы
-            </p>
-            <span className={styles.prototypeMeta}>{documents.length}</span>
-          </div>
+        <AssetDocumentsPanel
+          documents={documents}
+          documentsLoading={documentsLoading}
+          documentsError={documentsError}
+          documentSaving={documentSaving}
+          documentForm={documentForm}
+          setDocumentForm={setDocumentForm}
+          onAddDocument={() => void addDocument()}
+          onRemoveDocument={(document) => void removeDocument(document)}
+        />
+      ) : null}
+    </div>
+  );
+}
 
-          {documentsLoading ? <p className={`${styles.prototypeMeta} text-blue-600`}>Загрузка документов…</p> : null}
-          {documentsError ? <p className={styles.prototypeNoticeWarning}>{documentsError}</p> : null}
+function AssetEditorForm({
+  mode,
+  form,
+  setForm,
+  saving,
+  selectedAssetUsed,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  mode: "create" | "edit";
+  form: AssetFormState;
+  setForm: Dispatch<SetStateAction<AssetFormState>>;
+  saving: boolean;
+  selectedAssetUsed: boolean;
+  onClose: () => void;
+  onSave: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className={`${styles.prototypeFormCard} mt-3 grid gap-2 bg-slate-50 p-2`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className={styles.prototypeCardTitle}>
+          {mode === "create" ? "Новая карточка" : "Редактирование"}
+        </p>
+        <button
+          type="button"
+          className={`${styles.prototypeIconButton} cursor-pointer`}
+          onClick={onClose}
+          title="Закрыть форму"
+          aria-label="Закрыть форму"
+        >
+          <CloseOutlined />
+        </button>
+      </div>
 
-          <div className="grid gap-1.5">
-            {documents.length === 0 && !documentsLoading ? (
-              <p className={styles.prototypeMeta}>Документы к карточке пока не прикреплены.</p>
-            ) : null}
-            {documents.map((document) => (
-              <div key={document.id} className={`${styles.prototypeInlineCard} gap-2`}>
-                <div className="min-w-0">
-                  <p className={`${styles.prototypeCardTitle} truncate`}>{document.name}</p>
-                  <p className={`${styles.prototypeMeta} truncate`}>{document.mimeType || "application/octet-stream"}</p>
-                </div>
-                <a
-                  className={styles.prototypeIconButton}
-                  href={document.downloadUrl || buildAssetDocumentDownloadUrl(document.id)}
-                  target="_blank"
-                  rel="noreferrer"
-                  title="Открыть документ"
-                  aria-label="Открыть документ"
-                >
-                  <DownloadOutlined />
-                </a>
-                <button
-                  type="button"
-                  className={`${styles.prototypeIconButton} cursor-pointer`}
-                  onClick={() => void removeDocument(document)}
-                  disabled={documentSaving}
-                  title="Удалить документ"
-                  aria-label="Удалить документ"
-                >
-                  <DeleteOutlined />
-                </button>
-              </div>
-            ))}
-          </div>
+      <input
+        className={styles.prototypeField}
+        value={form.name}
+        onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+        placeholder="Название"
+      />
 
-          <input
-            className={styles.prototypeField}
-            value={documentForm.name}
-            onChange={(event) => setDocumentForm((current) => ({ ...current, name: event.target.value }))}
-            placeholder="Название документа"
-          />
-          <input
-            className={styles.prototypeField}
-            value={documentForm.url}
-            onChange={(event) => setDocumentForm((current) => ({ ...current, url: event.target.value }))}
-            placeholder="URL или storage key"
-          />
+      <div className="grid grid-cols-2 gap-2">
+        <select
+          className={styles.prototypeSelect}
+          value={form.category}
+          onChange={(event) =>
+            setForm((current) => ({ ...current, category: event.target.value as DefenseAssetCategory }))
+          }
+        >
+          {categoryOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <select
+          className={styles.prototypeSelect}
+          value={form.coverageType}
+          onChange={(event) =>
+            setForm((current) => ({ ...current, coverageType: event.target.value as DefenseAssetCoverageType }))
+          }
+        >
+          {coverageTypeOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          className={styles.prototypeField}
+          value={form.protectionType}
+          onChange={(event) => setForm((current) => ({ ...current, protectionType: event.target.value }))}
+          placeholder="Тип защиты"
+        />
+        <input
+          className={styles.prototypeField}
+          value={form.recommendedLayerCodes}
+          onChange={(event) => setForm((current) => ({ ...current, recommendedLayerCodes: event.target.value }))}
+          placeholder="Эшелоны: L2, L3"
+        />
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <input
+          className={styles.prototypeField}
+          value={form.pricePerUnitMln}
+          onChange={(event) => setForm((current) => ({ ...current, pricePerUnitMln: event.target.value }))}
+          placeholder="млн ₽"
+          inputMode="decimal"
+        />
+        <input
+          className={styles.prototypeField}
+          value={form.coverageRadiusKm}
+          onChange={(event) => setForm((current) => ({ ...current, coverageRadiusKm: event.target.value }))}
+          placeholder="радиус, км"
+          inputMode="decimal"
+        />
+        <input
+          className={styles.prototypeField}
+          value={form.coverageAngle}
+          onChange={(event) => setForm((current) => ({ ...current, coverageAngle: event.target.value }))}
+          placeholder="угол"
+          inputMode="decimal"
+        />
+      </div>
+
+      <input
+        className={styles.prototypeField}
+        value={form.maxEffectiveDistanceKm}
+        onChange={(event) => setForm((current) => ({ ...current, maxEffectiveDistanceKm: event.target.value }))}
+        placeholder="максимальная дальность, км"
+        inputMode="decimal"
+      />
+
+      <textarea
+        className={`${styles.prototypeTextarea} min-h-16 resize-y`}
+        value={form.description}
+        onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+        placeholder="Описание"
+      />
+
+      <label className={`${styles.prototypeInlineCard} text-xs text-slate-600`}>
+        <span>Общий каталог</span>
+        <input
+          type="checkbox"
+          checked={form.isPublic}
+          onChange={(event) => setForm((current) => ({ ...current, isPublic: event.target.checked }))}
+        />
+      </label>
+
+      {!form.isPublic ? (
+        <input
+          className={styles.prototypeField}
+          value={form.enterpriseId}
+          onChange={(event) => setForm((current) => ({ ...current, enterpriseId: event.target.value }))}
+          placeholder="enterpriseId"
+        />
+      ) : null}
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className={`${styles.prototypeButtonPrimary} flex-1 cursor-pointer px-3 disabled:cursor-wait`}
+          onClick={onSave}
+          disabled={saving}
+        >
+          <SaveOutlined />
+          Сохранить
+        </button>
+        {mode === "edit" ? (
           <button
             type="button"
-            className={`${styles.prototypeButtonPrimary} cursor-pointer px-3 disabled:cursor-wait`}
-            onClick={() => void addDocument()}
-            disabled={documentSaving}
+            className={`${styles.prototypeButtonDanger} w-10 cursor-pointer`}
+            onClick={onDelete}
+            disabled={saving || selectedAssetUsed}
+            title={selectedAssetUsed ? "Средство размещено на карте" : "Удалить средство защиты"}
+            aria-label="Удалить средство защиты"
           >
-            <PlusOutlined />
-            Прикрепить документ
+            <DeleteOutlined />
           </button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function AssetDocumentsPanel({
+  documents,
+  documentsLoading,
+  documentsError,
+  documentSaving,
+  documentForm,
+  setDocumentForm,
+  onAddDocument,
+  onRemoveDocument,
+}: {
+  documents: AssetDocument[];
+  documentsLoading: boolean;
+  documentsError: string | null;
+  documentSaving: boolean;
+  documentForm: DocumentFormState;
+  setDocumentForm: Dispatch<SetStateAction<DocumentFormState>>;
+  onAddDocument: () => void;
+  onRemoveDocument: (document: AssetDocument) => void;
+}) {
+  return (
+    <div className={`${styles.prototypeFormCard} mt-3 grid gap-2 bg-slate-50 p-2`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className={`${styles.prototypeCardTitle} flex items-center gap-2`}>
+          <FileTextOutlined />
+          Документы
+        </p>
+        <span className={styles.prototypeMeta}>{documents.length}</span>
+      </div>
+
+      {documentsLoading ? <p className={`${styles.prototypeMeta} text-blue-600`}>Загрузка документов…</p> : null}
+      {documentsError ? <p className={styles.prototypeNoticeWarning}>{documentsError}</p> : null}
+
+      <div className="grid gap-1.5">
+        {documents.length === 0 && !documentsLoading ? (
+          <p className={styles.prototypeMeta}>Документы к карточке пока не прикреплены.</p>
+        ) : null}
+        {documents.map((document) => (
+          <div key={document.id} className={`${styles.prototypeInlineCard} gap-2`}>
+            <div className="min-w-0">
+              <p className={`${styles.prototypeCardTitle} truncate`}>{document.name}</p>
+              <p className={`${styles.prototypeMeta} truncate`}>{document.mimeType || "application/octet-stream"}</p>
+            </div>
+            <a
+              className={styles.prototypeIconButton}
+              href={document.downloadUrl || buildAssetDocumentDownloadUrl(document.id)}
+              target="_blank"
+              rel="noreferrer"
+              title="Открыть документ"
+              aria-label="Открыть документ"
+            >
+              <DownloadOutlined />
+            </a>
+            <button
+              type="button"
+              className={`${styles.prototypeIconButton} cursor-pointer`}
+              onClick={() => onRemoveDocument(document)}
+              disabled={documentSaving}
+              title="Удалить документ"
+              aria-label="Удалить документ"
+            >
+              <DeleteOutlined />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <input
+        className={styles.prototypeField}
+        value={documentForm.name}
+        onChange={(event) => setDocumentForm((current) => ({ ...current, name: event.target.value }))}
+        placeholder="Название документа"
+      />
+      <input
+        className={styles.prototypeField}
+        value={documentForm.url}
+        onChange={(event) => setDocumentForm((current) => ({ ...current, url: event.target.value }))}
+        placeholder="URL или storage key"
+      />
+      <button
+        type="button"
+        className={`${styles.prototypeButtonPrimary} cursor-pointer px-3 disabled:cursor-wait`}
+        onClick={onAddDocument}
+        disabled={documentSaving}
+      >
+        <PlusOutlined />
+        Прикрепить документ
+      </button>
     </div>
   );
 }

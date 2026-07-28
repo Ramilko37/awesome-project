@@ -1,4 +1,4 @@
-import type { PlacedDefenseObject, DefenseAsset } from "@/shared/types/defense-project";
+import type { DefenseAsset } from "@/shared/types/defense-project";
 import type { Placement } from "@/shared/types/drone-defense";
 
 export type ProtectionTypeVisibility = {
@@ -26,19 +26,6 @@ export function isMogAsset(asset?: Pick<DefenseAsset, "id" | "protectionType" | 
   if (isMogProfile(asset.compoundProfile)) return true;
   if (normalize(asset.protectionType) === "мог") return true;
   return (asset.mapCatalogGroupIds ?? []).some((groupId) => MOG_CATALOG_GROUP_IDS.has(groupId));
-}
-
-export function isMogPlacedObject(
-  object?: Pick<PlacedDefenseObject, "assetId" | "compoundProfile"> | null,
-  asset?: Pick<DefenseAsset, "id" | "protectionType" | "compoundProfile" | "mapCatalogGroupIds"> | null,
-): boolean {
-  if (!object) return false;
-  if (isMogProfile(object.compoundProfile)) return true;
-  if (asset && asset.id === object.assetId) {
-    return isMogAsset(asset);
-  }
-  if (MOG_ASSET_IDS.has(object.assetId)) return true;
-  return false;
 }
 
 export function isMogPlacement(

@@ -234,22 +234,6 @@ export const threatStatusColor: Record<ThreatStatus, string> = {
   breach: "#ff6b5f",
 };
 
-export const defenseLayerStatusLabel: Record<DefenseLayerStatus, string> = {
-  covered: "Закрыт",
-  partial: "Частично",
-  weak: "Слабый",
-  not_covered: "Не закрыт",
-  missing_data: "Нет данных",
-};
-
-export const defenseLayerStatusColor: Record<DefenseLayerStatus, string> = {
-  covered: "#27b16d",
-  partial: "#d8a31c",
-  weak: "#d97a2b",
-  not_covered: "#d14b4b",
-  missing_data: "#8a94a5",
-};
-
 export const objectDefaultsByKind: Record<
   ObjectKind,
   Pick<SceneObject, "coverageRadiusM" | "elevation" | "zones" | "defenseRole" | "costMln" | "effectiveness">
@@ -459,12 +443,4 @@ export const threatTracks: ThreatTrack[] = [
 
 export function snapToGrid(value: number, step = 0.5) {
   return Math.round(value / step) * step;
-}
-
-export function getLayerStatus(readinessPct: number | null): DefenseLayerStatus {
-  if (readinessPct === null) return "missing_data";
-  if (readinessPct >= 75) return "covered";
-  if (readinessPct >= 40) return "partial";
-  if (readinessPct > 0) return "weak";
-  return "not_covered";
 }

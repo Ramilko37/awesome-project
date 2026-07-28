@@ -43,67 +43,24 @@ export function CalculatorReport({
   scoredAssets: ScoredAsset[];
   budgetResult: ReturnType<typeof fitToBudget>;
   budgetApplied: boolean;
-  generatedAt?: Date;
+  generatedAt: Date;
   layerSummaries?: LayerSummary[];
   objectLines: ProjectObjectReportLine[];
 }) {
   const weightsSummary = criteria.map((c) => `${c.name} ${c.weight}`).join(" · ");
   const picksIncludedCount = budgetResult.picks.filter((pick) => pick.included).length;
-  const generatedAtLabel = (generatedAt ?? new Date()).toLocaleString("ru-RU");
+  const generatedAtLabel = generatedAt.toLocaleString("ru-RU");
   const hasEstimateLines = myEstimate.echelons.some((echelon) => echelon.lines.length > 0);
 
   return (
     <div className="report-root">
-      <div className="report-titlebar">
-        <h1>Расчёт конфигурации средств защиты от&nbsp;БПЛА</h1>
-        <p>
-          Автоматический просчёт сметы, приоритета и&nbsp;покрытия эшелонов.
-        </p>
-        <p className="report-date" suppressHydrationWarning>
-          Дата генерации: {generatedAtLabel}
-        </p>
-      </div>
-
-      <section className="report-section">
-        <h2>Сводка отчёта</h2>
-        <table className="report-table report-table-tight">
-          <thead>
-            <tr>
-              <th>Показатель</th>
-              <th className="num">Значение</th>
-              <th>Комментарий</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Выбранная конфигурация</td>
-              <td className="num strong">{myEstimate.configurationName}</td>
-              <td>Текущий рабочий вариант</td>
-            </tr>
-            <tr>
-              <td>Итоговая стоимость</td>
-              <td className="num total">{formatMln(myEstimate.totalMln)}</td>
-              <td>Сумма по всем эшелонам</td>
-            </tr>
-            {budgetApplied ? (
-              <>
-                <tr>
-                  <td>Бюджетный режим</td>
-                  <td className="num">{formatMln(budgetResult.budgetMln)}</td>
-                  <td>
-                    Распределено {formatMln(budgetResult.spentMln)}, остаток {formatMln(budgetResult.remainingMln)}
-                  </td>
-                </tr>
-                <tr>
-                  <td>Позиции в бюджете</td>
-                  <td className="num">{picksIncludedCount} / {budgetResult.picks.length}</td>
-                  <td>Количество включенных средств</td>
-                </tr>
-              </>
-            ) : null}
-          </tbody>
-        </table>
-      </section>
+      <ReportTitleBar generatedAtLabel={generatedAtLabel} />
+      <ReportSummarySection
+        myEstimate={myEstimate}
+        budgetApplied={budgetApplied}
+        budgetResult={budgetResult}
+        picksIncludedCount={picksIncludedCount}
+      />
 
       <section className="report-section">
         <h2>1. Смета выбранной конфигурации — {myEstimate.configurationName}</h2>
@@ -331,5 +288,74 @@ export function CalculatorReport({
         Оценки по 7&nbsp;критериям — предварительная экспертная оценка.
       </p>
     </div>
+  );
+}
+
+function ReportTitleBar({ generatedAtLabel }: { generatedAtLabel: string }) {
+  return (
+    <div className="report-titlebar">
+      <h1>Расчёт конфигурации средств защиты от&nbsp;БПЛА</h1>
+      <p>
+        Автоматический просчёт сметы, приоритета и&nbsp;покрытия эшелонов.
+      </p>
+      <p className="report-date" suppressHydrationWarning>
+        Дата генерации: {generatedAtLabel}
+      </p>
+    </div>
+  );
+}
+
+function ReportSummarySection({
+  myEstimate,
+  budgetApplied,
+  budgetResult,
+  picksIncludedCount,
+}: {
+  myEstimate: ConfigurationEstimate;
+  budgetApplied: boolean;
+  budgetResult: ReturnType<typeof fitToBudget>;
+  picksIncludedCount: number;
+}) {
+  return (
+    <section className="report-section">
+      <h2>Сводка отчёта</h2>
+      <table className="report-table report-table-tight">
+        <thead>
+          <tr>
+            <th>Показатель</th>
+            <th className="num">Значение</th>
+            <th>Комментарий</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Выбранная конфигурация</td>
+            <td className="num strong">{myEstimate.configurationName}</td>
+            <td>Текущий рабочий вариант</td>
+          </tr>
+          <tr>
+            <td>Итоговая стоимость</td>
+            <td className="num total">{formatMln(myEstimate.totalMln)}</td>
+            <td>Сумма по всем эшелонам</td>
+          </tr>
+          {budgetApplied ? (
+            <>
+              <tr>
+                <td>Бюджетный режим</td>
+                <td className="num">{formatMln(budgetResult.budgetMln)}</td>
+                <td>
+                  Распределено {formatMln(budgetResult.spentMln)}, остаток {formatMln(budgetResult.remainingMln)}
+                </td>
+              </tr>
+              <tr>
+                <td>Позиции в бюджете</td>
+                <td className="num">{picksIncludedCount} / {budgetResult.picks.length}</td>
+                <td>Количество включенных средств</td>
+              </tr>
+            </>
+          ) : null}
+        </tbody>
+      </table>
+    </section>
   );
 }

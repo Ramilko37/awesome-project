@@ -63,6 +63,11 @@ const PROJECT_OBJECT_STATUS_LABEL: Record<DefenseProject["placedObjects"][number
   inactive: "Отключён",
   maintenance: "Сервис",
 };
+const CALCULATOR_TABS: Array<{ id: Tab; label: string }> = [
+  { id: "configure", label: "Конфигуратор" },
+  { id: "structure", label: "Структура" },
+  { id: "budget", label: "Подбор под бюджет" },
+];
 
 type BackendStatus = "idle" | "loading" | "error";
 type BackendBudgetStatus = "idle" | "loading" | "saving" | "checking" | "error";
@@ -404,104 +409,23 @@ export function CalculatorPage() {
   const layerSummaries = useMemo(() => calculateLayerSummaries(project), [project]);
   const isConfigurationEmpty = positionsCount === 0;
   const totalMln = backendCost?.totalMln ?? estimate.totalMln;
+  const reportGeneratedAt = useMemo(() => new Date(), []);
 
   return (
     <div className="font-(family-name:--font-manrope) min-h-screen bg-[#eef3f8] text-slate-800">
       <div className="relative mx-auto max-w-7xl px-5 py-7 lg:px-8 print:hidden">
-        {/* Header */}
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-5 ">
-          <div>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/prototype"
-                className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500 transition hover:text-blue-700"
-              >
-                ← Прототип
-              </Link>
-              <span className="h-3 w-px bg-slate-300" />
-              <Link
-                href="/dashboard"
-                className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500 transition hover:text-blue-700"
-              >
-                Кабинет
-              </Link>
-              <span className="h-3 w-px bg-slate-300" />
-              <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-400 ">
-                Калькулятор защиты
-              </span>
-            </div>
-            <h1 className="mt-2 font-(family-name:--font-syne) text-3xl tracking-tight text-slate-900 lg:text-4xl ">
-              Конфигурация средств защиты от&nbsp;БПЛА
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500 ">
-              Автоматический расчёт сметы, приоритета и покрытия эшелонов. Заменяет ручной просчёт в&nbsp;Excel.
-            </p>
-          </div>
-
-          <div className="flex items-end gap-3">
-            <div className="flex flex-col gap-2">
-              <ThemeToggle />
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="flex h-9 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 font-mono text-[11px] uppercase tracking-wider text-slate-600 transition hover:border-blue-400 hover:text-blue-700"
-                title="Сформировать PDF-отчёт (Сохранить как PDF)"
-              >
-                <PrinterOutlined /> PDF-отчёт
-              </button>
-            </div>
-            {/* Headline total */}
-            <div className="rounded-2xl border border-blue-200 bg-blue-50 px-6 py-4 text-right shadow-sm">
-              <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-blue-600">
-                Итого по конфигурации
-              </p>
-              <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-slate-900 ">
-                {formatMln(totalMln)}
-              </p>
-              <p className="mt-0.5 font-mono text-[11px] text-slate-400 ">
-                {placedCount} ед. · {positionsCount} позиций
-              </p>
-            </div>
-          </div>
-        </header>
-
-        <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
-          isConfigurationEmpty ? "border-amber-200 bg-amber-50 text-amber-800" : "border-blue-100 bg-blue-50 text-blue-900"
-        }`}>
-          {isConfigurationEmpty
-            ? "Конфигурация пока не собрана. Добавьте средства защиты на карте."
-            : backendCost
-              ? `Расчёт получен из backend-контура. Объектов в payload отчёта: ${backendReport?.placedObjects.length ?? 0}.`
-              : backendStatus === "loading"
-                ? "Загружается backend-расчёт по сохранённому проекту..."
-                : backendStatus === "error"
-                  ? "Backend-расчёт недоступен, используется локальный fallback текущей карты."
-                  : "Расчёт построен на основе текущей конфигурации карты"}
-        </div>
-
-        {/* Tabs */}
-        <nav className="mt-6 flex gap-1 rounded-xl border border-slate-200 bg-white/70 p-1 ">
-          {(
-            [
-              { id: "configure", label: "Конфигуратор" },
-              { id: "structure", label: "Структура" },
-              { id: "budget", label: "Подбор под бюджет" },
-            ] as Array<{ id: Tab; label: string }>
-          ).map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setTab(item.id)}
-              className={`flex-1 rounded-lg px-4 py-2.5 font-mono text-xs uppercase tracking-wider transition ${
-                tab === item.id
-                  ? "bg-blue-600 text-white shadow"
-                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 "
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
+        <CalculatorHeader
+          totalMln={totalMln}
+          placedCount={placedCount}
+          positionsCount={positionsCount}
+        />
+        <CalculatorStatusBanner
+          isConfigurationEmpty={isConfigurationEmpty}
+          backendCost={backendCost}
+          backendReport={backendReport}
+          backendStatus={backendStatus}
+        />
+        <CalculatorTabs tab={tab} onChange={setTab} />
 
         <main className="mt-6">
           {tab === "configure" ? (
@@ -547,11 +471,129 @@ export function CalculatorPage() {
           scoredAssets={scoredAssets}
           budgetResult={budgetResult}
           budgetApplied={budgetApplied}
-          generatedAt={new Date()}
+          generatedAt={reportGeneratedAt}
           layerSummaries={layerSummaries}
         />
       </div>
     </div>
+  );
+}
+
+function CalculatorHeader({
+  totalMln,
+  placedCount,
+  positionsCount,
+}: {
+  totalMln: number;
+  placedCount: number;
+  positionsCount: number;
+}) {
+  return (
+    <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-5 ">
+      <div>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/prototype"
+            className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500 transition hover:text-blue-700"
+          >
+            ← Прототип
+          </Link>
+          <span className="h-3 w-px bg-slate-300" />
+          <Link
+            href="/dashboard"
+            className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500 transition hover:text-blue-700"
+          >
+            Кабинет
+          </Link>
+          <span className="h-3 w-px bg-slate-300" />
+          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-400 ">
+            Калькулятор защиты
+          </span>
+        </div>
+        <h1 className="mt-2 font-(family-name:--font-syne) text-3xl tracking-tight text-slate-900 lg:text-4xl ">
+          Конфигурация средств защиты от&nbsp;БПЛА
+        </h1>
+        <p className="mt-1 max-w-2xl text-sm text-slate-500 ">
+          Автоматический расчёт сметы, приоритета и покрытия эшелонов. Заменяет ручной просчёт в&nbsp;Excel.
+        </p>
+      </div>
+
+      <div className="flex items-end gap-3">
+        <div className="flex flex-col gap-2">
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="flex h-9 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 font-mono text-[11px] uppercase tracking-wider text-slate-600 transition hover:border-blue-400 hover:text-blue-700"
+            title="Сформировать PDF-отчёт (Сохранить как PDF)"
+          >
+            <PrinterOutlined /> PDF-отчёт
+          </button>
+        </div>
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-6 py-4 text-right shadow-sm">
+          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-blue-600">
+            Итого по конфигурации
+          </p>
+          <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-slate-900 ">
+            {formatMln(totalMln)}
+          </p>
+          <p className="mt-0.5 font-mono text-[11px] text-slate-400 ">
+            {placedCount} ед. · {positionsCount} позиций
+          </p>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function CalculatorStatusBanner({
+  isConfigurationEmpty,
+  backendCost,
+  backendReport,
+  backendStatus,
+}: {
+  isConfigurationEmpty: boolean;
+  backendCost: BackendCostCalculation | null;
+  backendReport: BackendProjectReport | null;
+  backendStatus: BackendStatus;
+}) {
+  const message = isConfigurationEmpty
+    ? "Конфигурация пока не собрана. Добавьте средства защиты на карте."
+    : backendCost
+      ? `Расчёт получен из backend-контура. Объектов в payload отчёта: ${backendReport?.placedObjects.length ?? 0}.`
+      : backendStatus === "loading"
+        ? "Загружается backend-расчёт по сохранённому проекту..."
+        : backendStatus === "error"
+          ? "Backend-расчёт недоступен, используется локальный fallback текущей карты."
+          : "Расчёт построен на основе текущей конфигурации карты";
+
+  return (
+    <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
+      isConfigurationEmpty ? "border-amber-200 bg-amber-50 text-amber-800" : "border-blue-100 bg-blue-50 text-blue-900"
+    }`}>
+      {message}
+    </div>
+  );
+}
+
+function CalculatorTabs({ tab, onChange }: { tab: Tab; onChange: (tab: Tab) => void }) {
+  return (
+    <nav className="mt-6 flex gap-1 rounded-xl border border-slate-200 bg-white/70 p-1 ">
+      {CALCULATOR_TABS.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => onChange(item.id)}
+          className={`flex-1 rounded-lg px-4 py-2.5 font-mono text-xs uppercase tracking-wider transition ${
+            tab === item.id
+              ? "bg-blue-600 text-white shadow"
+              : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 "
+          }`}
+        >
+          {item.label}
+        </button>
+      ))}
+    </nav>
   );
 }
 

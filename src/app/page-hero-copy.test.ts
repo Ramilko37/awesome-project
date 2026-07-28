@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
-const pageSource = readFileSync("src/app/page.tsx", "utf8");
-const heroCtaSource = pageSource.split("ref={heroCta}")[1]?.split("</div>")[0];
+const pageSource = readFileSync("src/modules/home/ui/home-page.tsx", "utf8");
+const heroCtaSource = pageSource.split("ref={heroCtaRef}")[1]?.split("</div>")[0];
 
 if (!heroCtaSource) {
   throw new Error("Landing hero CTA block must remain addressable for copy checks");
