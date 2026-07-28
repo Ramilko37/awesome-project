@@ -14,13 +14,14 @@ const sceneSource = readFileSync("src/modules/drone-defense/ui/scene.tsx", "utf8
 const dashboardSidebarSource = readFileSync("src/modules/dashboard/ui/sidebar.tsx", "utf8");
 
 assert(
-  shellSource.includes('navigate("drilldown")') &&
-    shellSource.includes("if (view) setView(view);"),
-  "Scenario modeling navigation must open a dedicated prototype state",
+  !shellSource.includes("href=\"/prototype?view=scenario-modeling\"") &&
+    !shellSource.includes(">Сценарии<"),
+  "Scenario modeling must not be exposed in primary demo navigation",
 );
 assert(
-  shellSource.includes("href=\"/prototype?view=scenario-modeling\""),
-  "Scenario modeling navigation must use a shareable prototype state URL",
+  prototypeSource.includes("searchParams.get(\"view\")") &&
+    prototypeSource.includes("requestedView === \"scenario-modeling\""),
+  "Scenario modeling may remain available by direct compatibility URL",
 );
 assert(
   dashboardSidebarSource.includes("href=\"/prototype\"") &&
@@ -34,21 +35,12 @@ assert(
   "Scenario modeling prototype state must render the restored 3D facility drilldown scene",
 );
 assert(
-  prototypeSource.includes("searchParams.get(\"view\")") &&
-    prototypeSource.includes("requestedView === \"scenario-modeling\""),
-  "Prototype must render the scenario modeling scene from a direct /prototype?view=scenario-modeling entry",
-);
-assert(
   prototypeSource.includes("requestedView === \"3d\""),
   "Prototype must keep the old /prototype?view=3d entry as a compatibility alias",
 );
 assert(
   !prototypeSource.includes("<Prototype3DPlaceholder />"),
   "Scenario modeling prototype must not render the planned-product placeholder as its primary content",
-);
-assert(
-  shellSource.includes("Прототип Модуля сценарного моделирования"),
-  "Scenario modeling navigation must expose the requested product title",
 );
 assert(
   facilityDrilldownSource.includes("Прототип Модуля сценарного моделирования"),

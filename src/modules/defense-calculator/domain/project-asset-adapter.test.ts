@@ -66,5 +66,14 @@ assert(
   calculatorReportSource.includes("Размещённые объекты по эшелонам и типам"),
   "calculator report should include placed objects section for compound-aware output",
 );
+assert(
+  !calculatorPageSource.includes("Целевая угроза") && !calculatorReportSource.includes("Целевая угроза"),
+  "calculator UI and printed report must not claim a specific target threat methodology for the demo",
+);
+assert(
+  calculatorPageSource.includes("const DEMO_BUDGET_MLN = 1000") &&
+    !calculatorPageSource.includes("useState(9300"),
+  "calculator must start from a neutral demo budget, not the old 9.3bn value",
+);
 
 console.log("project-asset-adapter.test.ts: calculator reads canonical project asset library");

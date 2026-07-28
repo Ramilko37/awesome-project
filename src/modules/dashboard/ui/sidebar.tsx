@@ -104,15 +104,6 @@ export function DashboardSidebar() {
           <ScanLine className="h-3.75 w-3.75 shrink-0 text-accent" />
           <span className="min-w-0 truncate">Конфигуратор</span>
         </Link>
-        <Link
-          href="/retrospective-analysis"
-          title="Открыть WIP-модуль ретроанализа"
-          className="flex items-center gap-2.5 h-8 px-2 rounded-md text-[13px] font-medium transition-colors cursor-pointer text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
-        >
-          <ScanLine className="h-3.75 w-3.75 shrink-0 text-amber-500" />
-          <span className="min-w-0 truncate">Анализ (WIP)</span>
-        </Link>
-
         <Separator className="bg-sidebar-border my-2" />
 
         <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">

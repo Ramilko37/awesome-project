@@ -19,21 +19,18 @@ assert(pageImports.length === 1, "Retrospective page should have a single module
 assert(!/usePathname/.test(pageSource), "Retrospective page should stay simple and server-safe");
 
 assert(
-  shellSource.includes("href=\"/retrospective-analysis\"") &&
-    shellSource.includes('label="Анализ"') &&
-    shellSource.includes("isRetrospective") &&
-    shellSource.includes("<Drawer"),
-  "DefenseStudioShell must expose the new WIP route in desktop rail and compact navigation drawer",
+  !shellSource.includes("href=\"/retrospective-analysis\"") &&
+    !shellSource.includes(">Анализ<"),
+  "DefenseStudioShell must hide the WIP retrospective route from the primary demo navigation",
 );
 assert(
-  shellSource.includes("<StudioNavigation {...navigationProps}") &&
-    shellSource.includes("setNavigationOpen"),
-  "DefenseStudioShell must reuse the complete navigation in compact mode",
+  shellSource.includes("isRetrospective"),
+  "DefenseStudioShell may still recognize the retrospective route when opened directly",
 );
 assert(
-  sidebarSource.includes("href=\"/retrospective-analysis\"") &&
-    sidebarSource.includes(">Анализ (WIP)<"),
-  "Dashboard sidebar must keep Конфигуратор and add a WIP 'Анализ' entry",
+  !sidebarSource.includes("href=\"/retrospective-analysis\"") &&
+    !sidebarSource.includes(">Анализ (WIP)<"),
+  "Dashboard sidebar must not advertise the WIP retrospective module for the SIBUR demo path",
 );
 
 console.log("retrospective-analysis-navigation-contract.test.mjs: OK");

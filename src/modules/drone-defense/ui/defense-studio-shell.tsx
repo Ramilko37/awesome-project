@@ -7,9 +7,7 @@ import {
   ArrowLeftOutlined,
   CalculatorOutlined,
   EnvironmentOutlined,
-  LineChartOutlined,
   ExportOutlined,
-  RadarChartOutlined,
 } from "@ant-design/icons";
 import { useDefenseStudioStore } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import { VariantSaveButton, VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
@@ -86,27 +84,6 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               </span>
               <span>Расчёт</span>
             </Link>
-            <Link
-              href="/prototype?view=scenario-modeling"
-              className={`${railItemClassName} ${isDrilldownActive ? activeRailClassName : idleRailClassName}`}
-              onClick={() => setView("drilldown")}
-              title={scenarioModelingTitle}
-            >
-              <span className="text-lg">
-                <RadarChartOutlined />
-              </span>
-              <span>Сценарии</span>
-            </Link>
-            <Link
-              href="/retrospective-analysis"
-              className={`${railItemClassName} ${isRetrospective ? activeRailClassName : idleRailClassName}`}
-              title="Анализ цепочки атаки (WIP)"
-            >
-              <span className="text-lg">
-                <LineChartOutlined />
-              </span>
-              <span>Анализ</span>
-            </Link>
           </nav>
           <div className="space-y-2 border-t border-slate-100 px-2 py-3">
             <VariantSaveButton
@@ -144,7 +121,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               <VariantStatusButton fullWidth />
             </div>
 
-            <nav className="mt-2 grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1">
+            <nav className="mt-2 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
               <Link
                 href="/prototype"
                 className={`${mobileItemClassName} ${isMapActive ? activeMobileClassName : idleMobileClassName}`}
@@ -157,21 +134,6 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
                 className={`${mobileItemClassName} ${isCalculator ? activeMobileClassName : idleMobileClassName}`}
               >
                 Расчёт
-              </Link>
-              <Link
-                href="/prototype?view=scenario-modeling"
-                className={`${mobileItemClassName} ${isDrilldownActive ? activeMobileClassName : idleMobileClassName}`}
-                onClick={() => setView("drilldown")}
-                title={scenarioModelingTitle}
-              >
-                Сценарии
-              </Link>
-              <Link
-                href="/retrospective-analysis"
-                className={`${mobileItemClassName} ${isRetrospective ? activeMobileClassName : idleMobileClassName}`}
-                title="Анализ цепочки атаки (WIP)"
-              >
-                Анализ
               </Link>
             </nav>
           </div>

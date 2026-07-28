@@ -8,6 +8,14 @@ assert(
   "Layer panel must use the existing layer visibility action instead of introducing a parallel visibility model",
 );
 assert(
+  !source.includes("if (!isVisible && layerId === selectedLayer?.id)"),
+  "Hiding the active echelon must not switch activeLayerId to a fallback echelon",
+);
+assert(
+  source.includes("Активный · скрыт"),
+  "Layer cards must make the hidden-active state visible instead of changing selection",
+);
+assert(
   source.includes("hoveredLayerId"),
   "Layer cards must track hovered layer state so card hover can synchronize with map ring highlight",
 );

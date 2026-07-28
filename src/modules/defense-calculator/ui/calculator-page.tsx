@@ -44,6 +44,7 @@ import type {
 } from "@/modules/defense-calculator/domain/calculator-types";
 
 type Tab = "configure" | "structure" | "budget";
+const DEMO_BUDGET_MLN = 1000;
 
 const PRIORITY_DOT: Record<PriorityColor, string> = {
   green: "bg-emerald-500",
@@ -234,7 +235,7 @@ function estimateFromBackendCost(
 
 export function CalculatorPage() {
   const [tab, setTab] = useState<Tab>("configure");
-  const [budgetMln, setBudgetMln] = useState(9300);
+  const [budgetMln, setBudgetMln] = useState(DEMO_BUDGET_MLN);
   const [backendProjectState, dispatchBackendProject] = useReducer(
     backendProjectReducer,
     initialBackendProjectState,
@@ -427,9 +428,6 @@ export function CalculatorPage() {
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500 ">
               Автоматический расчёт сметы, приоритета и покрытия эшелонов. Заменяет ручной просчёт в&nbsp;Excel.
-              <span className="ml-1 text-slate-400 ">
-                Целевая угроза: дрон 200&nbsp;кг (БЧ&nbsp;75&nbsp;кг), до&nbsp;200&nbsp;км/ч.
-              </span>
             </p>
           </div>
 

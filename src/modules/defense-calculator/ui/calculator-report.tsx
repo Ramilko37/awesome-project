@@ -57,7 +57,6 @@ export function CalculatorReport({
       <div className="report-titlebar">
         <h1>Расчёт конфигурации средств защиты от&nbsp;БПЛА</h1>
         <p>
-          Целевая угроза: дрон массой 200&nbsp;кг (включая БЧ&nbsp;75&nbsp;кг), предельная скорость 200&nbsp;км/ч.
           Автоматический просчёт сметы, приоритета и&nbsp;покрытия эшелонов.
         </p>
         <p className="report-date" suppressHydrationWarning>

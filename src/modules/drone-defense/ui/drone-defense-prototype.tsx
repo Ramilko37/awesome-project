@@ -694,13 +694,9 @@ export function DroneDefensePrototype() {
 
   const toggleLayerVisibility = (layerId: string, isVisible: boolean) => {
     setLayerVisibility(layerId, isVisible);
-    if (!isVisible && layerId === selectedLayer?.id) {
-      const fallback =
-        orderedProjectLayers.find((layer) => layer.id !== layerId && layer.isVisible !== false) ??
-        orderedProjectLayers.find((layer) => layer.id !== layerId);
-      if (fallback) {
-        selectLayerWithDefaultSlot(fallback.id);
-      }
+    const isHidingSelectedLayer = !isVisible && layerId === selectedLayer?.id;
+    if (isHidingSelectedLayer) {
+      setLastPlacementMessage("Активный эшелон скрыт. Покажите его перед размещением новых объектов.");
     }
   };
 
@@ -730,6 +726,10 @@ export function DroneDefensePrototype() {
   };
 
   const handleSelectTool = (asset: ReturnType<typeof getAssetCatalogItems>[number]) => {
+    if (selectedLayer?.isVisible === false) {
+      setLastPlacementMessage("Покажите активный эшелон перед размещением объекта.");
+      return;
+    }
     const nextId = activeToolId === asset.assetId ? null : asset.assetId;
     setActiveToolId(nextId);
     selectAsset(asset.assetId);
@@ -747,6 +747,10 @@ export function DroneDefensePrototype() {
       setLastPlacementMessage("Выберите эшелон для размещения.");
       return;
     }
+    if (selectedLayer.isVisible === false) {
+      setLastPlacementMessage("Покажите активный эшелон перед размещением по координатам.");
+      return;
+    }
     setActiveToolId(asset.assetId);
     selectAsset(asset.assetId);
     setCoordinatePlacementAssetId(asset.assetId);
@@ -757,6 +761,10 @@ export function DroneDefensePrototype() {
 
   const placeActiveToolAtCoordinate = ({ lng, lat }: { lng: number; lat: number }) => {
     if (!activeToolId || !selectedLayer) return;
+    if (selectedLayer.isVisible === false) {
+      setLastPlacementMessage("Покажите активный эшелон перед размещением объекта.");
+      return;
+    }
     const asset = project.assetLibrary.find((item) => item.id === activeToolId);
     if (!asset) {
       setLastPlacementMessage("Средство защиты не найдено в библиотеке");
@@ -888,6 +896,12 @@ export function DroneDefensePrototype() {
   const placeCoordinateObject = (input: CoordinatePlacementInput) => {
     if (!coordinatePlacementAsset || !selectedLayer) {
       setCoordinatePlacementValidation({ level: "error", message: "Выберите средство и эшелон." });
+      return;
+    }
+    if (selectedLayer.isVisible === false) {
+      const message = "Покажите активный эшелон перед размещением объекта.";
+      setCoordinatePlacementValidation({ level: "error", message });
+      setLastPlacementMessage(message);
       return;
     }
     const parsed = parseCoordinatePlacementInput(input);
@@ -1296,6 +1310,14 @@ export function DroneDefensePrototype() {
                       const summary = layerSummaries.find((item) => item.layerId === layer.id);
                       const isSelected = layer.id === selectedLayer.id;
                       const isHovered = layer.id === hoveredLayerId;
+                      const layerStateLabel =
+                        isSelected && layer.isVisible === false
+                          ? "Активный · скрыт"
+                          : isSelected
+                            ? "Активный"
+                            : layer.isVisible === false
+                              ? "Скрыт"
+                              : null;
                       const layerDeleteState = describeLayerDeletion(project.layers.length, objectCountByLayer.get(layer.id) ?? 0);
                       const titleParts = splitLayerTitle(layer.code, layer.name);
                       const layerMenuItems = [
@@ -1420,6 +1442,11 @@ export function DroneDefensePrototype() {
                               {formatLayerObjectMeta(summary?.objectCount ?? 0, summary?.totalMln ?? 0)}
                             </p>
                           </button>
+                          {layerStateLabel ? (
+                            <span className={styles.prototypeLayerStateBadge}>
+                              {layerStateLabel}
+                            </span>
+                          ) : null}
                           {layer.isLocked ? (
                             <span className={`${styles.prototypeLayerLocked} ${styles.prototypeBadgeMuted}`}>
                               locked
