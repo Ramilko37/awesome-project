@@ -31,8 +31,8 @@ async function runProxyContract() {
   );
 
   assert(
-    rules.some((rule) => rule.source === "/api/v1/:path*" && rule.destination === "http://localhost:8090/api/v1/:path*"),
-    "all same-origin /api/v1 paths must proxy to the backend, including endpoints added after deploy",
+    rules.some((rule) => rule.source === "/api/v1/:path*" && rule.destination === "http://85.208.87.187/api/v1/:path*"),
+    "all same-origin /api/v1 paths must proxy to the Fortis dev VM by default",
   );
 }
 

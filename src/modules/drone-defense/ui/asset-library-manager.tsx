@@ -66,6 +66,9 @@ type DocumentFormState = {
   url: string;
 };
 
+// ponytail: documents stay wired for FRT-50, but the current /prototype demo hides them.
+const SHOW_ASSET_DOCUMENTS_IN_DEMO = false;
+
 const categoryOptions: Array<{ value: DefenseAssetCategory; label: string }> = [
   { value: "detection", label: "Обнаружение" },
   { value: "classification", label: "Классификация" },
@@ -239,7 +242,7 @@ export function AssetLibraryManager({
     let cancelled = false;
     Promise.resolve()
       .then(async () => {
-        if (!selectedAssetIdForDocuments) {
+        if (!SHOW_ASSET_DOCUMENTS_IN_DEMO || !selectedAssetIdForDocuments) {
           setDocuments([]);
           setDocumentsError(null);
           setDocumentsLoading(false);
@@ -426,7 +429,7 @@ export function AssetLibraryManager({
         />
       ) : null}
 
-      {selectedAsset ? (
+      {SHOW_ASSET_DOCUMENTS_IN_DEMO && selectedAsset ? (
         <AssetDocumentsPanel
           documents={documents}
           documentsLoading={documentsLoading}

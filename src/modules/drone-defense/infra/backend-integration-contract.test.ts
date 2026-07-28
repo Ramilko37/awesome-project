@@ -85,8 +85,14 @@ async function main() {
   );
   assert(typeof localDraftPayload.projectJson === "string", "variant save must still send full projectJson");
 
-  process.env.FORTIS_API_BASE_URL = "http://backend:8090";
   delete process.env.BACKEND_URL;
+  delete process.env.FORTIS_API_BASE_URL;
+  delete process.env.NEXT_PUBLIC_FORTIS_API_BASE_URL;
+  assert(
+    getBackendApiBaseUrl() === "http://85.208.87.187/api/v1",
+    "backend proxy must use the Fortis dev VM by default",
+  );
+  process.env.FORTIS_API_BASE_URL = "http://backend:8090";
   assert(
     getBackendApiBaseUrl() === "http://backend:8090/api/v1",
     "backend proxy must use FORTIS_API_BASE_URL in Docker deployments",
@@ -128,6 +134,11 @@ async function main() {
   assert(
     assetLibraryManagerSource.includes("createAssetDocument"),
     "asset library manager must create document metadata through backend API",
+  );
+  assert(
+    assetLibraryManagerSource.includes("const SHOW_ASSET_DOCUMENTS_IN_DEMO = false") &&
+      assetLibraryManagerSource.includes("SHOW_ASSET_DOCUMENTS_IN_DEMO && selectedAsset"),
+    "asset library documents integration must stay hidden in the current /prototype demo",
   );
 
   console.log("backend-integration-contract.test.ts: contracts passed");

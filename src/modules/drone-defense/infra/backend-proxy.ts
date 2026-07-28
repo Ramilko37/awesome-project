@@ -8,7 +8,7 @@ export function getBackendApiBaseUrl() {
     process.env.BACKEND_URL?.trim() ||
       process.env.FORTIS_API_BASE_URL?.trim() ||
       process.env.NEXT_PUBLIC_FORTIS_API_BASE_URL?.trim() ||
-      "http://localhost:8090",
+      "http://85.208.87.187",
   );
 }
 
