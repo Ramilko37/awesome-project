@@ -373,16 +373,16 @@ export function AssetLibraryManager({
   };
 
   return (
-    <div className={styles.prototypeSection}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
+    <div className={styles.prototypeLibraryManager}>
+      <div className={styles.prototypeLibraryManagerHead}>
+        <div className={styles.prototypeLibraryManagerCopy}>
           <p className={styles.prototypeEyebrow}>Управление карточками</p>
-          <p className={`${styles.prototypeMeta} truncate`}>{assets.length} средств в текущей библиотеке</p>
+          <p className={styles.prototypeMeta}>{assets.length} средств в текущей библиотеке</p>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className={styles.prototypeLibraryActions}>
           <button
             type="button"
-            className={`${styles.prototypeIconButton} cursor-pointer disabled:cursor-wait`}
+            className={styles.prototypeIconButton}
             onClick={() => void onRefresh()}
             disabled={loading}
             title="Обновить каталог с сервера"
@@ -392,7 +392,7 @@ export function AssetLibraryManager({
           </button>
           <button
             type="button"
-            className={`${styles.prototypeButtonPrimary} w-8 cursor-pointer`}
+            className={styles.prototypeButtonPrimary}
             onClick={startCreate}
             title="Создать средство защиты"
             aria-label="Создать средство защиты"
@@ -401,7 +401,7 @@ export function AssetLibraryManager({
           </button>
           <button
             type="button"
-            className={`${styles.prototypeIconButton} cursor-pointer`}
+            className={styles.prototypeIconButton}
             onClick={startEdit}
             disabled={!selectedAsset}
             title="Редактировать выбранное средство"
@@ -412,9 +412,9 @@ export function AssetLibraryManager({
         </div>
       </div>
 
-      {loading ? <p className={`${styles.prototypeMeta} mt-2 text-blue-600`}>Загрузка библиотеки…</p> : null}
-      {error ? <p className={`${styles.prototypeNoticeWarning} mt-2`}>{error}</p> : null}
-      {localError ? <p className={`${styles.prototypeNoticeDanger} mt-2`}>{localError}</p> : null}
+      {loading ? <p className={styles.prototypeLibraryStatus}>Загрузка библиотеки…</p> : null}
+      {error ? <p className={styles.prototypeNoticeWarning}>{error}</p> : null}
+      {localError ? <p className={styles.prototypeNoticeDanger}>{localError}</p> : null}
 
       {mode !== "closed" ? (
         <AssetEditorForm
@@ -465,14 +465,14 @@ function AssetEditorForm({
   onDelete: () => void;
 }) {
   return (
-    <div className={`${styles.prototypeFormCard} mt-3 grid gap-2 bg-slate-50 p-2`}>
-      <div className="flex items-center justify-between gap-2">
+    <div className={styles.prototypeFormCard}>
+      <div className={styles.prototypeFormHeader}>
         <p className={styles.prototypeCardTitle}>
           {mode === "create" ? "Новая карточка" : "Редактирование"}
         </p>
         <button
           type="button"
-          className={`${styles.prototypeIconButton} cursor-pointer`}
+          className={styles.prototypeIconButton}
           onClick={onClose}
           title="Закрыть форму"
           aria-label="Закрыть форму"
@@ -488,7 +488,7 @@ function AssetEditorForm({
         placeholder="Название"
       />
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className={styles.prototypeFormGridTwo}>
         <select
           className={styles.prototypeSelect}
           value={form.category}
@@ -517,7 +517,7 @@ function AssetEditorForm({
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className={styles.prototypeFormGridTwo}>
         <input
           className={styles.prototypeField}
           value={form.protectionType}
@@ -532,7 +532,7 @@ function AssetEditorForm({
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className={styles.prototypeFormGridThree}>
         <input
           className={styles.prototypeField}
           value={form.pricePerUnitMln}
@@ -565,13 +565,13 @@ function AssetEditorForm({
       />
 
       <textarea
-        className={`${styles.prototypeTextarea} min-h-16 resize-y`}
+        className={styles.prototypeTextarea}
         value={form.description}
         onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
         placeholder="Описание"
       />
 
-      <label className={`${styles.prototypeInlineCard} text-xs text-slate-600`}>
+      <label className={styles.prototypeInlineCard}>
         <span>Общий каталог</span>
         <input
           type="checkbox"
@@ -589,10 +589,10 @@ function AssetEditorForm({
         />
       ) : null}
 
-      <div className="flex items-center gap-2">
+      <div className={styles.prototypeFormActions}>
         <button
           type="button"
-          className={`${styles.prototypeButtonPrimary} flex-1 cursor-pointer px-3 disabled:cursor-wait`}
+          className={styles.prototypeButtonPrimary}
           onClick={onSave}
           disabled={saving}
         >
@@ -602,7 +602,7 @@ function AssetEditorForm({
         {mode === "edit" ? (
           <button
             type="button"
-            className={`${styles.prototypeButtonDanger} w-10 cursor-pointer`}
+            className={styles.prototypeButtonDanger}
             onClick={onDelete}
             disabled={saving || selectedAssetUsed}
             title={selectedAssetUsed ? "Средство размещено на карте" : "Удалить средство защиты"}
@@ -636,27 +636,27 @@ function AssetDocumentsPanel({
   onRemoveDocument: (document: AssetDocument) => void;
 }) {
   return (
-    <div className={`${styles.prototypeFormCard} mt-3 grid gap-2 bg-slate-50 p-2`}>
-      <div className="flex items-center justify-between gap-2">
-        <p className={`${styles.prototypeCardTitle} flex items-center gap-2`}>
+    <div className={styles.prototypeFormCard}>
+      <div className={styles.prototypeFormHeader}>
+        <p className={styles.prototypeCardTitleIcon}>
           <FileTextOutlined />
           Документы
         </p>
         <span className={styles.prototypeMeta}>{documents.length}</span>
       </div>
 
-      {documentsLoading ? <p className={`${styles.prototypeMeta} text-blue-600`}>Загрузка документов…</p> : null}
+      {documentsLoading ? <p className={styles.prototypeLibraryStatus}>Загрузка документов…</p> : null}
       {documentsError ? <p className={styles.prototypeNoticeWarning}>{documentsError}</p> : null}
 
-      <div className="grid gap-1.5">
+      <div className={styles.prototypeDocumentList}>
         {documents.length === 0 && !documentsLoading ? (
           <p className={styles.prototypeMeta}>Документы к карточке пока не прикреплены.</p>
         ) : null}
         {documents.map((document) => (
-          <div key={document.id} className={`${styles.prototypeInlineCard} gap-2`}>
-            <div className="min-w-0">
-              <p className={`${styles.prototypeCardTitle} truncate`}>{document.name}</p>
-              <p className={`${styles.prototypeMeta} truncate`}>{document.mimeType || "application/octet-stream"}</p>
+          <div key={document.id} className={styles.prototypeDocumentRow}>
+            <div className={styles.prototypeDocumentCopy}>
+              <p className={styles.prototypeCardTitle}>{document.name}</p>
+              <p className={styles.prototypeMeta}>{document.mimeType || "application/octet-stream"}</p>
             </div>
             <a
               className={styles.prototypeIconButton}
@@ -670,7 +670,7 @@ function AssetDocumentsPanel({
             </a>
             <button
               type="button"
-              className={`${styles.prototypeIconButton} cursor-pointer`}
+              className={styles.prototypeIconButton}
               onClick={() => onRemoveDocument(document)}
               disabled={documentSaving}
               title="Удалить документ"
@@ -696,7 +696,7 @@ function AssetDocumentsPanel({
       />
       <button
         type="button"
-        className={`${styles.prototypeButtonPrimary} cursor-pointer px-3 disabled:cursor-wait`}
+        className={styles.prototypeButtonPrimary}
         onClick={onAddDocument}
         disabled={documentSaving}
       >

@@ -7,6 +7,7 @@ import { PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/l
 import { Layer, WebMercatorViewport } from "@deck.gl/core";
 import MaplibreMap from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
+import styles from "./gis-board.module.css";
 import { defenseLayers, type EchelonCatalogGroup } from "@/modules/drone-defense/infra/mock-defense-data";
 import {
   buildEchelonMapModel,
@@ -1020,7 +1021,7 @@ export function GisBoard({
   return (
     <section
       ref={boardRef}
-      className={`relative h-[calc(100vh-11.5rem)] min-h-[540px] overflow-hidden rounded-lg border border-slate-200 ${className}`}
+      className={`${styles.board} ${className}`}
       onDragOver={handleSectionDragOver}
       onDragLeave={handleSectionDragLeave}
       onDrop={handleSectionDrop}
@@ -1055,7 +1056,7 @@ export function GisBoard({
         <MaplibreMap attributionControl={false} mapStyle={baseMapStyle} onError={handleBaseMapError} />
       </DeckGL>
 
-      <div className="pointer-events-none absolute inset-0 z-10">
+      <div className={styles.placementOverlay}>
         {markerOverlayPlacements.map(({ placement, x, y }) => {
           const layerLabel = visibleMapLayers.find((layer) => layer.id === placement.layerId)?.shortName;
           return (
@@ -1101,13 +1102,9 @@ export function GisBoard({
             <button
               key={marker.slot.id}
               type="button"
-              className={`pointer-events-auto absolute h-[58px] w-[58px] cursor-pointer overflow-visible rounded-xl border-2 bg-white/95 p-1 shadow-lg shadow-slate-950/20 backdrop-blur transition ${
-                isSelected
-                  ? "border-blue-500 ring-2 ring-blue-400/45"
-                  : isBuilt
-                    ? "border-emerald-400"
-                    : "border-white/90"
-              }`}
+              className={styles.slotMarker}
+              data-built={isBuilt}
+              data-selected={isSelected}
               style={{
                 left: marker.x,
                 top: marker.y,
@@ -1124,17 +1121,13 @@ export function GisBoard({
               onMouseLeave={() => setHoverLabel(null)}
             >
               <span
-                className={`block h-full w-full rounded-lg border bg-center bg-contain bg-no-repeat ${
-                  isBuilt
-                    ? "border-slate-200 bg-white"
-                    : "border-slate-200 bg-slate-100 grayscale"
-                }`}
+                className={styles.slotThumb}
+                data-built={isBuilt}
                 style={{ backgroundImage: `url("${withBasePath(marker.asset.imageUrl)}")` }}
               />
               <span
-                className={`absolute -right-2 -top-2 grid h-6 min-w-6 place-items-center rounded-full border-2 border-white px-1 text-[11px] font-bold shadow ${
-                  isBuilt ? "bg-slate-950 text-white" : "bg-slate-200 text-slate-500"
-                }`}
+                className={styles.slotCount}
+                data-built={isBuilt}
               >
                 {marker.placement?.qty ?? 0}
               </span>
@@ -1144,10 +1137,10 @@ export function GisBoard({
       </div>
 
       {showProjectPanel ? (
-      <div className="absolute left-4 top-4 z-10 flex max-w-[min(42rem,calc(100%-2rem))] flex-wrap items-center gap-2">
-        <div className="min-w-[min(23rem,calc(100vw-6rem))] rounded-lg border border-white/60 bg-white/95 px-3 py-2 text-xs shadow-md shadow-slate-900/10 backdrop-blur">
+      <div className={styles.projectPanel}>
+        <div className={styles.projectCard}>
           <select
-            className="h-7 w-full rounded-md border border-transparent bg-transparent pr-6 text-sm font-semibold text-slate-950 outline-none transition hover:border-slate-200 hover:bg-white focus:border-blue-300 focus:bg-white"
+            className={styles.facilitySelect}
             value={selectedFacility?.id ?? selectedFacilityId}
             onChange={(event) => onSelectFacility(event.target.value)}
             onClick={(event) => event.stopPropagation()}
@@ -1160,12 +1153,12 @@ export function GisBoard({
               </option>
             ))}
           </select>
-          <p className="text-slate-500">
+          <p className={styles.projectHint}>
             {placementHint}
           </p>
           {projectControls ? (
             <div
-              className="mt-2 flex items-center gap-2"
+              className={styles.projectControls}
               onClick={(event) => event.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
             >
@@ -1176,10 +1169,10 @@ export function GisBoard({
       </div>
       ) : null}
 
-      <div ref={baseMapMenuRef} className="absolute right-4 top-4 z-10 flex items-start gap-2">
-        <div className="relative">
+      <div ref={baseMapMenuRef} className={styles.mapActions}>
+        <div className={styles.basemapWrap}>
           <button
-            className="flex min-h-11 min-w-11 items-center gap-2 rounded-lg border border-white/60 bg-white/95 px-3 text-sm font-semibold text-slate-700 shadow-md shadow-slate-900/10 backdrop-blur transition hover:border-blue-200 hover:text-blue-700"
+            className={styles.basemapButton}
             type="button"
             onClick={() => setIsBaseMapMenuOpen((current) => !current)}
             aria-expanded={isBaseMapMenuOpen}
@@ -1188,17 +1181,17 @@ export function GisBoard({
             title="Источник карты"
           >
             <span>Карта</span>
-            <span className="text-xs text-slate-500">{currentBaseMapSource.title}</span>
+            <span className={styles.basemapSource}>{currentBaseMapSource.title}</span>
           </button>
           {isBaseMapMenuOpen ? (
-            <div className="absolute right-0 mt-2 w-[min(26rem,calc(100vw-2rem))] max-h-[70vh] overflow-y-auto rounded-2xl border border-white/70 bg-white/97 p-3 shadow-2xl shadow-slate-900/20 backdrop-blur">
-              <div className="mb-2 flex items-center justify-between">
+            <div className={styles.basemapPopover}>
+              <div className={styles.basemapHeader}>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Источники карты</p>
-                  <p className="text-xs text-slate-500">Basemap переключается независимо от слоёв Fortis.</p>
+                  <p className={styles.basemapHeaderTitle}>Источники карты</p>
+                  <p className={styles.basemapHeaderCopy}>Basemap переключается независимо от слоёв Fortis.</p>
                 </div>
                 <button
-                  className="grid h-11 w-11 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  className={styles.basemapClose}
                   type="button"
                   onClick={() => setIsBaseMapMenuOpen(false)}
                   aria-label="Закрыть список источников карты"
@@ -1206,46 +1199,42 @@ export function GisBoard({
                   x
                 </button>
               </div>
-              <div className="space-y-3">
+              <div className={styles.sourceGroups}>
                 {groupedBaseMapSources.map(([category, sources]) => (
                   <div key={category}>
-                    <p className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    <p className={styles.sourceCategory}>
                       {baseMapCategoryLabels[category]}
                     </p>
-                    <div className="space-y-1">
+                    <div className={styles.sourceList}>
                       {sources.map((source) => {
                         const isActive = source.id === currentBaseMapSource.id;
                         return (
                           <button
                             key={source.id}
-                            className={`block w-full rounded-xl border px-3 py-2 text-left transition ${
-                              isActive
-                                ? "border-blue-200 bg-blue-50/80 shadow-sm"
-                                : "border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50"
-                            }`}
+                            className={styles.sourceOption}
                             type="button"
                             onClick={() => handleBaseMapSelect(source.id)}
                             aria-pressed={isActive}
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-slate-900">{source.title}</p>
-                                <p className="mt-0.5 text-xs text-slate-500">
+                            <div className={styles.sourceOptionTop}>
+                              <div className={styles.sourceCopy}>
+                                <p className={styles.sourceTitle}>{source.title}</p>
+                                <p className={styles.sourceDescription}>
                                   {source.type}
                                   {source.description ? ` · ${source.description}` : ""}
                                 </p>
                               </div>
                               {isActive ? (
-                                <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">
+                                <span className={styles.activeBadge}>
                                   текущий
                                 </span>
                               ) : null}
                             </div>
-                            <div className="mt-2 flex flex-wrap gap-1.5">
+                            <div className={styles.badgeList}>
                               {getBaseMapBadges(source).map((badge) => (
                                 <span
                                   key={`${source.id}:${badge}`}
-                                  className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600"
+                                  className={styles.badge}
                                 >
                                   {badge}
                                 </span>
@@ -1262,9 +1251,9 @@ export function GisBoard({
           ) : null}
         </div>
 
-        <div className="flex flex-col overflow-hidden rounded-lg bg-white/95 text-slate-500 shadow-md shadow-slate-900/10 backdrop-blur">
+        <div className={styles.zoomCluster}>
           <button
-            className="grid h-11 w-11 cursor-pointer place-items-center border-b border-slate-100 text-lg transition hover:bg-blue-50 hover:text-blue-700"
+            className={styles.zoomButton}
             type="button"
             onClick={() => adjustMapZoom(1)}
             aria-label="Приблизить карту"
@@ -1272,11 +1261,11 @@ export function GisBoard({
           >
             +
           </button>
-          <button className="grid h-11 w-11 place-items-center border-b border-slate-100 text-xs font-semibold" type="button" disabled>
+          <button className={styles.zoomReadout} type="button" disabled>
             {zoomReadout.toFixed(1)}
           </button>
           <button
-            className="grid h-11 w-11 cursor-pointer place-items-center text-lg transition hover:bg-blue-50 hover:text-blue-700"
+            className={styles.zoomButton}
             type="button"
             onClick={() => adjustMapZoom(-1)}
             aria-label="Отдалить карту"
@@ -1288,28 +1277,28 @@ export function GisBoard({
       </div>
 
       <div
-        className="absolute bottom-5 left-4 z-10 rounded bg-white/90 px-3 py-1.5 text-[11px] text-slate-600 shadow"
+        className={styles.scale}
         aria-label={`Масштаб карты ${scaleBar.label}`}
       >
-        <div className="mb-1 h-1 rounded-full bg-slate-800" style={{ width: `${scaleBar.widthPx}px` }} />
+        <div className={styles.scaleBar} style={{ width: `${scaleBar.widthPx}px` }} />
         {scaleBar.label}
       </div>
 
       {currentBaseMapSource.attribution ? (
         <div
-          className="absolute bottom-5 right-4 z-10 max-w-[min(32rem,calc(100vw-2rem))] rounded bg-white/92 px-3 py-1.5 text-[11px] leading-4 text-slate-600 shadow"
+          className={styles.mapChip}
           dangerouslySetInnerHTML={{ __html: currentBaseMapSource.attribution }}
         />
       ) : null}
 
       {baseMapWarning ? (
-        <div className="absolute left-1/2 top-20 z-10 w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 rounded-xl border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs font-medium text-amber-900 shadow-lg">
+        <div className={styles.mapWarning}>
           {baseMapWarning}
         </div>
       ) : null}
 
       {hoverLabel ? (
-        <div className="pointer-events-none absolute bottom-3 left-3 rounded bg-slate-900/88 px-2 py-1 text-xs text-white">
+        <div className={styles.hoverLabel}>
           {hoverLabel}
         </div>
       ) : null}
@@ -1323,9 +1312,9 @@ export function GisBoard({
         purely a visual drop indicator. Needs manual verification in Task 9 (drag from assets panel,
         confirm snap to nearest slot + that normal map pan/zoom is unaffected).
       */}
-      <div className="pointer-events-none absolute inset-0 z-20">
+      <div className={styles.dropOverlay}>
         {dropPreviewSlotId ? (
-          <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-md border border-blue-300 bg-blue-600/90 px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
+          <div className={styles.dropBanner}>
             Слот: {echelonModel.slots.find((slot) => slot.id === dropPreviewSlotId)?.label ?? dropPreviewSlotId}
           </div>
         ) : null}

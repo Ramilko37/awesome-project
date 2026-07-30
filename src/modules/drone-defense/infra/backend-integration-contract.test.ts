@@ -154,6 +154,12 @@ async function main() {
   );
   const prototypeSource = readFileSync("src/modules/drone-defense/ui/drone-defense-prototype.tsx", "utf8");
   assert(
+    prototypeSource.includes("resolvePrototypeDemoPresetId") &&
+      prototypeSource.includes("createPrototypeDemoProject") &&
+      prototypeSource.includes("demoPresetId ? null : variantError"),
+    "prototype demo-state must be an in-page preset bootstrap that does not leak backend variant errors into visual checks",
+  );
+  assert(
     prototypeSource.includes("if (bootstrapKeyRef.current === bootstrapKey) bootstrapKeyRef.current = null"),
     "prototype bootstrap cleanup must allow React Strict Mode remount to enable backend saves",
   );

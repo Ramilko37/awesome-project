@@ -1,0 +1,465 @@
+.board {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--map-bg);
+}
+
+.placementOverlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+
+.slotMarker {
+  pointer-events: auto;
+  position: absolute;
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  overflow: visible;
+  border: 2px solid rgb(255 255 255 / 90%);
+  border-radius: var(--radius-3);
+  padding: 4px;
+  background: rgb(255 255 255 / 95%);
+  box-shadow: var(--shadow-overlay);
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: border-color var(--exit) var(--ease), box-shadow var(--exit) var(--ease), transform var(--exit) var(--ease);
+}
+
+.slotMarker[data-built="true"] {
+  border-color: var(--green-600);
+}
+
+.slotMarker[data-selected="true"] {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-overlay), 0 0 0 2px var(--blue-100);
+}
+
+.slotThumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  background-color: var(--surface);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.slotThumb[data-built="false"] {
+  background-color: var(--n-100);
+  filter: grayscale(1);
+}
+
+.slotCount {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: grid;
+  min-width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  padding: 0 4px;
+  background: var(--n-900);
+  color: var(--surface);
+  font: 700 11px/1 var(--font-data);
+  box-shadow: var(--shadow-sm);
+}
+
+.slotCount[data-built="false"] {
+  background: var(--n-100);
+  color: var(--fg-muted);
+}
+
+.projectPanel {
+  position: absolute;
+  z-index: 10;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  max-width: min(42rem, calc(100% - 32px));
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.projectCard {
+  min-width: min(23rem, calc(100vw - 6rem));
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: var(--radius-3);
+  padding: 8px 12px;
+  background: rgb(255 255 255 / 95%);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(12px);
+  color: var(--fg);
+  font-size: 12px;
+}
+
+.facilitySelect {
+  width: 100%;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-2);
+  padding-right: 24px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 650;
+  outline: none;
+  transition: border-color var(--exit) var(--ease), background var(--exit) var(--ease);
+}
+
+.facilitySelect:hover,
+.facilitySelect:focus {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+.projectHint {
+  margin: 0;
+  color: var(--fg-muted);
+}
+
+.projectControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mapActions {
+  position: absolute;
+  z-index: 10;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.basemapWrap {
+  position: relative;
+}
+
+.basemapButton {
+  display: inline-flex;
+  min-height: var(--control-h);
+  min-width: var(--control-h);
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: var(--radius-3);
+  padding: 0 12px;
+  background: rgb(255 255 255 / 95%);
+  color: var(--fg-secondary);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(12px);
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color var(--exit) var(--ease), color var(--exit) var(--ease), background var(--exit) var(--ease);
+}
+
+.basemapButton:hover,
+.basemapButton[aria-expanded="true"] {
+  border-color: var(--blue-100);
+  color: var(--blue-700);
+}
+
+.basemapSource {
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.basemapPopover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(420px, calc(100vw - 32px));
+  max-height: 70vh;
+  overflow-y: auto;
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: var(--radius-3);
+  padding: 12px;
+  background: rgb(255 255 255 / 97%);
+  box-shadow: var(--shadow-overlay);
+  backdrop-filter: blur(16px);
+}
+
+.basemapHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.basemapHeaderTitle {
+  margin: 0;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.basemapHeaderCopy {
+  margin: 2px 0 0;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.basemapClose {
+  display: grid;
+  width: var(--control-h);
+  height: var(--control-h);
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--n-400);
+  cursor: pointer;
+}
+
+.basemapClose:hover {
+  background: var(--n-100);
+  color: var(--fg);
+}
+
+.sourceGroups {
+  display: grid;
+  gap: 12px;
+}
+
+.sourceCategory {
+  margin: 0 0 4px;
+  padding: 0 4px;
+  color: var(--n-400);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sourceList {
+  display: grid;
+  gap: 4px;
+}
+
+.sourceOption {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-3);
+  padding: 8px 12px;
+  background: var(--surface);
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--exit) var(--ease), background var(--exit) var(--ease), box-shadow var(--exit) var(--ease);
+}
+
+.sourceOption:hover {
+  border-color: var(--border-strong);
+  background: var(--n-25);
+}
+
+.sourceOption[aria-pressed="true"] {
+  border-color: var(--blue-100);
+  background: var(--blue-50);
+  box-shadow: var(--shadow-sm);
+}
+
+.sourceOptionTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sourceCopy {
+  min-width: 0;
+}
+
+.sourceTitle {
+  margin: 0;
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sourceDescription {
+  margin: 2px 0 0;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.activeBadge {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: var(--n-900);
+  color: var(--surface);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.badgeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.badge {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: var(--n-100);
+  color: var(--fg-secondary);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.zoomCluster {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-3);
+  background: rgb(255 255 255 / 95%);
+  color: var(--fg-muted);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(12px);
+}
+
+.zoomButton,
+.zoomReadout {
+  display: grid;
+  width: var(--control-h);
+  height: var(--control-h);
+  place-items: center;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+}
+
+.zoomButton {
+  font-size: 18px;
+  cursor: pointer;
+  transition: background var(--exit) var(--ease), color var(--exit) var(--ease);
+}
+
+.zoomButton:hover {
+  background: var(--blue-50);
+  color: var(--blue-700);
+}
+
+.zoomReadout {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.zoomButton:last-child {
+  border-bottom: 0;
+}
+
+.scale {
+  position: absolute;
+  z-index: 10;
+  bottom: 20px;
+  left: 16px;
+  border-radius: var(--radius-1);
+  padding: 6px 12px;
+  background: rgb(255 255 255 / 90%);
+  color: var(--fg-secondary);
+  box-shadow: var(--shadow-sm);
+  font: 600 11px/1.2 var(--font-data);
+}
+
+.scaleBar {
+  height: 4px;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  background: var(--n-800);
+}
+
+.mapChip {
+  position: absolute;
+  z-index: 10;
+  right: 16px;
+  bottom: 20px;
+  max-width: min(32rem, calc(100vw - 32px));
+  border-radius: var(--radius-1);
+  padding: 6px 12px;
+  background: rgb(255 255 255 / 92%);
+  color: var(--fg-secondary);
+  box-shadow: var(--shadow-sm);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.mapWarning {
+  position: absolute;
+  z-index: 10;
+  top: 80px;
+  left: 50%;
+  width: min(32rem, calc(100vw - 32px));
+  transform: translateX(-50%);
+  border: 1px solid color-mix(in srgb, var(--amber-500) 30%, white);
+  border-radius: var(--radius-3);
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--amber-50) 95%, transparent);
+  color: var(--amber-600);
+  box-shadow: var(--shadow-overlay);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hoverLabel {
+  pointer-events: none;
+  position: absolute;
+  z-index: 10;
+  bottom: 12px;
+  left: 12px;
+  border-radius: var(--radius-1);
+  padding: 4px 8px;
+  background: rgb(16 23 29 / 88%);
+  color: var(--surface);
+  font-size: 12px;
+}
+
+.dropOverlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+}
+
+.dropBanner {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 1px solid var(--blue-100);
+  border-radius: var(--radius-2);
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--accent) 90%, transparent);
+  color: var(--surface);
+  box-shadow: var(--shadow-overlay);
+  font-size: 12px;
+  font-weight: 650;
+}

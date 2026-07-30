@@ -2,6 +2,7 @@
 
 import { getBuildAssetForCatalogGroup } from "@/modules/drone-defense/domain/echelon-build-assets";
 import { DefenseToolIcon } from "@/modules/drone-defense/ui/defense-tool-icon";
+import styles from "./defense-tool-icon.module.css";
 import type { AssetCatalogItem } from "@/shared/lib/defense-project";
 import type { DefenseProject } from "@/shared/types/defense-project";
 import type {
@@ -37,14 +38,14 @@ export function DefenseToolsPanel({
 }: DefenseToolsPanelProps) {
   if (assets.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-sm text-slate-500">
+      <div className={styles.emptyState}>
         Нет средств защиты
       </div>
     );
   }
 
   return (
-    <div className="grid gap-2">
+    <div className={styles.assetList}>
       {assets.map((assetItem) => {
         const projectAsset = projectAssets.find((asset) => asset.id === assetItem.assetId);
         const primaryGroupId = projectAsset?.mapCatalogGroupIds?.[0];

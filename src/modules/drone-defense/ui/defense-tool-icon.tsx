@@ -4,6 +4,7 @@ import { AimOutlined, DragOutlined, EnvironmentOutlined } from "@ant-design/icon
 import Image from "next/image";
 import { withBasePath } from "@/shared/lib/base-path";
 import { prototypeRu } from "@/shared/config/prototype-ru";
+import styles from "./defense-tool-icon.module.css";
 import type { DefenseAssetLibraryItem } from "@/shared/types/defense-project";
 import type {
   DragEvent as ReactDragEvent,
@@ -70,7 +71,6 @@ export function DefenseToolIcon({
   priceLabel,
   coverageLabel,
   protectionType,
-  compoundProfile,
   placementType,
   previewImageUrl,
   installedCount,
@@ -87,21 +87,14 @@ export function DefenseToolIcon({
   const canAdd = !disabledReason;
   const isZoneObject = placementType === "zone-object";
   const canDrag = canAdd;
-  const isCompoundPost = compoundProfile?.kind === "compound-post";
   const title = disabledReason ?? prototypeRu.cards.dragTooltip(name, rangeLabel);
   const coverageText = coverageLabel;
-  const costText = `Базовая стоимость поста: ${priceLabel}`;
   const counterText = isZoneObject
       ? `Участков: ${installedCount}`
       : maxQuantity > 0
         ? `На карте: ${installedCount}/${maxQuantity}`
         : `На карте: ${installedCount}`;
-  const placementBadge = isZoneObject ? "Зона" : "Карта";
   const protectionBadge = protectionType;
-  const actionText = isZoneObject ? prototypeRu.cards.draw : prototypeRu.cards.drag;
-  const compoundWeaponSummary = compoundProfile?.weapons
-    ?.flatMap((item) => (Number(item.quantity) > 0 ? [`${item.label}: ${item.quantity}`] : []))
-    .join(", ");
 
   const rootRef = useRef<HTMLDivElement>(null);
   const ghostRef = useRef<HTMLDivElement | null>(null);
@@ -216,17 +209,12 @@ export function DefenseToolIcon({
   return (
     <div
       ref={rootRef}
-      className={`group grid min-h-[104px] min-w-0 grid-cols-[0.75rem_3rem_minmax(0,1fr)] items-center gap-1.5 rounded-lg border bg-white p-1.5 transition ${
-        isSelected
-          ? "border-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,0.35),0_12px_24px_rgba(37,99,235,0.16)]"
-          : installedCount > 0
-          ? "border-emerald-300 bg-emerald-50/70"
-          : disabledReason
-            ? "border-slate-200 bg-slate-50 opacity-65 cursor-not-allowed"
-            : "border-slate-200 hover:border-blue-300 hover:shadow-md hover:shadow-blue-900/10"
-      } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
+      className={styles.assetCard}
       data-placement-type={placementType}
       data-can-drag={canDrag ? "true" : "false"}
+      data-disabled={disabledReason ? "true" : "false"}
+      data-installed={installedCount > 0 ? "true" : "false"}
+      data-selected={isSelected ? "true" : "false"}
       data-testid={`defense-tool-card-${assetId}`}
       role="button"
       tabIndex={0}
@@ -253,90 +241,56 @@ export function DefenseToolIcon({
         }
       }}
     >
-      <span className="grid h-full place-items-center text-slate-400" aria-hidden="true">
-        {canDrag ? <DragOutlined /> : null}
+      <span className={styles.dragDots} aria-hidden="true">
+        {canDrag ? null : <DragOutlined />}
       </span>
 
-      <span className="relative block h-12 w-12 overflow-hidden rounded-md border border-slate-100 bg-slate-100">
+      <span className={styles.assetThumb}>
         <Image
           src={withBasePath(previewImageUrl)}
           alt=""
           width={56}
           height={56}
           unoptimized
-          className={`h-full w-full object-cover ${isPlaceholder ? "object-contain p-2" : ""}`}
+          className={styles.assetImage}
+          data-placeholder={isPlaceholder ? "true" : "false"}
           draggable={false}
         />
       </span>
 
-      <div className="min-w-0">
-        <div className="flex min-w-0 items-start justify-between gap-2">
-          <span className="min-w-0 truncate text-xs font-semibold leading-snug text-slate-950">{name}</span>
-          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-            installedCount > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
-          }`}>
-            {isZoneObject ? `${installedCount} уч.` : maxQuantity > 0 ? `${installedCount}/${maxQuantity}` : `${installedCount}`}
-          </span>
+      <div className={styles.assetCopy}>
+        <div className={styles.assetHead}>
+          <span className={styles.assetTitle}>{name}</span>
         </div>
-        <div className="mt-1 flex min-w-0 items-center gap-1 text-[11px] leading-tight text-slate-500">
-          <span className="truncate">{categoryLabel}</span>
+        <div className={styles.assetType}>
+          <span>{categoryLabel}</span>
           {protectionBadge ? <>
             <span aria-hidden="true">·</span>
-            <span className="truncate">{protectionBadge}</span>
+            <span>{protectionBadge}</span>
           </> : null}
           <span aria-hidden="true">·</span>
-            <span className="truncate">{coverageText}</span>
+            <span>{coverageText}</span>
         </div>
-        {isCompoundPost ? (
-          <>
-            <p className="mt-1 flex flex-wrap gap-x-1 text-[10px] leading-tight text-slate-600">
-              <span className="font-semibold text-slate-700">Тип поста:</span>
-              <span className="truncate">{compoundProfile.postType}</span>
-              <span aria-hidden="true">·</span>
-              <span className="font-semibold text-slate-700">Личный состав:</span>
-              <span className="truncate">{compoundProfile.personnelCount}</span>
-            </p>
-            <p className="mt-1 flex flex-wrap gap-x-1 text-[10px] leading-tight text-slate-600">
-              <span className="font-semibold text-slate-700">Подотчётность:</span>
-              <span className="truncate">{compoundProfile.accountability}</span>
-            </p>
-            <p className="mt-1 flex flex-wrap gap-x-1 text-[10px] leading-tight text-slate-600">
-              <span className="font-semibold text-slate-700">Оружие:</span>
-              <span className="truncate">{compoundWeaponSummary || `${compoundProfile.armament}: ${compoundProfile.weaponUnits}`}</span>
-              <span aria-hidden="true">·</span>
-              <span className="font-semibold text-slate-700">Сектор:</span>
-              <span className="truncate">{compoundProfile.sectorOrRange}</span>
-            </p>
-          </>
-        ) : null}
-        <div className="mt-1 flex min-w-0 items-center gap-1 text-[11px] leading-tight text-slate-500">
-          <span className="truncate">{isCompoundPost ? costText : priceLabel}</span>
-          <span aria-hidden="true">·</span>
-          <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-600">{placementBadge}</span>
-        </div>
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <span className={`min-w-0 truncate text-[11px] font-semibold ${
-            disabledReason ? "text-rose-600" : "text-blue-600"
-          }`}>
-            {disabledReason ?? actionText}
-          </span>
-          <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              className="grid h-6 w-6 cursor-pointer place-items-center rounded-md bg-slate-100 text-slate-500 transition hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-35"
-              disabled={!canAdd}
-              onClick={(event) => {
-                event.stopPropagation();
-                onOpenCoordinates();
-              }}
-              title="Ввести координаты"
-              aria-label="Ввести координаты"
-            >
-              {isZoneObject ? <AimOutlined /> : <EnvironmentOutlined />}
-            </button>
-          </div>
+        <div className={styles.assetMetrics}>
+          <span>{rangeLabel}</span>
+          <span>{coverageText}</span>
+          <span>{priceLabel}</span>
         </div>
       </div>
+
+      <button
+        type="button"
+        className={styles.assetPlacement}
+        disabled={!canAdd}
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenCoordinates();
+        }}
+        title="Ввести координаты"
+        aria-label="Ввести координаты"
+      >
+        {isZoneObject ? <AimOutlined /> : <EnvironmentOutlined />}
+      </button>
     </div>
   );
 }

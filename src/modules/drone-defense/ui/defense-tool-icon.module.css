@@ -1,0 +1,182 @@
+.assetList {
+  display: grid;
+  gap: 7px;
+  padding: 4px 0 12px;
+}
+
+.emptyState {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-3);
+  padding: 24px 12px;
+  background: var(--n-50);
+  color: var(--fg-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.assetCard {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 78px;
+  grid-template-columns: 7px 46px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-3);
+  padding: 8px 8px 8px 5px;
+  background: var(--surface);
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--exit) var(--ease), box-shadow var(--exit) var(--ease), background var(--exit) var(--ease), opacity var(--exit) var(--ease);
+}
+
+.assetCard:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.assetCard[data-selected="true"] {
+  border-color: var(--blue-500);
+  background: var(--blue-50);
+  box-shadow: 0 0 0 2px var(--blue-100);
+}
+
+.assetCard[data-installed="true"] {
+  border-color: color-mix(in srgb, var(--green-600) 34%, var(--border));
+  background: color-mix(in srgb, var(--green-50) 70%, white);
+}
+
+.assetCard[data-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.assetCard[data-can-drag="true"] {
+  cursor: grab;
+}
+
+.assetCard[data-can-drag="true"]:active {
+  cursor: grabbing;
+}
+
+.dragDots {
+  width: 7px;
+  height: 24px;
+  opacity: 0.48;
+  background-image: radial-gradient(circle, var(--n-500) 1.2px, transparent 1.4px);
+  background-size: 5px 5px;
+}
+
+.assetThumb {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: linear-gradient(145deg, var(--n-50), var(--n-100));
+  color: var(--fg-secondary);
+}
+
+.assetImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.assetImage[data-placeholder="true"] {
+  object-fit: contain;
+  padding: 8px;
+}
+
+.assetCopy {
+  min-width: 0;
+}
+
+.assetHead {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.assetTitle {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assetType {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  margin-top: 1px;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.assetType span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.assetMetrics {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  overflow: hidden;
+  color: var(--fg-secondary);
+  font: 600 10px/1.2 var(--font-data);
+  white-space: nowrap;
+}
+
+.assetMetrics span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.assetPlacement {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: white;
+  color: var(--blue-600);
+  box-shadow: inset 0 0 0 1px var(--border);
+  cursor: pointer;
+  transition: background var(--exit) var(--ease), color var(--exit) var(--ease), box-shadow var(--exit) var(--ease), opacity var(--exit) var(--ease);
+}
+
+.assetCard:hover .assetPlacement,
+.assetPlacement:hover {
+  background: var(--blue-600);
+  color: white;
+  box-shadow: none;
+}
+
+.assetPlacement:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}

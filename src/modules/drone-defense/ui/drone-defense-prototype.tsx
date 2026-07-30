@@ -11,9 +11,11 @@ import {
   EyeInvisibleOutlined,
   EyeOutlined,
   FileTextOutlined,
+  FilterOutlined,
   LeftOutlined,
   MenuFoldOutlined,
   RightOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import { useDefenseStudioStore, studioPreviewData } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import { buildEchelonMapModel } from "@/modules/drone-defense/domain/echelon-map-model";
@@ -39,9 +41,11 @@ import {
   findLayerInsertOptions,
   getAssetCatalogItems,
   getLayerRadii,
+  legacySelectedConfigurationToProject,
   validateLayerDraft,
 } from "@/shared/lib/defense-project";
 import { getPolygonCoordinates } from "@/shared/lib/defense-layer-geometry";
+import { loadPresetIntoConfiguration } from "@/shared/lib/defense-configuration";
 import {
   buildWizardLayer,
   formatDistance,
@@ -74,10 +78,34 @@ import type {
 
 const defenseAssetDragMimeType = "application/x-fortis-defense-asset";
 const prototypeAutosaveDelayMs = 1200;
+const prototypeDemoPresetIds = ["nak", "nev", "fosforit", "bmu"] as const;
+const catalogFilterOptions = [
+  { id: "all", label: "Все", terms: [] },
+  { id: "detection", label: "Обнаружение", terms: ["detection", "classification", "detect", "track", "обнаруж", "классификац"] },
+  { id: "ew", label: "РЭБ", terms: ["jamming", "spoofing", "suppress", "рэб", "помех", "спуфинг"] },
+  { id: "fire", label: "Огневые", terms: ["kinetic", "interceptor", "destroy", "поражение", "перехват"] },
+  { id: "support", label: "Инфра", terms: ["infrastructure", "command-center", "software", "monitor", "инфраструкт", "команд", "по"] },
+] as const;
+
+function resolvePrototypeDemoPresetId(value: string | null) {
+  if (!value) return null;
+  if (value === "1" || value === "true") return "nak";
+  return prototypeDemoPresetIds.find((id) => id === value) ?? null;
+}
+
+function createPrototypeDemoProject(presetId: (typeof prototypeDemoPresetIds)[number]) {
+  const legacy = loadPresetIntoConfiguration(presetId);
+  return {
+    ...legacySelectedConfigurationToProject(legacy),
+    source: "preset" as const,
+    basePresetId: presetId,
+  };
+}
 
 type PrototypeUiState = {
   selectedSlotId: string | null;
   catalogQuery: string;
+  catalogCategoryFilter: (typeof catalogFilterOptions)[number]["id"];
   isCatalogTrayOpen: boolean;
   leftPanelMode: "structure" | "library";
   workspaceMode: "configure" | "audit" | "compare";
@@ -105,6 +133,7 @@ type PrototypeUiAction = {
 const initialPrototypeUiState: PrototypeUiState = {
   selectedSlotId: null,
   catalogQuery: "",
+  catalogCategoryFilter: "all",
   isCatalogTrayOpen: true,
   leftPanelMode: "structure",
   workspaceMode: "configure",
@@ -180,6 +209,7 @@ function layerWizardStoreDraft(draft: LayerWizardDraft) {
 export function DroneDefensePrototype() {
   const searchParams = useSearchParams();
   const backendProjectId = searchParams.get("projectId") ?? searchParams.get("project");
+  const demoPresetId = resolvePrototypeDemoPresetId(searchParams.get("demo") ?? searchParams.get("visualDemo"));
   const [prototypeUiState, dispatchPrototypeUi] = useReducer(
     prototypeUiReducer,
     initialPrototypeUiState,
@@ -187,6 +217,7 @@ export function DroneDefensePrototype() {
   const {
     selectedSlotId,
     catalogQuery,
+    catalogCategoryFilter,
     isCatalogTrayOpen,
     leftPanelMode,
     workspaceMode,
@@ -212,6 +243,8 @@ export function DroneDefensePrototype() {
     return {
       setSelectedSlotId: (value: SetStateAction<string | null>) => setPrototypeUiField("selectedSlotId", value),
       setCatalogQuery: (value: SetStateAction<string>) => setPrototypeUiField("catalogQuery", value),
+      setCatalogCategoryFilter: (value: SetStateAction<PrototypeUiState["catalogCategoryFilter"]>) =>
+        setPrototypeUiField("catalogCategoryFilter", value),
       setIsCatalogTrayOpen: (value: SetStateAction<boolean>) => setPrototypeUiField("isCatalogTrayOpen", value),
       setLeftPanelMode: (value: SetStateAction<PrototypeUiState["leftPanelMode"]>) =>
         setPrototypeUiField("leftPanelMode", value),
@@ -241,6 +274,7 @@ export function DroneDefensePrototype() {
   const {
     setSelectedSlotId,
     setCatalogQuery,
+    setCatalogCategoryFilter,
     setIsCatalogTrayOpen,
     setLeftPanelMode,
     setWorkspaceMode,
@@ -314,16 +348,55 @@ export function DroneDefensePrototype() {
   }, [init]);
 
   useEffect(() => {
-    const bootstrapKey = backendProjectId ?? "__default__";
+    const bootstrapKey = demoPresetId ? `__demo__:${demoPresetId}` : backendProjectId ?? "__default__";
     if (bootstrapKeyRef.current === bootstrapKey) return;
     bootstrapKeyRef.current = bootstrapKey;
     let cancelled = false;
 
-    restoreProjectFromLocalStorage();
     restoreMapViewFromLocalStorage();
+    setBackendSaveReady(false);
+
+    if (demoPresetId) {
+      const demoProject = createPrototypeDemoProject(demoPresetId);
+      useDefenseProjectStore.setState({
+        project: demoProject,
+        hydrated: true,
+        budgetApplied: false,
+        assetLibraryLoading: false,
+        assetLibraryError: null,
+        protectedObjects: [{
+          ...demoProject.baseObject,
+          enterpriseId: demoProject.baseObject.id,
+          source: "fallback",
+        }],
+        protectedObjectsLoading: false,
+        protectedObjectsError: null,
+        activeLayerId: demoProject.activeLayerId,
+        selectedAssetId: demoProject.selectedAssetId,
+        selectedObjectId: demoProject.selectedObjectId,
+      });
+      useDefenseVariantsStore.setState({
+        activeVariantId: null,
+        activeVariantName: null,
+        conflictState: null,
+        lastSavedProjectUpdatedAt: null,
+        loadStatus: "idle",
+        saveStatus: "idle",
+        error: null,
+      });
+      defaultLayerAppliedRef.current = false;
+      void Promise.resolve().then(() => {
+        if (!cancelled) setBackendSaveReady(true);
+      });
+      return () => {
+        cancelled = true;
+        if (bootstrapKeyRef.current === bootstrapKey) bootstrapKeyRef.current = null;
+      };
+    }
+
+    restoreProjectFromLocalStorage();
     void refreshAssetLibrary({ isPublic: true, limit: 100 });
     void refreshProtectedObjects({ limit: 100 });
-    setBackendSaveReady(false);
 
     void (async () => {
       if (backendProjectId) await loadVariant(backendProjectId);
@@ -337,6 +410,7 @@ export function DroneDefensePrototype() {
     };
   }, [
     backendProjectId,
+    demoPresetId,
     ensureBackendVariant,
     loadVariant,
     refreshAssetLibrary,
@@ -452,15 +526,18 @@ export function DroneDefensePrototype() {
   const layerSummaries = useMemo(() => calculateLayerSummaries(project), [project]);
   const requestedView = searchParams.get("view");
   const activeView = requestedView === "scenario-modeling" || requestedView === "3d" ? "drilldown" : view;
-  const topError = error ?? variantError;
+  const topError = error ?? (demoPresetId ? null : variantError);
+  const saveStateLabel = demoPresetId
+    ? "Демо-режим"
+    : backendSaveReady ? "Сохранение активно" : "Инициализация сохранения";
   const assetCatalogItems = useMemo(
     () => getAssetCatalogItems(project, selectedLayer?.code, project.placedObjects),
     [project, selectedLayer?.code],
   );
   const filteredCatalogItems = useMemo(() => {
     const query = catalogQuery.trim().toLowerCase();
+    const categoryFilter = catalogFilterOptions.find((option) => option.id === catalogCategoryFilter);
     return assetCatalogItems.filter((item) => {
-      if (!query) return true;
       const haystack = [
         item.title,
         item.subtitle,
@@ -472,9 +549,13 @@ export function DroneDefensePrototype() {
         ...item.roles,
         ...item.tags,
       ].join(" ").toLowerCase();
+      if (categoryFilter && categoryFilter.terms.length > 0 && !categoryFilter.terms.some((term) => haystack.includes(term))) {
+        return false;
+      }
+      if (!query) return true;
       return haystack.includes(query);
     });
-  }, [assetCatalogItems, catalogQuery]);
+  }, [assetCatalogItems, catalogCategoryFilter, catalogQuery]);
   const miniCatalogItems = useMemo(
     () =>
       filteredCatalogItems.map((assetItem) => {
@@ -1034,13 +1115,23 @@ export function DroneDefensePrototype() {
     >
       <header className={styles.prototypeAppBar}>
         <div className={styles.prototypeAppBarLeft}>
+          <button
+            type="button"
+            className={styles.prototypeIconButton}
+            onClick={() => window.history.back()}
+            title="Назад"
+            aria-label="Назад"
+          >
+            <LeftOutlined />
+          </button>
           <div className={styles.prototypeBrandMark}>FT</div>
-          <div className="min-w-0">
+          <div className={styles.prototypeMinW0}>
             <div className={styles.prototypeProjectTitleRow}>
               <strong>FORTIS / {selectedFacility.name} / {project.projectName} · v{project.version ?? 1}</strong>
             </div>
             <p className={styles.prototypeMeta}>
-              {backendSaveReady ? "Сохранение активно" : "Инициализация сохранения"}
+              <span className={styles.prototypeStatusDot} aria-hidden="true" />
+              {saveStateLabel}
             </p>
           </div>
         </div>
@@ -1060,6 +1151,7 @@ export function DroneDefensePrototype() {
                 setLeftPanelMode(mode === "configure" ? leftPanelMode : "structure");
               }}
             >
+              {mode === "configure" ? <AppstoreOutlined /> : mode === "audit" ? <EyeOutlined /> : <RightOutlined />}
               {label}
             </button>
           ))}
@@ -1086,7 +1178,16 @@ export function DroneDefensePrototype() {
           </button>
           <button
             type="button"
-            className={`${styles.prototypeButtonPrimary} px-3`}
+            className={styles.prototypeIconButton}
+            title="Фокус на карте"
+            aria-label="Фокус на карте"
+            onClick={() => setLastPlacementMessage("Карта сфокусирована на текущем объекте")}
+          >
+            <EyeOutlined />
+          </button>
+          <button
+            type="button"
+            className={`${styles.prototypeButtonPrimary} ${styles.prototypeReportButton}`}
             onClick={() => setLastPlacementMessage("Отчёт будет сформирован из текущей конфигурации")}
             disabled={!hasConfiguredObjects}
             title={hasConfiguredObjects ? "Сформировать отчёт" : "Добавьте средство, чтобы сформировать отчёт"}
@@ -1160,19 +1261,19 @@ export function DroneDefensePrototype() {
 
             <div className={styles.prototypeSidebarContent} aria-hidden={!isCatalogTrayOpen}>
               <div className={styles.prototypeSidebarHeader}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
+                <div className={styles.prototypeHeaderRow}>
+                  <div className={styles.prototypeHeaderCopy}>
                     <p className={styles.prototypeEyebrow}>
                       {workspaceMode === "configure" ? "Структура проекта" : workspaceMode === "audit" ? "Аудит" : "Сравнение"}
                     </p>
-                    <h1 className={`${styles.prototypeTitleLarge} truncate`}>Проект защиты</h1>
-                    <p className={`${styles.prototypeMeta} truncate`}>
+                    <h1 className={`${styles.prototypeTitleLarge} ${styles.prototypeTruncate}`}>Проект защиты</h1>
+                    <p className={`${styles.prototypeMeta} ${styles.prototypeTruncate}`}>
                       {project.layers.length} эшелонов · {formatObjectCountLabel(project.placedObjects.length)} · {sidebarAuditLabel}
                     </p>
                   </div>
                   <button
                     type="button"
-                    className={`${styles.prototypeIconButton} shrink-0 cursor-pointer`}
+                    className={`${styles.prototypeIconButton} ${styles.prototypeNoShrink}`}
                     onClick={() => setIsCatalogTrayOpen(false)}
                     title="Свернуть рабочую панель"
                     aria-label="Свернуть рабочую панель"
@@ -1203,7 +1304,7 @@ export function DroneDefensePrototype() {
                 </div>
               ) : null}
 
-              <div className="min-h-0 flex-1 overflow-hidden">
+              <div className={styles.prototypeSidebarViewport}>
                 {workspaceMode === "configure" && leftPanelMode === "structure" ? (
                   <div className={styles.prototypeScrollArea}>
                     {!hasConfiguredObjects ? (
@@ -1318,22 +1419,53 @@ export function DroneDefensePrototype() {
 
                 {workspaceMode === "configure" && leftPanelMode === "library" ? (
                   <>
-                    <div className={styles.prototypeSection}>
-                      <div className="min-w-0">
+                    <div className={styles.prototypeLibraryToolbar}>
+                      <div className={styles.prototypeLibraryContext}>
                         <p className={styles.prototypeEyebrow}>Библиотека СЗ</p>
-                        <h2 className={`${styles.prototypeTitle} truncate`}>
+                        <h2 className={styles.prototypeTitle}>
                           {selectedLayer?.code ?? "—"} · {selectedLayer?.name ?? "Эшелон не выбран"}
                         </h2>
                         <p className={styles.prototypeMeta}>
                           {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)}
                         </p>
                       </div>
-                      <input
-                        className={`${styles.prototypeField} mt-3`}
-                        value={catalogQuery}
-                        onChange={(event) => setCatalogQuery(event.target.value)}
-                        placeholder="Найти средство..."
-                      />
+                      <div className={styles.prototypeSearchRow}>
+                        <label className={styles.prototypeSearchField}>
+                          <SearchOutlined className={styles.prototypeSearchIcon} aria-hidden="true" />
+                          <input
+                            className={styles.prototypeSearchInput}
+                            value={catalogQuery}
+                            onChange={(event) => setCatalogQuery(event.target.value)}
+                            placeholder="Найти средство..."
+                            aria-label="Найти средство"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className={styles.prototypeIconButton}
+                          onClick={() => {
+                            setCatalogQuery("");
+                            setCatalogCategoryFilter("all");
+                          }}
+                          title="Сбросить фильтры"
+                          aria-label="Сбросить фильтры"
+                        >
+                          <FilterOutlined />
+                        </button>
+                      </div>
+                      <div className={styles.prototypeChips} aria-label="Фильтр средств защиты">
+                        {catalogFilterOptions.map((option) => (
+                          <button
+                            key={option.id}
+                            type="button"
+                            className={styles.prototypeChip}
+                            data-active={catalogCategoryFilter === option.id}
+                            onClick={() => setCatalogCategoryFilter(option.id)}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     <AssetLibraryManager
                       assets={project.assetLibrary}
@@ -1433,7 +1565,7 @@ export function DroneDefensePrototype() {
               </div>
 
               <footer className={styles.prototypeLeftFooter}>
-                <div className="min-w-0">
+                <div className={styles.prototypeLeftFooterCopy}>
                   <span>Активный эшелон</span>
                   <strong>{selectedLayer ? `${selectedLayer.code} · ${selectedLayer.name}` : "не выбран"}</strong>
                 </div>
@@ -1455,12 +1587,12 @@ export function DroneDefensePrototype() {
 
         <main className={styles.prototypeMain}>
         {topError ? (
-          <div className={`${styles.prototypeNoticeDanger} absolute left-4 top-4 z-30 shadow`}>
+          <div className={`${styles.prototypeNoticeDanger} ${styles.prototypeMainNotice}`}>
             {topError}
           </div>
         ) : null}
         {loading ? (
-          <div className={`${styles.prototypeNotice} absolute left-4 top-4 z-30 shadow`}>
+          <div className={`${styles.prototypeNotice} ${styles.prototypeMainNotice}`}>
             Загрузка данных…
           </div>
         ) : null}
@@ -1468,7 +1600,7 @@ export function DroneDefensePrototype() {
         {activeView === "gis" ? (
           <>
             <GisBoard
-              className="h-full min-h-0 rounded-none border-0"
+              className={styles.prototypeGisBoardFill}
               facilities={mapFacilities}
               selectedFacilityId={project.baseObject.id}
               onSelectFacility={(nextId) => {
@@ -1630,11 +1762,11 @@ export function DroneDefensePrototype() {
       {isInspectorOpen ? (
         <aside className={styles.prototypeInspector} aria-label="Свойства выбранного элемента">
           <header className={styles.prototypeInspectorHeader}>
-            <div className="min-w-0">
+            <div className={styles.prototypeHeaderCopy}>
               <p className={styles.prototypeEyebrow}>
                 {selectedPlacedObject ? "Размещённое средство" : "Эшелон защиты"}
               </p>
-              <h2 className={`${styles.prototypeTitleLarge} truncate`}>
+              <h2 className={`${styles.prototypeTitleLarge} ${styles.prototypeTruncate}`}>
                 {selectedPlacedObject
                   ? selectedPlacedObject.name ?? selectedPlacedAsset?.name ?? "Объект защиты"
                   : inspectorLayer
@@ -1861,7 +1993,7 @@ function LayerGeometryWizard({
   return (
     <div
       className={`${styles.prototypeWizardWrap} ${
-        dragPosition ? "fixed left-0 top-0" : "absolute inset-x-3 bottom-3 flex justify-center lg:inset-x-5"
+        dragPosition ? styles.prototypeWizardWrapDragging : styles.prototypeWizardWrapDocked
       }`}
     >
       <div
@@ -1869,16 +2001,17 @@ function LayerGeometryWizard({
         className={styles.prototypeWizard}
         style={dragPosition ? { transform: `translate3d(${dragPosition.x}px, ${dragPosition.y}px, 0)` } : undefined}
       >
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className={styles.prototypeWizardHeader}>
           <div
-            className={`min-w-0 flex-1 select-none rounded-lg pr-3 ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+            className={styles.prototypeWizardHandle}
+            data-dragging={isDragging}
             onPointerDown={startDrag}
             title="Перетащить мастер"
           >
             <p className={styles.prototypeEyebrow}>
               {state.mode === "create" ? "Мастер создания" : "Мастер настройки"}
             </p>
-            <h3 className={`${styles.prototypeTitleLarge} mt-1`}>
+            <h3 className={`${styles.prototypeTitleLarge} ${styles.prototypeWizardTitle}`}>
               {state.mode === "create" ? "Создание эшелона" : "Редактирование эшелона"}
             </h3>
             <p className={styles.prototypeMeta}>
@@ -1887,26 +2020,26 @@ function LayerGeometryWizard({
           </div>
           <button
             type="button"
-            className={`${styles.prototypeButton} cursor-pointer px-3`}
+            className={`${styles.prototypeButton} ${styles.prototypeWizardButton}`}
             onClick={onCancel}
           >
             Отмена
           </button>
         </div>
 
-        <div className="mt-4">
+        <div className={styles.prototypeWizardSection}>
           <p className={styles.prototypeEyebrow}>Форма эшелона</p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <div className={styles.prototypeWizardModeGrid}>
             <button
               type="button"
-              className={`${state.draft.geometryMode === "circle" ? styles.prototypeButtonPrimary : styles.prototypeButton} cursor-pointer px-3`}
+              className={`${state.draft.geometryMode === "circle" ? styles.prototypeButtonPrimary : styles.prototypeButton} ${styles.prototypeWizardButton}`}
               onClick={() => onDraftChange({ geometryMode: "circle", polygonClosed: false })}
             >
               Круг / радиус
             </button>
             <button
               type="button"
-              className={`${state.draft.geometryMode === "polygon" ? styles.prototypeButtonPrimary : styles.prototypeButton} cursor-pointer px-3`}
+              className={`${state.draft.geometryMode === "polygon" ? styles.prototypeButtonPrimary : styles.prototypeButton} ${styles.prototypeWizardButton}`}
               onClick={() => onDraftChange({ geometryMode: "polygon" })}
             >
               Произвольный контур
@@ -1914,13 +2047,13 @@ function LayerGeometryWizard({
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-[1.15fr_0.85fr]">
-          <div className="grid gap-3 sm:grid-cols-2">
+        <div className={styles.prototypeWizardBodyGrid}>
+          <div className={styles.prototypeWizardFields}>
             {state.mode === "create" ? (
-              <label className="sm:col-span-2">
+              <label className={`${styles.prototypeWizardField} ${styles.prototypeWizardSpanTwo}`}>
                 <span className={styles.prototypeEyebrow}>Где создать эшелон</span>
                 <select
-                  className={`${styles.prototypeSelect} mt-1 cursor-pointer`}
+                  className={styles.prototypeSelect}
                   value={state.insertPosition}
                   onChange={(event) => onSelectInsertPosition(event.target.value)}
                 >
@@ -1931,69 +2064,69 @@ function LayerGeometryWizard({
                     </option>
                   ))}
                 </select>
-                {fieldErrors?.geometry ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.geometry}</p> : null}
+                {fieldErrors?.geometry ? <p className={styles.prototypeWizardError}>{fieldErrors.geometry}</p> : null}
               </label>
             ) : null}
 
-            <label>
+            <label className={styles.prototypeWizardField}>
               <span className={styles.prototypeEyebrow}>Код</span>
               <input
-                className={`${styles.prototypeField} mt-1`}
+                className={styles.prototypeField}
                 value={state.draft.code}
                 onChange={(event) => onDraftChange({ code: event.target.value })}
               />
-              {fieldErrors?.code ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.code}</p> : null}
+              {fieldErrors?.code ? <p className={styles.prototypeWizardError}>{fieldErrors.code}</p> : null}
             </label>
-            <label>
+            <label className={styles.prototypeWizardField}>
               <span className={styles.prototypeEyebrow}>Название</span>
               <input
-                className={`${styles.prototypeField} mt-1`}
+                className={styles.prototypeField}
                 value={state.draft.name}
                 onChange={(event) => onDraftChange({ name: event.target.value })}
               />
-              {fieldErrors?.name ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.name}</p> : null}
+              {fieldErrors?.name ? <p className={styles.prototypeWizardError}>{fieldErrors.name}</p> : null}
             </label>
             {state.draft.geometryMode === "circle" ? (
               <>
-                <label>
+                <label className={styles.prototypeWizardField}>
                   <span className={styles.prototypeEyebrow}>Внутренний радиус, км</span>
                   <input
                     type="number"
                     min={0}
                     step={0.1}
-                    className={`${styles.prototypeField} mt-1`}
+                    className={styles.prototypeField}
                     value={metersToKilometers(state.draft.innerRadiusM)}
                     onChange={(event) => onDraftChange({ innerRadiusM: kilometersToMeters(event.target.value) })}
                   />
-                  {fieldErrors?.innerRadiusM ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.innerRadiusM}</p> : null}
+                  {fieldErrors?.innerRadiusM ? <p className={styles.prototypeWizardError}>{fieldErrors.innerRadiusM}</p> : null}
                 </label>
-                <label>
+                <label className={styles.prototypeWizardField}>
                   <span className={styles.prototypeEyebrow}>Ширина, км</span>
                   <input
                     type="number"
                     min={0}
                     step={0.1}
-                    className={`${styles.prototypeField} mt-1`}
+                    className={styles.prototypeField}
                     value={metersToKilometers(state.draft.widthM)}
                     onChange={(event) => onDraftChange({ widthM: kilometersToMeters(event.target.value) })}
                   />
-                  {fieldErrors?.widthM ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.widthM}</p> : null}
+                  {fieldErrors?.widthM ? <p className={styles.prototypeWizardError}>{fieldErrors.widthM}</p> : null}
                 </label>
               </>
             ) : (
-              <div className="sm:col-span-2">
+              <div className={styles.prototypeWizardSpanTwo}>
                 <span className={styles.prototypeEyebrow}>Контур на карте</span>
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className={styles.prototypeWizardControls}>
                   <button
                     type="button"
-                    className={`${styles.prototypeButtonPrimary} cursor-pointer px-3`}
+                    className={`${styles.prototypeButtonPrimary} ${styles.prototypeWizardButton}`}
                     onClick={() => onDraftChange({ polygonCoordinates: [], polygonClosed: false })}
                   >
                     Нарисовать контур
                   </button>
                   <button
                     type="button"
-                    className={`${styles.prototypeButton} cursor-pointer px-3`}
+                    className={`${styles.prototypeButton} ${styles.prototypeWizardButton}`}
                     disabled={state.draft.polygonCoordinates.length === 0}
                     onClick={() =>
                       onDraftChange({
@@ -2006,7 +2139,7 @@ function LayerGeometryWizard({
                   </button>
                   <button
                     type="button"
-                    className={`${styles.prototypeButton} cursor-pointer px-3`}
+                    className={`${styles.prototypeButton} ${styles.prototypeWizardButton}`}
                     disabled={state.draft.polygonCoordinates.length === 0}
                     onClick={() => onDraftChange({ polygonCoordinates: [], polygonClosed: false })}
                   >
@@ -2014,17 +2147,17 @@ function LayerGeometryWizard({
                   </button>
                   <button
                     type="button"
-                    className={`${styles.prototypeButton} cursor-pointer px-3`}
+                    className={`${styles.prototypeButton} ${styles.prototypeWizardButton}`}
                     disabled={state.draft.polygonCoordinates.length < 3 || state.draft.polygonClosed}
                     onClick={() => onDraftChange({ polygonClosed: true })}
                   >
                     Замкнуть контур
                   </button>
                 </div>
-                <p className={`${styles.prototypeMeta} mt-2`}>
+                <p className={`${styles.prototypeMeta} ${styles.prototypeWizardMeta}`}>
                   Точек: {state.draft.polygonCoordinates.length} · {state.draft.polygonClosed ? "контур замкнут" : "кликайте по карте"}
                 </p>
-                {fieldErrors?.geometry ? <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors.geometry}</p> : null}
+                {fieldErrors?.geometry ? <p className={styles.prototypeWizardError}>{fieldErrors.geometry}</p> : null}
               </div>
             )}
           </div>
@@ -2043,11 +2176,11 @@ function LayerGeometryWizard({
                 ? state.draft.polygonClosed ? "Произвольная область будет сохранена как polygon." : "Поставьте точки на карте и замкните контур."
                 : `${formatLayerRange(state.draft.innerRadiusM, outerRadiusM)} от объекта`}
             </p>
-            <div className={`${styles.prototypeCard} mt-4`}>
+            <div className={`${styles.prototypeCard} ${styles.prototypeWizardCard}`}>
               <div className={styles.prototypeProgressTrack}>
                 <div className={styles.prototypeProgressFill} style={{ width: "100%" }} />
               </div>
-              <div className={`${styles.prototypeMeta} mt-3 grid gap-2`}>
+              <div className={`${styles.prototypeMeta} ${styles.prototypeWizardStats}`}>
                 {state.draft.geometryMode === "polygon" ? (
                   <>
                     <p>Форма: произвольный контур</p>
@@ -2064,14 +2197,14 @@ function LayerGeometryWizard({
               </div>
             </div>
             {validationMessage ? (
-              <div className={`${styles.prototypeNoticeDanger} mt-3`}>
+              <div className={`${styles.prototypeNoticeDanger} ${styles.prototypeWizardValidation}`}>
                 {validationMessage}
               </div>
             ) : null}
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div className={`${styles.prototypeWizardFooter} ${styles.prototypeWizardSection}`}>
           <p className={styles.prototypeMeta}>
             {state.draft.geometryMode === "polygon"
               ? "Точки контура видны только в режиме создания или редактирования."
@@ -2079,7 +2212,7 @@ function LayerGeometryWizard({
           </p>
           <button
             type="button"
-            className={`${styles.prototypeButtonPrimary} cursor-pointer px-4`}
+            className={`${styles.prototypeButtonPrimary} ${styles.prototypeWizardSubmit}`}
             disabled={!isValid}
             onClick={onSubmit}
           >
