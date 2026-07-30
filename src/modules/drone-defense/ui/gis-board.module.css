@@ -13,72 +13,6 @@
   z-index: 10;
 }
 
-.slotMarker {
-  pointer-events: auto;
-  position: absolute;
-  display: grid;
-  width: 58px;
-  height: 58px;
-  place-items: center;
-  overflow: visible;
-  border: 2px solid rgb(255 255 255 / 90%);
-  border-radius: var(--radius-3);
-  padding: 4px;
-  background: rgb(255 255 255 / 95%);
-  box-shadow: var(--shadow-overlay);
-  backdrop-filter: blur(12px);
-  cursor: pointer;
-  transition: border-color var(--exit) var(--ease), box-shadow var(--exit) var(--ease), transform var(--exit) var(--ease);
-}
-
-.slotMarker[data-built="true"] {
-  border-color: var(--green-600);
-}
-
-.slotMarker[data-selected="true"] {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-overlay), 0 0 0 2px var(--blue-100);
-}
-
-.slotThumb {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-2);
-  background-color: var(--surface);
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: contain;
-}
-
-.slotThumb[data-built="false"] {
-  background-color: var(--n-100);
-  filter: grayscale(1);
-}
-
-.slotCount {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  display: grid;
-  min-width: 24px;
-  height: 24px;
-  place-items: center;
-  border: 2px solid var(--surface);
-  border-radius: 999px;
-  padding: 0 4px;
-  background: var(--n-900);
-  color: var(--surface);
-  font: 700 11px/1 var(--font-data);
-  box-shadow: var(--shadow-sm);
-}
-
-.slotCount[data-built="false"] {
-  background: var(--n-100);
-  color: var(--fg-muted);
-}
-
 .projectPanel {
   position: absolute;
   z-index: 10;
@@ -429,6 +363,26 @@
   font-weight: 600;
 }
 
+.placementBanner {
+  pointer-events: none;
+  position: absolute;
+  z-index: 12;
+  top: 16px;
+  left: 50%;
+  max-width: min(34rem, calc(100% - 2rem));
+  transform: translateX(-50%);
+  border: 1px solid rgb(255 255 255 / 72%);
+  border-radius: var(--radius-3);
+  padding: 8px 12px;
+  background: rgb(255 255 255 / 95%);
+  color: var(--fg);
+  box-shadow: var(--shadow-sm);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.25;
+  text-align: center;
+}
+
 .hoverLabel {
   pointer-events: none;
   position: absolute;
@@ -447,19 +401,4 @@
   position: absolute;
   inset: 0;
   z-index: 20;
-}
-
-.dropBanner {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 1px solid var(--blue-100);
-  border-radius: var(--radius-2);
-  padding: 6px 12px;
-  background: color-mix(in srgb, var(--accent) 90%, transparent);
-  color: var(--surface);
-  box-shadow: var(--shadow-overlay);
-  font-size: 12px;
-  font-weight: 650;
 }

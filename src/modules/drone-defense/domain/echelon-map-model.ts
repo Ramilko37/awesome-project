@@ -262,8 +262,8 @@ export function buildProtectedObjectInitialViewState({
     longitude: facility.center.lon,
     latitude: facility.center.lat,
     zoom: Number(clamp(rawZoom, minLayerFocusZoom, maxLayerFocusZoom).toFixed(2)),
-    pitch: 28,
-    bearing: 0,
+    pitch: 42,
+    bearing: -18,
   };
 }
 

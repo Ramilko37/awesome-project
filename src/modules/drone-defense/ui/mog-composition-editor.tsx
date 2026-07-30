@@ -76,10 +76,10 @@ function EditorSection({
 }) {
   return (
     <section
-      className={styles.prototypeDrawerSection}
+      className={styles.mogEditorSection}
       data-tone={tone}
     >
-      <div className={styles.prototypeDrawerSectionHeader}>
+      <div className={styles.mogEditorSectionHeader}>
         {eyebrow ? <p className={styles.prototypeEyebrow}>{eyebrow}</p> : null}
         <h3 className={styles.prototypeTitle}>{title}</h3>
       </div>
@@ -325,16 +325,16 @@ function MogEditorHeader({
   onCancel: () => void;
 }) {
   return (
-    <header className={styles.prototypeDrawerHeader}>
-      <div className="flex items-start justify-between gap-3">
+    <header className={styles.mogEditorHeader}>
+      <div className={styles.mogEditorHero}>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className={styles.prototypeBadgeMuted}>{assetName}</span>
             {isDirty ? <span className={styles.prototypeBadge}>Есть несохраненные изменения</span> : null}
           </div>
-          <h2 className={`${styles.prototypeTitleLarge} mt-3`}>Настройка МОГ</h2>
+          <h2 className={`${styles.prototypeTitleLarge} mt-3`}>Мобильная огневая группа</h2>
           <p className={`${styles.prototypeMeta} mt-2`}>
-            {draft.postType} · {layerLabel} · {formatMogMoney(baseCostMln)}
+            Настройка поста, оружия и секторов покрытия для {layerLabel}
           </p>
         </div>
         <button
@@ -345,6 +345,20 @@ function MogEditorHeader({
         >
           <X className="h-4 w-4" />
         </button>
+      </div>
+      <div className={styles.mogEditorMetricGrid}>
+        <div>
+          <span>Тип</span>
+          <strong>{draft.postType}</strong>
+        </div>
+        <div>
+          <span>Состав</span>
+          <strong>{parseMogCount(draft.personnelCount)} чел.</strong>
+        </div>
+        <div>
+          <span>База</span>
+          <strong>{formatMogMoney(baseCostMln)}</strong>
+        </div>
       </div>
     </header>
   );
@@ -360,7 +374,7 @@ function MogBasicsSection({
   onApplyDraft: MogDraftUpdater;
 }) {
   return (
-    <EditorSection title="Основные параметры" eyebrow="Пост и контекст">
+    <EditorSection title="Боевой состав" eyebrow="Пост и контекст">
       <div className="grid gap-4">
         <label className={styles.prototypeLabel}>
           Тип поста
@@ -583,7 +597,7 @@ function MogWeaponCard({
 
   return (
     <article
-      className={styles.prototypeWeaponCard}
+      className={styles.mogEditorWeaponCard}
       data-active={isActive ? "true" : "false"}
       data-disabled={isDisabled ? "true" : "false"}
     >
@@ -720,7 +734,7 @@ function MogWeaponsSection({
 function MogCostSection({ costSummary }: { costSummary: MogCostSummary }) {
   return (
     <EditorSection title="Стоимость" eyebrow="Текущая оценка" tone="accent">
-      <div className="space-y-3">
+      <div className={styles.mogEditorCostCard}>
         <div className={`${styles.prototypeMeta} flex items-center justify-between gap-3`}>
           <span>База поста</span>
           <strong className="text-slate-950">{formatMogMoney(costSummary.baseMln)}</strong>
@@ -762,7 +776,7 @@ function MogEditorFooter({
   onSave: () => void;
 }) {
   return (
-    <footer className={styles.prototypeDrawerFooter}>
+    <footer className={styles.mogEditorFooter}>
       <div className={`${styles.prototypeNotice} flex items-start gap-2`}>
         {hasErrors ? (
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
@@ -1016,8 +1030,8 @@ export function MogCompositionEditor({
   };
 
   return (
-    <div className={styles.prototypeDrawerWrap}>
-      <aside className={styles.prototypeDrawer}>
+    <div className={styles.mogEditorWrap}>
+      <aside className={styles.mogEditorCard}>
         <MogEditorHeader
           assetName={asset.name}
           baseCostMln={costSummary.baseMln}
@@ -1027,8 +1041,8 @@ export function MogCompositionEditor({
           onCancel={handleCancel}
         />
 
-        <div className={styles.prototypeDrawerBody}>
-          <div className={styles.prototypeDrawerStack}>
+        <div className={styles.mogEditorBody}>
+          <div className={styles.mogEditorStack}>
             <MogBasicsSection draft={draft} errors={errors} onApplyDraft={applyDraft} />
             <MogEquipmentSection draft={draft} errors={errors} onEquipmentStep={handleEquipmentStep} />
             <MogWeaponsSection

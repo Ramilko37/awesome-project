@@ -104,6 +104,18 @@
   gap: 8px;
 }
 
+.recommendationBadge {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 3px 6px;
+  color: var(--blue-700);
+  background: var(--blue-50);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .assetTitle {
   display: block;
   min-width: 0;

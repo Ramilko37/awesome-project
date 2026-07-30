@@ -18,8 +18,8 @@ import {
   SearchOutlined,
 } from "@ant-design/icons";
 import { useDefenseStudioStore, studioPreviewData } from "@/modules/drone-defense/domain/use-defense-studio-store";
-import { buildEchelonMapModel } from "@/modules/drone-defense/domain/echelon-map-model";
 import { getBuildAssetForCatalogGroup } from "@/modules/drone-defense/domain/echelon-build-assets";
+import { getRecommendedAssetsForLayer } from "@/modules/drone-defense/domain/get-recommended-assets-for-layer";
 import {
   DEFAULT_PROTECTION_TYPE_VISIBILITY,
   isMogVisibleInMap,
@@ -58,14 +58,20 @@ import {
   type LayerWizardDraft,
   type LayerWizardState,
 } from "@/modules/drone-defense/domain/prototype-workflow";
-import { MAX_DEFENSE_PROJECT_LAYERS, useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
+import {
+  hasSavedDefenseProjectSnapshot,
+  MAX_DEFENSE_PROJECT_LAYERS,
+  useDefenseProjectStore,
+} from "@/shared/lib/use-defense-project-store";
 import { useMapViewStore } from "@/shared/lib/use-map-view-store";
 import { withBasePath } from "@/shared/lib/base-path";
 import type { LayerInsertOption } from "@/shared/lib/defense-project";
 import type { DefenseLayer, DefenseLayerId } from "@/shared/types/drone-defense";
 import type {
   Coordinates,
+  DefenseAsset,
   DefenseProject,
+  PlacedDefenseObject,
   ProtectedObjectOption,
 } from "@/shared/types/defense-project";
 import type {
@@ -103,7 +109,6 @@ function createPrototypeDemoProject(presetId: (typeof prototypeDemoPresetIds)[nu
 }
 
 type PrototypeUiState = {
-  selectedSlotId: string | null;
   catalogQuery: string;
   catalogCategoryFilter: (typeof catalogFilterOptions)[number]["id"];
   isCatalogTrayOpen: boolean;
@@ -120,6 +125,9 @@ type PrototypeUiState = {
   locateTarget: { lon: number; lat: number; at: number } | null;
   isEchelonObjectsPanelOpen: boolean;
   echelonObjectsLayerId: string | null;
+  isOnboardingOpen: boolean;
+  onboardingStep: "intro" | "recommended-assets" | "first-placement-complete";
+  localDraftAvailable: boolean;
 };
 
 type PrototypeUiAction = {
@@ -131,7 +139,6 @@ type PrototypeUiAction = {
 }[keyof PrototypeUiState];
 
 const initialPrototypeUiState: PrototypeUiState = {
-  selectedSlotId: null,
   catalogQuery: "",
   catalogCategoryFilter: "all",
   isCatalogTrayOpen: true,
@@ -148,6 +155,9 @@ const initialPrototypeUiState: PrototypeUiState = {
   locateTarget: null,
   isEchelonObjectsPanelOpen: false,
   echelonObjectsLayerId: null,
+  isOnboardingOpen: true,
+  onboardingStep: "intro",
+  localDraftAvailable: false,
 };
 
 function resolveStateAction<T>(current: T, value: SetStateAction<T>) {
@@ -206,6 +216,16 @@ function layerWizardStoreDraft(draft: LayerWizardDraft) {
   };
 }
 
+function isMogPlacedObject({
+  object,
+  asset,
+}: {
+  object: Pick<PlacedDefenseObject, "compoundProfile"> | null;
+  asset?: DefenseAsset | null;
+}) {
+  return Boolean(object?.compoundProfile ?? (asset ? buildPlacedDefenseCompoundProfile(asset) : null));
+}
+
 export function DroneDefensePrototype() {
   const searchParams = useSearchParams();
   const backendProjectId = searchParams.get("projectId") ?? searchParams.get("project");
@@ -215,7 +235,6 @@ export function DroneDefensePrototype() {
     initialPrototypeUiState,
   );
   const {
-    selectedSlotId,
     catalogQuery,
     catalogCategoryFilter,
     isCatalogTrayOpen,
@@ -231,6 +250,9 @@ export function DroneDefensePrototype() {
     locateTarget,
     isEchelonObjectsPanelOpen,
     echelonObjectsLayerId,
+    isOnboardingOpen,
+    onboardingStep,
+    localDraftAvailable,
   } = prototypeUiState;
   const prototypeUiSetters = useMemo(() => {
     const setPrototypeUiField = <Key extends keyof PrototypeUiState>(
@@ -241,7 +263,6 @@ export function DroneDefensePrototype() {
     };
 
     return {
-      setSelectedSlotId: (value: SetStateAction<string | null>) => setPrototypeUiField("selectedSlotId", value),
       setCatalogQuery: (value: SetStateAction<string>) => setPrototypeUiField("catalogQuery", value),
       setCatalogCategoryFilter: (value: SetStateAction<PrototypeUiState["catalogCategoryFilter"]>) =>
         setPrototypeUiField("catalogCategoryFilter", value),
@@ -269,10 +290,15 @@ export function DroneDefensePrototype() {
         setPrototypeUiField("isEchelonObjectsPanelOpen", value),
       setEchelonObjectsLayerId: (value: SetStateAction<string | null>) =>
         setPrototypeUiField("echelonObjectsLayerId", value),
+      setIsOnboardingOpen: (value: SetStateAction<boolean>) =>
+        setPrototypeUiField("isOnboardingOpen", value),
+      setOnboardingStep: (value: SetStateAction<PrototypeUiState["onboardingStep"]>) =>
+        setPrototypeUiField("onboardingStep", value),
+      setLocalDraftAvailable: (value: SetStateAction<boolean>) =>
+        setPrototypeUiField("localDraftAvailable", value),
     };
   }, []);
   const {
-    setSelectedSlotId,
     setCatalogQuery,
     setCatalogCategoryFilter,
     setIsCatalogTrayOpen,
@@ -289,6 +315,9 @@ export function DroneDefensePrototype() {
     setLocateTarget,
     setIsEchelonObjectsPanelOpen,
     setEchelonObjectsLayerId,
+    setIsOnboardingOpen,
+    setOnboardingStep,
+    setLocalDraftAvailable,
   } = prototypeUiSetters;
   const {
     currentBaseMapSourceId,
@@ -311,7 +340,6 @@ export function DroneDefensePrototype() {
   } = useDefenseStudioStore();
   const {
     project,
-    hydrated: projectHydrated,
     createLayerFromDraft,
     updateLayerFromDraft,
     selectLayer,
@@ -332,16 +360,15 @@ export function DroneDefensePrototype() {
     refreshProtectedObjects,
     upsertAssetInLibrary,
     removeAssetFromLibrary,
+    startInitialProject,
   } = useDefenseProjectStore();
   const {
     error: variantError,
-    ensureBackendVariant,
     loadVariant,
   } = useDefenseVariantsStore();
   const [backendSaveReady, setBackendSaveReady] = useState(false);
   const bootstrapKeyRef = useRef<string | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
-  const defaultLayerAppliedRef = useRef(false);
 
   useEffect(() => {
     void init();
@@ -384,7 +411,9 @@ export function DroneDefensePrototype() {
         saveStatus: "idle",
         error: null,
       });
-      defaultLayerAppliedRef.current = false;
+      setIsOnboardingOpen(false);
+      setOnboardingStep("intro");
+      setLocalDraftAvailable(false);
       void Promise.resolve().then(() => {
         if (!cancelled) setBackendSaveReady(true);
       });
@@ -394,13 +423,31 @@ export function DroneDefensePrototype() {
       };
     }
 
-    restoreProjectFromLocalStorage();
+    if (backendProjectId) {
+      setIsOnboardingOpen(false);
+      setOnboardingStep("intro");
+      setLocalDraftAvailable(false);
+    } else {
+      startInitialProject();
+      setIsOnboardingOpen(true);
+      setOnboardingStep("intro");
+      setLocalDraftAvailable(hasSavedDefenseProjectSnapshot());
+      useDefenseVariantsStore.setState({
+        activeVariantId: null,
+        activeVariantName: null,
+        conflictState: null,
+        lastSavedProjectUpdatedAt: null,
+        loadStatus: "idle",
+        saveStatus: "idle",
+        error: null,
+      });
+    }
     void refreshAssetLibrary({ isPublic: true, limit: 100 });
     void refreshProtectedObjects({ limit: 100 });
 
     void (async () => {
-      if (backendProjectId) await loadVariant(backendProjectId);
-      else await ensureBackendVariant("Тестовый терминал Екатеринбург");
+      if (!backendProjectId) return;
+      await loadVariant(backendProjectId);
       if (!cancelled) setBackendSaveReady(true);
     })();
 
@@ -411,12 +458,14 @@ export function DroneDefensePrototype() {
   }, [
     backendProjectId,
     demoPresetId,
-    ensureBackendVariant,
     loadVariant,
     refreshAssetLibrary,
     refreshProtectedObjects,
     restoreMapViewFromLocalStorage,
-    restoreProjectFromLocalStorage,
+    setIsOnboardingOpen,
+    setLocalDraftAvailable,
+    setOnboardingStep,
+    startInitialProject,
   ]);
 
   useEffect(() => {
@@ -473,17 +522,6 @@ export function DroneDefensePrototype() {
     };
   }, [backendSaveReady]);
 
-  useEffect(() => {
-    if (!projectHydrated || defaultLayerAppliedRef.current || project.placedObjects.length > 0) return;
-    const l4Layer = project.layers.find((layer) => layer.code === "L4");
-    if (!l4Layer || project.activeLayerId === l4Layer.id) {
-      defaultLayerAppliedRef.current = true;
-      return;
-    }
-    defaultLayerAppliedRef.current = true;
-    selectLayer(l4Layer.id);
-  }, [project.activeLayerId, project.layers, project.placedObjects.length, projectHydrated, selectLayer]);
-
   const selectedProtectedObject = useMemo(
     () =>
       protectedObjects.find((item) => item.id === project.baseObject.id) ?? {
@@ -514,9 +552,9 @@ export function DroneDefensePrototype() {
     [project.layers],
   );
   const allProjectMapLayers = useMemo(() => [...project.layers].map(projectLayerToMapLayer), [project.layers]);
-  const selectedLayerId = project.activeLayerId ?? project.layers[0]?.id ?? "";
+  const selectedLayerId = project.activeLayerId ?? "";
   const selectedLayer = useMemo(
-    () => project.layers.find((layer) => layer.id === selectedLayerId) ?? project.layers[0],
+    () => project.layers.find((layer) => layer.id === selectedLayerId),
     [project.layers, selectedLayerId],
   );
   const orderedProjectLayers = useMemo(
@@ -529,10 +567,18 @@ export function DroneDefensePrototype() {
   const topError = error ?? (demoPresetId ? null : variantError);
   const saveStateLabel = demoPresetId
     ? "Демо-режим"
-    : backendSaveReady ? "Сохранение активно" : "Инициализация сохранения";
+    : backendProjectId && backendSaveReady ? "Сохранение активно" : "Черновик не сохранён";
   const assetCatalogItems = useMemo(
     () => getAssetCatalogItems(project, selectedLayer?.code, project.placedObjects),
     [project, selectedLayer?.code],
+  );
+  const recommendedAssets = useMemo(
+    () => (selectedLayer ? getRecommendedAssetsForLayer(selectedLayer, project.assetLibrary).slice(0, 5) : []),
+    [project.assetLibrary, selectedLayer],
+  );
+  const recommendedAssetIds = useMemo(
+    () => new Set(recommendedAssets.map((asset) => asset.id)),
+    [recommendedAssets],
   );
   const filteredCatalogItems = useMemo(() => {
     const query = catalogQuery.trim().toLowerCase();
@@ -554,8 +600,8 @@ export function DroneDefensePrototype() {
       }
       if (!query) return true;
       return haystack.includes(query);
-    });
-  }, [assetCatalogItems, catalogCategoryFilter, catalogQuery]);
+    }).sort((a, b) => Number(recommendedAssetIds.has(b.assetId)) - Number(recommendedAssetIds.has(a.assetId)));
+  }, [assetCatalogItems, catalogCategoryFilter, catalogQuery, recommendedAssetIds]);
   const miniCatalogItems = useMemo(
     () =>
       filteredCatalogItems.map((assetItem) => {
@@ -599,7 +645,14 @@ export function DroneDefensePrototype() {
       opacity: 0.22,
     };
   }, [layerWizardState?.mode, wizardLayer]);
-  const placementHint = lastPlacementMessage ?? `Эшелон ${selectedLayer?.code ?? "—"} · выберите средство и кликните по карте`;
+  const activePlacementAsset = useMemo(
+    () => project.assetLibrary.find((asset) => asset.id === activeToolId) ?? null,
+    [activeToolId, project.assetLibrary],
+  );
+  const placementHint = lastPlacementMessage ??
+    (activePlacementAsset && selectedLayer
+      ? `Размещение: ${activePlacementAsset.name} · ${selectedLayer.code}. Выберите точку на карте · Esc — отменить`
+      : "Выберите объект или создайте первый эшелон защиты");
   const projectCatalogPlacements = useMemo(
     () =>
       placedObjectsToMapPlacements({
@@ -644,19 +697,6 @@ export function DroneDefensePrototype() {
       placements: visibleProjectCatalogPlacements,
     }),
     [studioConfiguration, visibleProjectCatalogPlacements],
-  );
-  const echelonModel = useMemo(
-    () =>
-      buildEchelonMapModel({
-        facility: selectedFacility,
-        layers: projectMapLayers,
-        layerCoverage: layers,
-        configuration: mapConfiguration,
-        catalog,
-        selectedLayerId: selectedLayerId as DefenseLayerId,
-        selectedSlotId,
-      }),
-    [catalog, mapConfiguration, layers, projectMapLayers, selectedFacility, selectedLayerId, selectedSlotId],
   );
   const objectCountByLayer = useMemo(() => {
     const counts = new Map<string, number>();
@@ -719,13 +759,9 @@ export function DroneDefensePrototype() {
   const hasConfiguredObjects = project.placedObjects.length > 0;
   const projectCostLabel = hasConfiguredObjects ? formatLayerCost(totalProjectCostMln) : "0 ₽";
   const budgetLabel = "Не задан";
-  const auditLabel = hasConfiguredObjects
-    ? warningCount > 0
-      ? `${warningCount} предупрежд.`
-      : "Не запускался"
-    : "Не запускался";
-  const sidebarAuditLabel = hasConfiguredObjects ? auditLabel : "Нет данных для проверки";
-  const addAssetCtaLabel = selectedLayer ? `Добавить средство в ${selectedLayer.code}` : "Открыть библиотеку";
+  const auditLabel = "Недоступен";
+  const sidebarAuditLabel = "Недоступен";
+  const addAssetCtaLabel = selectedLayer ? `Открыть библиотеку для ${selectedLayer.code}` : "Создать эшелон защиты";
   const isInspectorOpen = activeView === "gis" && (Boolean(selectedPlacedObject) || isEchelonObjectsPanelOpen);
   const inspectorLayer = selectedPlacedObject ? selectedPlacedLayer : activeEchelonObjectsLayer;
   const selectedObjectCostMln =
@@ -734,6 +770,20 @@ export function DroneDefensePrototype() {
       : null;
 
   const draftForInsertOption = (option: LayerInsertOption | undefined): Pick<LayerWizardState, "draft" | "insertPosition"> => {
+    if (project.layers.length === 0) {
+      return {
+        insertPosition: option ? layerInsertOptionKey(option) : undefined,
+        draft: {
+          name: "Обнаружение",
+          code: "L1",
+          innerRadiusM: 0,
+          widthM: 2200,
+          geometryMode: "circle",
+          polygonCoordinates: [],
+          polygonClosed: false,
+        },
+      };
+    }
     const innerRadiusM = option?.minInnerRadiusM ?? 0;
     const availableWidthM = option?.availableWidthM ?? Number.POSITIVE_INFINITY;
     const widthM = Number.isFinite(availableWidthM) ? Math.min(Math.max(availableWidthM, 0), 5000) : 5000;
@@ -762,6 +812,22 @@ export function DroneDefensePrototype() {
       ...draftForInsertOption(outsideOption),
     });
     setLastPlacementMessage(null);
+    setIsOnboardingOpen(false);
+  };
+
+  const openRecommendedLibrary = () => {
+    if (!selectedLayer) return;
+    setWorkspaceMode("configure");
+    setLeftPanelMode("library");
+    setActiveToolId(null);
+    setCoordinatePlacementAssetId(null);
+    setCoordinatePlacementValidation(null);
+    setIsEchelonObjectsPanelOpen(false);
+    setIsMogEditorOpen(false);
+    selectObject(null);
+    setCatalogQuery("");
+    setCatalogCategoryFilter("all");
+    setLastPlacementMessage(`Библиотека открыта для ${selectedLayer.code} · ${selectedLayer.name}`);
   };
 
   const editSelectedLayer = () => {
@@ -820,6 +886,7 @@ export function DroneDefensePrototype() {
       }
       selectLayer(result.layer.id);
       setLastPlacementMessage("Эшелон создан");
+      setOnboardingStep("recommended-assets");
       setLayerWizardState(null);
       return;
     }
@@ -855,10 +922,9 @@ export function DroneDefensePrototype() {
     const object = project.placedObjects.find((item) => item.id === objectId);
     if (!object) return;
     selectObject(objectId);
-    setSelectedSlotId(null);
     setIsEchelonObjectsPanelOpen(true);
-    setIsMogEditorOpen(false);
     const asset = project.assetLibrary.find((item) => item.id === object.assetId);
+    setIsMogEditorOpen(isMogPlacedObject({ object, asset }));
     setLastPlacementMessage(`${asset?.name ?? object.name ?? "Объект"} выбран на карте`);
   };
 
@@ -875,7 +941,7 @@ export function DroneDefensePrototype() {
     setCoordinatePlacementValidation(null);
     setLastPlacementMessage(
       nextId
-        ? `${selectedLayer?.code ?? "—"} · ${asset.title}: кликните по карте внутри активного эшелона`
+        ? `Размещение: ${asset.title} · ${selectedLayer?.code ?? "—"}. Выберите точку на карте · Esc — отменить`
         : null,
     );
   };
@@ -911,6 +977,10 @@ export function DroneDefensePrototype() {
     const compoundProfile = buildPlacedDefenseCompoundProfile(asset);
     selectAsset(asset.id);
     const validation = placeObject(asset.id, selectedLayer.id, { lat, lng }, compoundProfile ? { compoundProfile } : undefined);
+    if (validation.isValid) {
+      setOnboardingStep("first-placement-complete");
+      setIsMogEditorOpen(Boolean(compoundProfile));
+    }
     setLastPlacementMessage(
       validation.message ??
         (validation.isValid
@@ -922,7 +992,6 @@ export function DroneDefensePrototype() {
   const placeDroppedAssetOnMap = (args: {
     groupId: string;
     layerId: DefenseLayerId;
-    slotId: string;
     mapRef: { lon: number; lat: number };
   }) => {
     const asset =
@@ -939,10 +1008,11 @@ export function DroneDefensePrototype() {
       return;
     }
     setActiveToolId(asset.id);
-    setSelectedSlotId(args.slotId);
     setPointerDraggedAssetId(null);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
+    setOnboardingStep("first-placement-complete");
+    setIsMogEditorOpen(Boolean(compoundProfile));
     setLastPlacementMessage(`${asset.name} размещено в эшелоне ${selectedLayer?.code ?? "—"}`);
   };
 
@@ -977,7 +1047,7 @@ export function DroneDefensePrototype() {
     selectAsset(asset.assetId);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
-    setLastPlacementMessage(`${asset.title}: перетащите карточку на карту`);
+    setLastPlacementMessage(`${asset.title}: перетащите иконку на карту`);
   };
 
   const startAssetPointerDrag = (asset: AssetCatalogItem, event: ReactPointerEvent<HTMLDivElement>) => {
@@ -987,7 +1057,7 @@ export function DroneDefensePrototype() {
     selectAsset(asset.assetId);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
-    setLastPlacementMessage(`${asset.title}: перетащите карточку на карту`);
+    setLastPlacementMessage(`${asset.title}: перетащите иконку на карту`);
   };
 
   const startAssetMouseDrag = (asset: AssetCatalogItem, event: ReactMouseEvent<HTMLDivElement>) => {
@@ -997,7 +1067,7 @@ export function DroneDefensePrototype() {
     selectAsset(asset.assetId);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
-    setLastPlacementMessage(`${asset.title}: перетащите карточку на карту`);
+    setLastPlacementMessage(`${asset.title}: перетащите иконку на карту`);
   };
 
   useEffect(() => {
@@ -1063,6 +1133,8 @@ export function DroneDefensePrototype() {
     setActiveToolId(coordinatePlacementAsset.id);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
+    setOnboardingStep("first-placement-complete");
+    setIsMogEditorOpen(Boolean(compoundProfile));
     setLastPlacementMessage(
       validation.message ?? `${coordinatePlacementAsset.name} размещено в эшелоне ${selectedLayer.code}`,
     );
@@ -1078,18 +1150,21 @@ export function DroneDefensePrototype() {
     setLastPlacementMessage(`${asset?.name ?? "Средство защиты"} удалено из общей конфигурации`);
   };
 
-  const selectLayerWithDefaultSlot = (layerId: string) => {
+  const continueLocalDraft = () => {
+    restoreProjectFromLocalStorage();
+    setLocalDraftAvailable(false);
+    setIsOnboardingOpen(false);
+    const restored = useDefenseProjectStore.getState().project;
+    setOnboardingStep(restored.placedObjects.length > 0 ? "first-placement-complete" : restored.layers.length > 0 ? "recommended-assets" : "intro");
+  };
+
+  const selectLayerFromMap = (layerId: string) => {
     selectLayer(layerId);
     setActiveToolId(null);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
     setLastPlacementMessage(null);
     setIsEchelonObjectsPanelOpen(true);
-    const nextSlot =
-      echelonModel.slots.find((slot) => slot.layerId === layerId && slot.status === "empty") ??
-      echelonModel.slots.find((slot) => slot.layerId === layerId) ??
-      null;
-    setSelectedSlotId(nextSlot?.id ?? null);
   };
 
   useEffect(() => {
@@ -1146,7 +1221,16 @@ export function DroneDefensePrototype() {
               key={mode}
               type="button"
               aria-pressed={workspaceMode === mode}
+              disabled={mode !== "configure"}
+              title={
+                mode === "audit"
+                  ? "Аудит станет доступен после создания минимальной конфигурации."
+                  : mode === "compare"
+                    ? "Для сравнения необходимо сохранить минимум два варианта."
+                    : undefined
+              }
               onClick={() => {
+                if (mode !== "configure") return;
                 setWorkspaceMode(mode as PrototypeUiState["workspaceMode"]);
                 setLeftPanelMode(mode === "configure" ? leftPanelMode : "structure");
               }}
@@ -1188,9 +1272,9 @@ export function DroneDefensePrototype() {
           <button
             type="button"
             className={`${styles.prototypeButtonPrimary} ${styles.prototypeReportButton}`}
-            onClick={() => setLastPlacementMessage("Отчёт будет сформирован из текущей конфигурации")}
-            disabled={!hasConfiguredObjects}
-            title={hasConfiguredObjects ? "Сформировать отчёт" : "Добавьте средство, чтобы сформировать отчёт"}
+            onClick={() => setLastPlacementMessage("Добавьте средства, критические зоны и маршрут, чтобы сформировать отчёт.")}
+            disabled
+            title="Добавьте средства, чтобы сформировать отчёт"
           >
             <FileTextOutlined />
             <span className={styles.prototypeReportText}>Сформировать отчёт</span>
@@ -1266,9 +1350,9 @@ export function DroneDefensePrototype() {
                     <p className={styles.prototypeEyebrow}>
                       {workspaceMode === "configure" ? "Структура проекта" : workspaceMode === "audit" ? "Аудит" : "Сравнение"}
                     </p>
-                    <h1 className={`${styles.prototypeTitleLarge} ${styles.prototypeTruncate}`}>Проект защиты</h1>
+                    <h1 className={`${styles.prototypeTitleLarge} ${styles.prototypeTruncate}`}>{project.projectName}</h1>
                     <p className={`${styles.prototypeMeta} ${styles.prototypeTruncate}`}>
-                      {project.layers.length} эшелонов · {formatObjectCountLabel(project.placedObjects.length)} · {sidebarAuditLabel}
+                      {project.layers.length} защитных эшелонов · {formatObjectCountLabel(project.placedObjects.length)} · {sidebarAuditLabel}
                     </p>
                   </div>
                   <button
@@ -1307,28 +1391,88 @@ export function DroneDefensePrototype() {
               <div className={styles.prototypeSidebarViewport}>
                 {workspaceMode === "configure" && leftPanelMode === "structure" ? (
                   <div className={styles.prototypeScrollArea}>
-                    {!hasConfiguredObjects ? (
+                    {project.layers.length === 0 || onboardingStep === "recommended-assets" || onboardingStep === "first-placement-complete" ? (
                       <section className={styles.prototypeEmptyOnboarding} aria-label="Начало конфигурации">
-                        <strong>Начните с размещения средств</strong>
-                        <ol>
-                          <li>Выберите эшелон.</li>
-                          <li>Откройте библиотеку.</li>
-                          <li>Разместите средство на карте.</li>
-                        </ol>
+                        <strong>
+                          {project.layers.length === 0
+                            ? "Начните проектирование защиты"
+                            : onboardingStep === "recommended-assets"
+                              ? `Шаг 2 из 4 · Добавьте средства в ${selectedLayer?.code ?? "L1"} · ${selectedLayer?.name ?? "Обнаружение"}`
+                              : "Первое средство размещено"}
+                        </strong>
+                        {project.layers.length === 0 ? (
+                          <>
+                            <span>Шаг 1 из 4</span>
+                            <p>Создайте первый эшелон защиты вокруг объекта.</p>
+                          </>
+                        ) : onboardingStep === "recommended-assets" ? (
+                          <p>Для этого эшелона доступны рекомендованные средства. Рекомендации основаны на назначении слоя и каталоге проекта.</p>
+                        ) : (
+                          <p>Вы можете добавить другие рекомендованные средства или перейти к следующему этапу — критическим зонам.</p>
+                        )}
                         <button
                           type="button"
                           className={styles.prototypeButtonPrimary}
-                          onClick={() => setLeftPanelMode("library")}
+                          onClick={project.layers.length === 0 ? createProjectLayer : openRecommendedLibrary}
                         >
                           <AppstoreOutlined />
-                          {addAssetCtaLabel}
+                          {project.layers.length === 0
+                            ? "Создать эшелон защиты"
+                            : onboardingStep === "first-placement-complete"
+                              ? "Добавить ещё средство"
+                              : "Открыть библиотеку"}
                         </button>
+                        {onboardingStep === "first-placement-complete" ? (
+                          <button
+                            type="button"
+                            className={styles.prototypeButton}
+                            onClick={() => setOnboardingStep("intro")}
+                          >
+                            Завершить первый шаг
+                          </button>
+                        ) : null}
+                        {project.layers.length === 0 ? (
+                          <ul>
+                            <li>выбрать рекомендованные средства;</li>
+                            <li>разместить их на карте;</li>
+                            <li>запустить проверку конфигурации.</li>
+                          </ul>
+                        ) : null}
                       </section>
                     ) : null}
 
                     <div className={styles.prototypeTreeSectionTitle}>
+                      <span>Базовый слой</span>
+                      <span>системный</span>
+                    </div>
+                    <div className={styles.prototypeTree}>
+                      <button
+                        type="button"
+                        className={styles.prototypeTreeRow}
+                        data-selected="false"
+                        onClick={() => {
+                          selectObject(null);
+                          setIsEchelonObjectsPanelOpen(false);
+                          setLastPlacementMessage("L0 · Зона предприятия: базовый слой объекта");
+                        }}
+                      >
+                        <span className={styles.prototypeTreeTag} style={{ "--tree-color": "#104c72" } as CSSProperties}>
+                          L0
+                        </span>
+                        <span className={styles.prototypeTreeCopy}>
+                          <strong>L0 · Зона предприятия</strong>
+                          <span>Базовый слой · 3D-модель объекта</span>
+                        </span>
+                        <span className={styles.prototypeCountBadgeMuted}>sys</span>
+                        <span className={styles.prototypeVisibilityButton} aria-hidden="true">
+                          <EyeOutlined />
+                        </span>
+                      </button>
+                    </div>
+
+                    <div className={styles.prototypeTreeSectionTitle}>
                       <span>Эшелоны защиты</span>
-                      <span>L1-L{project.layers.length}</span>
+                      <span>{project.layers.length === 0 ? "0" : `L1-L${project.layers.length}`}</span>
                     </div>
                     <div className={styles.prototypeTree}>
                       {orderedProjectLayers.map((layer) => {
@@ -1341,7 +1485,7 @@ export function DroneDefensePrototype() {
                             className={styles.prototypeTreeRow}
                             data-selected={layer.id === selectedLayer?.id}
                             onClick={() => {
-                              selectLayerWithDefaultSlot(layer.id);
+                              selectLayerFromMap(layer.id);
                               setEchelonObjectsLayerId(layer.id);
                             }}
                           >
@@ -1363,57 +1507,6 @@ export function DroneDefensePrototype() {
                       })}
                     </div>
 
-                    <div className={styles.prototypeTreeSectionTitle}>
-                      <span>Критические зоны</span>
-                      <span>демо</span>
-                    </div>
-                    <div className={styles.prototypeTree}>
-                      {["Производственная установка", "Энергетический узел", "Резервуарный парк"].map((name, index) => (
-                        <button
-                          key={name}
-                          type="button"
-                          className={styles.prototypeTreeRow}
-                          onClick={() => setLastPlacementMessage(`${name}: зона показана на карте`)}
-                        >
-                          <span className={styles.prototypeTreeTag} style={{ "--tree-color": index === 1 ? "#059669" : "#b45309" } as CSSProperties}>
-                            {index === 1 ? "E1" : `P${index + 1}`}
-                          </span>
-                          <span className={styles.prototypeTreeCopy}>
-                            <strong>{name}</strong>
-                            <span>{index === 1 ? "Высокий приоритет" : "Критический приоритет"}</span>
-                          </span>
-                          <span className={index === 1 ? styles.prototypeCountBadgeMuted : styles.prototypeCountBadgeWarning}>
-                            {index === 1 ? "ok" : "!"}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className={styles.prototypeTreeSectionTitle}>
-                      <span>Маршруты</span>
-                      <span>2</span>
-                    </div>
-                    <div className={styles.prototypeTree}>
-                      {["Контрольный маршрут", "Маршрут служебного БПЛА"].map((name, index) => (
-                        <button
-                          key={name}
-                          type="button"
-                          className={styles.prototypeTreeRow}
-                          onClick={() => setLastPlacementMessage(`${name}: маршрут выбран`)}
-                        >
-                          <span className={styles.prototypeTreeTag} style={{ "--tree-color": index === 0 ? "#e11d48" : "#059669" } as CSSProperties}>
-                            R{index + 1}
-                          </span>
-                          <span className={styles.prototypeTreeCopy}>
-                            <strong>{name}</strong>
-                            <span>{index === 0 ? "7,4 км · требуется проверка" : "согласован"}</span>
-                          </span>
-                          <span className={index === 0 ? styles.prototypeCountBadgeWarning : styles.prototypeCountBadgeMuted}>
-                            {index === 0 ? "!" : "ok"}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 ) : null}
 
@@ -1426,7 +1519,9 @@ export function DroneDefensePrototype() {
                           {selectedLayer?.code ?? "—"} · {selectedLayer?.name ?? "Эшелон не выбран"}
                         </h2>
                         <p className={styles.prototypeMeta}>
-                          {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)}
+                          {selectedLayer
+                            ? `${formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)} · рекомендации сверху`
+                            : "Сначала создайте первый эшелон защиты"}
                         </p>
                       </div>
                       <div className={styles.prototypeSearchRow}>
@@ -1492,9 +1587,17 @@ export function DroneDefensePrototype() {
                       onMessage={setLastPlacementMessage}
                     />
                     <div className={styles.prototypeScrollArea}>
+                      {selectedLayer && recommendedAssets.length > 0 ? (
+                        <div className={styles.prototypeRecommendedNote}>
+                          <strong>Рекомендованные средства для {selectedLayer.code}</strong>
+                          <span>Детерминированный список по назначению эшелона и текущему каталогу.</span>
+                        </div>
+                      ) : null}
                       <DefenseToolsPanel
                         assets={filteredCatalogItems}
                         projectAssets={project.assetLibrary}
+                        recommendedAssetIds={recommendedAssetIds}
+                        recommendationLabel={selectedLayer ? `Рекомендуется для ${selectedLayer.code}` : undefined}
                         selectedToolId={activeToolId}
                         selectedObjectAssetId={selectedPlacedObject?.assetId}
                         onSelectTool={handleSelectTool}
@@ -1511,25 +1614,24 @@ export function DroneDefensePrototype() {
                 {workspaceMode === "audit" ? (
                   <div className={styles.prototypeScrollArea}>
                     <div className={styles.prototypeAuditSummary}>
-                      <span>Выполнение требований</span>
-                      <strong>{hasConfiguredObjects ? (warningCount > 0 ? "73%" : "Не запускался") : "Не запускался"}</strong>
-                      <div><span style={{ width: hasConfiguredObjects && warningCount > 0 ? "73%" : "0%" }} /></div>
+                      <span>Аудит пока недоступен</span>
+                      <strong>Недоступен</strong>
+                      <div><span style={{ width: "0%" }} /></div>
                     </div>
                     <div className={styles.prototypeTreeSectionTitle}>
-                      <span>{hasConfiguredObjects ? "Требуют внимания" : "Проверка"}</span>
-                      <span>{hasConfiguredObjects ? warningCount : "нет данных"}</span>
+                      <span>Для первичной проверки нужно</span>
+                      <span>4 шага</span>
                     </div>
                     <div className={styles.prototypeFindingList}>
-                      {(!hasConfiguredObjects ? ["Нет данных для проверки"] : warningCount > 0 ? ["Скрытые или конфликтные объекты", "Проверить резервирование критических зон", "Маршрут требует контрольного покрытия"] : ["Аудит не запускался"]).map((title, index) => (
+                      {["создать защитный эшелон", "разместить хотя бы одно средство", "добавить критическую зону", "создать контрольный маршрут"].map((title) => (
                         <button
                           key={title}
                           type="button"
                           className={styles.prototypeFindingCard}
-                          data-critical={index === 0 && warningCount > 0}
                           onClick={() => setLastPlacementMessage(title)}
                         >
                           <strong>{title}</strong>
-                          <span>{hasConfiguredObjects ? (index === 0 ? "Связано с текущей конфигурацией карты" : "Демо-проверка GIS UX") : "Добавьте средство перед запуском аудита"}</span>
+                          <span>Требование для включения аудита</span>
                         </button>
                       ))}
                     </div>
@@ -1539,26 +1641,8 @@ export function DroneDefensePrototype() {
                 {workspaceMode === "compare" ? (
                   <div className={styles.prototypeScrollArea}>
                     <div className={styles.prototypeVariantCard}>
-                      <strong>A · Текущее состояние</strong>
-                      <span>{formatLayerCost(totalProjectCostMln)}</span>
-                    </div>
-                    <div className={styles.prototypeVariantCard} data-selected="true">
-                      <strong>B · Сбалансированный</strong>
-                      <span>{formatLayerCost(totalProjectCostMln + 21.5)}</span>
-                    </div>
-                    <div className={styles.prototypeCompareSwitch}>
-                      <button type="button">A</button>
-                      <button type="button" aria-pressed="true">Разница</button>
-                      <button type="button">B</button>
-                    </div>
-                    <div className={styles.prototypeTreeSectionTitle}><span>Что изменилось</span><span>+21,5 млн ₽</span></div>
-                    <div className={styles.prototypeFindingList}>
-                      {["Добавлено резервирование", "Закрыт разрыв маршрута", "Покрытие критической зоны усилено"].map((title) => (
-                        <div key={title} className={styles.prototypeDeltaRow}>
-                          <strong>{title}</strong>
-                          <span>Отражается на карте как аналитический слой</span>
-                        </div>
-                      ))}
+                      <strong>Сравнение пока недоступно</strong>
+                      <span>Сохраните минимум два варианта конфигурации.</span>
                     </div>
                   </div>
                 ) : null}
@@ -1572,10 +1656,7 @@ export function DroneDefensePrototype() {
                 <button
                   type="button"
                   className={styles.prototypeButton}
-                  onClick={() => {
-                    setWorkspaceMode("configure");
-                    setLeftPanelMode("library");
-                  }}
+                  onClick={selectedLayer ? openRecommendedLibrary : createProjectLayer}
                 >
                   <AppstoreOutlined />
                   {addAssetCtaLabel}
@@ -1596,6 +1677,20 @@ export function DroneDefensePrototype() {
             Загрузка данных…
           </div>
         ) : null}
+        {localDraftAvailable && !backendProjectId && !demoPresetId ? (
+          <div className={`${styles.prototypeNotice} ${styles.prototypeMainNotice} ${styles.prototypeLocalDraftNotice}`}>
+            <div>
+              <strong>Найден незавершённый проект</strong>
+              <span>Можно продолжить работу с последней локальной версией.</span>
+            </div>
+            <button type="button" className={styles.prototypeButtonPrimary} onClick={continueLocalDraft}>
+              Продолжить
+            </button>
+            <button type="button" className={styles.prototypeButton} onClick={() => setLocalDraftAvailable(false)}>
+              Не сейчас
+            </button>
+          </div>
+        ) : null}
 
         {activeView === "gis" ? (
           <>
@@ -1609,37 +1704,21 @@ export function DroneDefensePrototype() {
                 selectBaseObject(nextObject);
                 setLastPlacementMessage(`${nextObject.name}: выбран объект защиты`);
               }}
-              hexCells={studioPreviewData.hexCells}
-              threatRoutes={studioPreviewData.threatRoutes}
-              layers={layers}
+              hexCells={demoPresetId ? studioPreviewData.hexCells : []}
+              threatRoutes={demoPresetId ? studioPreviewData.threatRoutes : []}
+              layers={demoPresetId ? layers : null}
               configuration={mapConfiguration}
               catalog={catalog}
               mapLayers={projectMapLayers}
               previewLayer={previewMapLayer}
               selectedLayerId={selectedLayerId}
-              selectedSlotId={selectedSlotId}
               activeToolId={activeToolId}
               baseMapSourceId={currentBaseMapSourceId}
               placementHint={placementHint}
               showProjectPanel={false}
               onSelectBaseMapSource={setBaseMapSource}
-              onSelectLayer={selectLayerWithDefaultSlot}
+              onSelectLayer={selectLayerFromMap}
               onHoverLayerChange={setHoveredLayerId}
-              onSelectSlot={(slot) => {
-                selectLayer(slot.layerId);
-                setSelectedSlotId(slot.id);
-                setIsEchelonObjectsPanelOpen(true);
-                setIsMogEditorOpen(false);
-              }}
-              onSelectTool={(groupId) => {
-                const asset =
-                  project.assetLibrary.find((item) => item.id === groupId) ??
-                  project.assetLibrary.find((item) => item.mapCatalogGroupIds?.includes(groupId));
-                setActiveToolId(asset?.id ?? null);
-                setLastPlacementMessage(
-                  asset ? `${selectedLayer?.code ?? "—"} · ${asset.name}: кликните по карте` : null,
-                );
-              }}
               onPlaceActiveTool={placeActiveToolAtCoordinate}
               polygonDraft={
                 layerWizardState?.draft.geometryMode === "polygon"
@@ -1656,6 +1735,51 @@ export function DroneDefensePrototype() {
               onSelectPlacement={(id) => selectPlacedObject(id)}
               onDropAsset={placeDroppedAssetOnMap}
             />
+
+            {isOnboardingOpen && !backendProjectId && !demoPresetId && project.layers.length === 0 ? (
+              <div className={styles.prototypeOnboardingOverlay} role="presentation">
+                <section
+                  className={styles.prototypeOnboardingModal}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="prototype-onboarding-title"
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  <p className={styles.prototypeEyebrow}>FORTIS</p>
+                  <h2 id="prototype-onboarding-title">Спроектируйте защиту объекта шаг за шагом</h2>
+                  <p>
+                    Fortis помогает собрать конфигурацию защиты промышленного объекта, разместить средства на карте,
+                    проверить критические зоны, сравнить варианты и подготовить отчёт для согласования.
+                  </p>
+                  <ol className={styles.prototypeOnboardingSteps}>
+                    <li>
+                      <span>01</span>
+                      Создайте эшелоны защиты
+                    </li>
+                    <li>
+                      <span>02</span>
+                      Разместите рекомендованные средства
+                    </li>
+                    <li>
+                      <span>03</span>
+                      Проверьте конфигурацию
+                    </li>
+                    <li>
+                      <span>04</span>
+                      Сравните варианты и сформируйте отчёт
+                    </li>
+                  </ol>
+                  <div className={styles.prototypeOnboardingActions}>
+                    <button type="button" className={styles.prototypeButtonPrimary} onClick={createProjectLayer} autoFocus>
+                      Создать первый эшелон защиты
+                    </button>
+                    <button type="button" className={styles.prototypeButton} onClick={() => setIsOnboardingOpen(false)}>
+                      Пока посмотреть карту
+                    </button>
+                  </div>
+                </section>
+              </div>
+            ) : null}
 
             {coordinatePlacementAsset && selectedLayer ? (
               <CoordinatePlacementPanel
@@ -1708,12 +1832,10 @@ export function DroneDefensePrototype() {
                 <div>
                   <strong>
                     {workspaceMode === "audit"
-                      ? hasConfiguredObjects
-                        ? `Аудит конфигурации · ${warningCount} проблем требуют внимания`
-                        : "Аудит конфигурации · не запускался"
-                      : "Сравнение вариантов · демо-разница"}
+                      ? "Аудит конфигурации · недоступен"
+                      : "Сравнение вариантов · недоступно"}
                   </strong>
-                  <span>{workspaceMode === "audit" ? (hasConfiguredObjects ? "Зоны, маршруты и резервирование" : "Нет данных для проверки") : "+21,5 млн ₽ к CAPEX"}</span>
+                  <span>{workspaceMode === "audit" ? "Нужны эшелон, средство, критическая зона и маршрут" : "Нужны два сохранённых варианта"}</span>
                 </div>
                 <div><span>Объекты</span><strong>{project.placedObjects.length}</strong></div>
                 <div><span>Стоимость</span><strong>{projectCostLabel}</strong></div>

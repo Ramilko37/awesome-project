@@ -14,8 +14,10 @@ import type {
 import { useEffect, useMemo, useRef } from "react";
 
 const DRAG_THRESHOLD = 6; // px before we commit to drag mode
+const DRAG_ICON_SIZE = 32;
+const DRAG_ICON_OFFSET = DRAG_ICON_SIZE / 2;
 
-type AssetInfo = { title: string; imageUrl: string };
+type AssetInfo = { imageUrl: string };
 
 type DefenseCompoundProfile = {
   kind: "compound-post";
@@ -39,11 +41,11 @@ export type DefenseToolIconProps = {
   priceLabel: string;
   coverageLabel: string;
   compoundProfile?: DefenseCompoundProfile;
+  recommendationLabel?: string;
   placementType: DefenseAssetLibraryItem["placementType"];
   imageUrl: string;
   previewImageUrl: string;
   installedCount: number;
-  maxQuantity: number;
   disabledReason?: string;
   canRemove?: boolean;
   isPlaceholder?: boolean;
@@ -58,8 +60,7 @@ export type DefenseToolIconProps = {
 
 function isControlTarget(target: HTMLElement) {
   return Boolean(
-    target.closest("input,select,textarea,a") ||
-      target.closest('button[title="Ввести координаты"]'),
+    target.closest("button,input,select,textarea,a"),
   );
 }
 
@@ -71,10 +72,10 @@ export function DefenseToolIcon({
   priceLabel,
   coverageLabel,
   protectionType,
+  recommendationLabel,
   placementType,
   previewImageUrl,
   installedCount,
-  maxQuantity,
   disabledReason,
   isPlaceholder = false,
   isSelected = false,
@@ -89,19 +90,14 @@ export function DefenseToolIcon({
   const canDrag = canAdd;
   const title = disabledReason ?? prototypeRu.cards.dragTooltip(name, rangeLabel);
   const coverageText = coverageLabel;
-  const counterText = isZoneObject
-      ? `Участков: ${installedCount}`
-      : maxQuantity > 0
-        ? `На карте: ${installedCount}/${maxQuantity}`
-        : `На карте: ${installedCount}`;
   const protectionBadge = protectionType;
 
   const rootRef = useRef<HTMLDivElement>(null);
   const ghostRef = useRef<HTMLDivElement | null>(null);
   const cleanupDragRef = useRef<(() => void) | null>(null);
   const dragPreviewInfo = useMemo<AssetInfo>(
-    () => ({ title: `${name}\n${coverageLabel}`, imageUrl: withBasePath(previewImageUrl) }),
-    [coverageLabel, name, previewImageUrl],
+    () => ({ imageUrl: withBasePath(previewImageUrl) }),
+    [previewImageUrl],
   );
 
   useEffect(
@@ -119,30 +115,38 @@ export function DefenseToolIcon({
 
   // ── helpers ──────────────────────────────────────────────────────────
 
-  function createGhost(clientX: number, clientY: number) {
-    destroyGhost();
+  function createDragIconElement() {
     const g = document.createElement("div");
     g.style.cssText =
-      "position:fixed;left:0;top:0;width:180px;min-height:52px;border-radius:8px;" +
-      "border:1px solid rgba(59,130,246,0.35);overflow:hidden;z-index:99999;" +
-      "display:grid;grid-template-columns:42px 1fr;gap:8px;align-items:center;padding:6px;" +
-      "background:rgba(255,255,255,0.96);box-shadow:0 12px 28px rgba(15,23,42,0.24);" +
-      "pointer-events:none;will-change:transform;font:12px system-ui,sans-serif;color:#0f172a;";
-        const img = document.createElement("img");
-        img.src = dragPreviewInfo.imageUrl;
-    img.style.cssText = "width:42px;height:42px;object-fit:cover;display:block;border-radius:6px;background:#f1f5f9;";
-    const text = document.createElement("div");
-    text.style.cssText = "min-width:0;display:grid;gap:2px;";
-    const titleLine = document.createElement("strong");
-    titleLine.textContent = dragPreviewInfo.title.split("\n")[0] ?? name;
-    titleLine.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;";
-    const metaLine = document.createElement("span");
-    metaLine.textContent = dragPreviewInfo.title.split("\n")[1] ?? coverageLabel;
-    metaLine.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#64748b;font-size:11px;";
-    text.appendChild(titleLine);
-    text.appendChild(metaLine);
+      `width:${DRAG_ICON_SIZE}px;height:${DRAG_ICON_SIZE}px;border-radius:4px;` +
+      "display:grid;place-items:center;overflow:hidden;border:1px solid rgba(255,255,255,0.92);" +
+      "background:#fff;box-shadow:0 8px 18px rgba(15,23,42,0.28);pointer-events:none;";
+    const img = document.createElement("img");
+    img.src = dragPreviewInfo.imageUrl;
+    img.alt = "";
+    img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;";
     g.appendChild(img);
-    g.appendChild(text);
+    return g;
+  }
+
+  function createNativeDragImage() {
+    const g = createDragIconElement();
+    g.style.position = "fixed";
+    g.style.left = "-9999px";
+    g.style.top = "-9999px";
+    g.style.zIndex = "99999";
+    document.body.appendChild(g);
+    return g;
+  }
+
+  function createGhost(clientX: number, clientY: number) {
+    destroyGhost();
+    const g = createDragIconElement();
+    g.style.position = "fixed";
+    g.style.left = "0";
+    g.style.top = "0";
+    g.style.zIndex = "99999";
+    g.style.willChange = "transform";
     document.body.appendChild(g);
     ghostRef.current = g;
     moveGhost(clientX, clientY);
@@ -151,8 +155,8 @@ export function DefenseToolIcon({
   function moveGhost(clientX: number, clientY: number) {
     const g = ghostRef.current;
     if (!g) return;
-    g.style.left = `${clientX - 16}px`;
-    g.style.top = `${clientY - 16}px`;
+    g.style.left = `${clientX - DRAG_ICON_OFFSET}px`;
+    g.style.top = `${clientY - DRAG_ICON_OFFSET}px`;
   }
 
   function destroyGhost() {
@@ -216,10 +220,6 @@ export function DefenseToolIcon({
       data-installed={installedCount > 0 ? "true" : "false"}
       data-selected={isSelected ? "true" : "false"}
       data-testid={`defense-tool-card-${assetId}`}
-      role="button"
-      tabIndex={0}
-      aria-pressed={isSelected}
-      aria-label={prototypeRu.cards.dragAria(name, counterText)}
       title={title}
       draggable={canDrag}
       onDragStart={(event) => {
@@ -227,18 +227,15 @@ export function DefenseToolIcon({
           event.preventDefault();
           return;
         }
+        const dragImage = createNativeDragImage();
+        event.dataTransfer.setDragImage(dragImage, DRAG_ICON_OFFSET, DRAG_ICON_OFFSET);
+        window.setTimeout(() => dragImage.remove(), 0);
         onDragAsset(event);
       }}
       onPointerDown={handlePointerDown}
       onMouseDown={(event) => {
-        if (canDrag) onMouseDragAsset(event);
-      }}
-      onClick={onSelect}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect();
-        }
+        const target = event.target as HTMLElement;
+        if (canDrag && !isControlTarget(target)) onMouseDragAsset(event);
       }}
     >
       <span className={styles.dragDots} aria-hidden="true">
@@ -261,6 +258,9 @@ export function DefenseToolIcon({
       <div className={styles.assetCopy}>
         <div className={styles.assetHead}>
           <span className={styles.assetTitle}>{name}</span>
+          {recommendationLabel ? (
+            <span className={styles.recommendationBadge}>{recommendationLabel}</span>
+          ) : null}
         </div>
         <div className={styles.assetType}>
           <span>{categoryLabel}</span>
@@ -284,10 +284,14 @@ export function DefenseToolIcon({
         disabled={!canAdd}
         onClick={(event) => {
           event.stopPropagation();
-          onOpenCoordinates();
+          if (event.altKey) {
+            onOpenCoordinates();
+            return;
+          }
+          onSelect();
         }}
-        title="Ввести координаты"
-        aria-label="Ввести координаты"
+        title="Разместить"
+        aria-label="Разместить"
       >
         {isZoneObject ? <AimOutlined /> : <EnvironmentOutlined />}
       </button>

@@ -130,6 +130,16 @@ export type ProtectedObject = {
   id: string;
   name: string;
   center: Coordinates;
+  model?: ProtectedObjectModel;
+};
+
+export type ProtectedObjectModel = {
+  modelUrl?: string;
+  modelFormat?: "glb" | "gltf";
+  anchor: Coordinates;
+  rotationDeg?: number;
+  scale?: number;
+  altitudeM?: number;
 };
 
 export type EnterpriseStatus = "active" | "configuring" | "offline";
@@ -153,9 +163,9 @@ export type DefenseProject = {
   layers: EditableDefenseLayer[];
   assetLibrary: DefenseAsset[];
   placedObjects: PlacedDefenseObject[];
-  activeLayerId?: string;
-  selectedAssetId?: string;
-  selectedObjectId?: string;
+  activeLayerId?: string | null;
+  selectedAssetId?: string | null;
+  selectedObjectId?: string | null;
   mode: DefenseProjectMode;
   source?: "custom" | "preset" | "legacy-migration" | "backend";
   basePresetId?: string;

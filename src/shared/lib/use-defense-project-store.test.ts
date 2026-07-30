@@ -4,7 +4,7 @@ import {
   FORTIS_DEFENSE_PROJECT_STORAGE_KEY,
   useDefenseProjectStore,
 } from "@/shared/lib/use-defense-project-store";
-import { projectToCalculatorConfiguration } from "@/shared/lib/defense-project";
+import { createDefaultDefenseProject, projectToCalculatorConfiguration } from "@/shared/lib/defense-project";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -25,10 +25,16 @@ storage.clear();
 useDefenseProjectStore.setState(useDefenseProjectStore.getInitialState(), true);
 
 const initial = useDefenseProjectStore.getState().project;
-const l4 = initial.layers.find((layer) => layer.code === "L4");
-const l2 = initial.layers.find((layer) => layer.code === "L2");
-assert(l4, "store initial project must include L4");
-assert(initial.activeLayerId === l4.id, "store initial project must open the L4 suppression layer by default");
+assert(initial.projectName === "Новый проект защиты", "store initial project must use the new clean project name");
+assert(initial.layers.length === 0, "store initial project must not create L1-L9 automatically");
+assert(initial.placedObjects.length === 0, "store initial project must not contain placed objects");
+assert(initial.activeLayerId === null, "store initial project must not auto-select L4 or any layer");
+
+useDefenseProjectStore.getState().replaceProject(createDefaultDefenseProject());
+const layeredProject = useDefenseProjectStore.getState().project;
+const l4 = layeredProject.layers.find((layer) => layer.code === "L4");
+const l2 = layeredProject.layers.find((layer) => layer.code === "L2");
+assert(l4, "legacy layered project fixture must include L4");
 assert(l2, "store initial project must include L2");
 
 useDefenseProjectStore.getState().selectLayer(l2.id);
@@ -112,7 +118,7 @@ assert(
   "preset draft objects must drive calculator lines",
 );
 
-useDefenseProjectStore.getState().clearProject();
+useDefenseProjectStore.getState().replaceProject(createDefaultDefenseProject());
 useDefenseProjectStore.getState().selectLayer(l2.id);
 useDefenseProjectStore.getState().placeObject("mobile-radar", l2.id, { lat: 55.44, lng: 37.1 });
 
@@ -250,7 +256,7 @@ for (let index = 0; index < 30; index += 1) {
 }
 assert(useDefenseProjectStore.getState().project.layers.length === 20, "createLayer must cap project layers at 20");
 
-useDefenseProjectStore.getState().clearProject();
+useDefenseProjectStore.getState().replaceProject(createDefaultDefenseProject());
 useDefenseProjectStore.getState().setBaseObjectCenter({ lat: 56.8389, lng: 60.5945 });
 const recenteredProject = useDefenseProjectStore.getState().project;
 const recenteredL2 = recenteredProject.layers.find((layer) => layer.code === "L2");
@@ -325,6 +331,7 @@ async function runAssetLibraryRefreshContracts() {
   // ── asset library refresh (FRT-48) ─────────────────────────────────────────
   storage.clear();
   useDefenseProjectStore.setState(useDefenseProjectStore.getInitialState(), true);
+  useDefenseProjectStore.getState().replaceProject(createDefaultDefenseProject());
 
   const st = useDefenseProjectStore.getState();
   const l2 = st.project.layers.find((layer) => layer.code === "L2");
@@ -400,6 +407,7 @@ async function runProtectedObjectContracts() {
     useDefenseProjectStore.getState().protectedObjects.some((item) => item.id === initialBaseObject.id),
     "store must expose current local baseObject as a fallback option before backend sync",
   );
+  useDefenseProjectStore.getState().replaceProject(createDefaultDefenseProject());
 
   await useDefenseProjectStore.getState().refreshProtectedObjects({
     loader: async () => [

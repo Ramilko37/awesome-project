@@ -2,7 +2,6 @@
 
 import { create } from "zustand";
 import {
-  createDefaultDefenseProject,
   createRingLayer,
   applyAssetQuantityDraftsToProject,
   canEditLayer,
@@ -28,8 +27,10 @@ import {
 } from "@/shared/lib/defense-project";
 import { loadPresetIntoConfiguration } from "@/shared/lib/defense-configuration";
 import { defenseAssetLibrary } from "@/shared/config/defense-asset-library";
+import { defaultProtectedObject } from "@/shared/config/default-defense-layers";
 import { fetchAssetLibrary, type FetchAssetLibraryOptions } from "@/modules/drone-defense/infra/asset-library-api";
 import { fetchEnterprises, type FetchEnterprisesOptions } from "@/modules/drone-defense/infra/enterprise-api";
+import { createInitialDefenseProject } from "@/modules/drone-defense/domain/create-initial-defense-project";
 import { FORTIS_CONFIGURATION_STORAGE_KEY } from "@/shared/lib/use-defense-configuration-store";
 import type {
   Coordinates,
@@ -56,9 +57,9 @@ type DefenseProjectState = {
   protectedObjects: ProtectedObjectOption[];
   protectedObjectsLoading: boolean;
   protectedObjectsError: string | null;
-  activeLayerId?: string;
-  selectedAssetId?: string;
-  selectedObjectId?: string;
+  activeLayerId?: string | null;
+  selectedAssetId?: string | null;
+  selectedObjectId?: string | null;
   createLayer: (data: Partial<EditableDefenseLayer>) => void;
   createLayerFromDraft: (
     draft: Partial<EditableDefenseLayer> & { innerRadiusM: number; widthM: number },
@@ -108,6 +109,7 @@ type DefenseProjectState = {
   upsertAssetInLibrary: (asset: DefenseAsset) => void;
   removeAssetFromLibrary: (assetId: string) => { ok: true } | { ok: false; reason: "asset-in-use"; message: string };
   clearProject: () => void;
+  startInitialProject: (baseObject?: ProtectedObjectOption) => void;
   saveProjectToLocalStorage: () => void;
   restoreProjectFromLocalStorage: () => void;
   exportProjectJson: () => string;
@@ -145,6 +147,14 @@ function readLegacyConfigurationProject(): DefenseProject | null {
   } catch {
     return null;
   }
+}
+
+export function hasSavedDefenseProjectSnapshot() {
+  if (!canUseLocalStorage()) return false;
+  return Boolean(
+    globalThis.localStorage.getItem(FORTIS_DEFENSE_PROJECT_STORAGE_KEY) ||
+      globalThis.localStorage.getItem(FORTIS_CONFIGURATION_STORAGE_KEY),
+  );
 }
 
 function syncSelection(project: DefenseProject) {
@@ -192,7 +202,7 @@ function applyProject(project: DefenseProject, set: (state: Partial<DefenseProje
 }
 
 export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => {
-  const initialProject = createDefaultDefenseProject();
+  const initialProject = createInitialDefenseProject(createFallbackProtectedObjectOption(defaultProtectedObject));
   return {
     project: initialProject,
     hydrated: false,
@@ -479,8 +489,7 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
           const current = get().project;
           const shouldSeed = current.assetLibrary.length === 0;
           if (shouldSeed) {
-            const seeded = { ...current, assetLibrary: defenseAssetLibrary, updatedAt: new Date().toISOString() };
-            persist(seeded);
+          const seeded = { ...current, assetLibrary: defenseAssetLibrary, updatedAt: new Date().toISOString() };
             set({
               project: seeded,
               budgetApplied: false,
@@ -498,7 +507,6 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
           assetLibrary: assets,
           updatedAt: new Date().toISOString(),
         };
-        persist(project);
         set({
           project,
           budgetApplied: false,
@@ -514,9 +522,6 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
         const project = shouldSeed
           ? { ...current, assetLibrary: defenseAssetLibrary, updatedAt: new Date().toISOString() }
           : current;
-        if (shouldSeed) {
-          persist(project);
-        }
         set({
           project,
           assetLibraryLoading: false,
@@ -576,7 +581,7 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
       return { ok: true };
     },
     clearProject: () => {
-      const project = createDefaultDefenseProject();
+      const project = createInitialDefenseProject(createFallbackProtectedObjectOption(defaultProtectedObject));
       persist(project);
       set({
         project,
@@ -588,9 +593,22 @@ export const useDefenseProjectStore = create<DefenseProjectState>((set, get) => 
         ...syncSelection(project),
       });
     },
+    startInitialProject: (baseObject) => {
+      const option = baseObject ?? createFallbackProtectedObjectOption(defaultProtectedObject);
+      const project = createInitialDefenseProject(option);
+      set({
+        project,
+        hydrated: true,
+        budgetApplied: false,
+        assetLibraryError: null,
+        protectedObjects: mergeProtectedObjectOptions(project.baseObject, [], get().protectedObjects),
+        protectedObjectsError: null,
+        ...syncSelection(project),
+      });
+    },
     saveProjectToLocalStorage: () => persist(get().project),
     restoreProjectFromLocalStorage: () => {
-      const project = readProject() ?? readLegacyConfigurationProject() ?? createDefaultDefenseProject();
+      const project = readProject() ?? readLegacyConfigurationProject() ?? createInitialDefenseProject(createFallbackProtectedObjectOption(defaultProtectedObject));
       set({
         project,
         hydrated: true,

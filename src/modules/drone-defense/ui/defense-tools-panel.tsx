@@ -14,6 +14,8 @@ import type {
 type DefenseToolsPanelProps = {
   assets: AssetCatalogItem[];
   projectAssets: DefenseProject["assetLibrary"];
+  recommendedAssetIds?: Set<string>;
+  recommendationLabel?: string;
   selectedToolId: string | null;
   selectedObjectAssetId?: string;
   onSelectTool: (asset: AssetCatalogItem) => void;
@@ -27,6 +29,8 @@ type DefenseToolsPanelProps = {
 export function DefenseToolsPanel({
   assets,
   projectAssets,
+  recommendedAssetIds,
+  recommendationLabel,
   selectedToolId,
   selectedObjectAssetId,
   onSelectTool,
@@ -67,11 +71,11 @@ export function DefenseToolsPanel({
             priceLabel={assetItem.priceLabel}
             coverageLabel={assetItem.coverageLabel}
             compoundProfile={assetItem.compoundProfile}
+            recommendationLabel={recommendedAssetIds?.has(assetItem.assetId) ? recommendationLabel : undefined}
             placementType={assetItem.placementType}
             imageUrl={imageUrl}
             previewImageUrl={previewImageUrl}
             installedCount={installedCount}
-            maxQuantity={assetItem.maxQuantity}
             disabledReason={disabledReason}
             canRemove={assetItem.assetId === selectedObjectAssetId}
             isPlaceholder={buildAsset?.isPlaceholder ?? !primaryGroupId}

@@ -291,13 +291,14 @@ function assetCompatibility(
   asset: DefenseAssetLibraryItem,
   activeLayerCode: string | undefined,
 ): Pick<AssetCatalogItem, "compatibilityStatus" | "compatibilityLabel" | "canPlaceInActiveLayer" | "isRecommendedForActiveLayer"> {
-  const isRecommendedForActiveLayer = Boolean(activeLayerCode && asset.recommendedLayerCodes?.includes(activeLayerCode));
+  void asset;
+  void activeLayerCode;
 
   return {
-    compatibilityStatus: isRecommendedForActiveLayer ? "recommended" : "compatible",
+    compatibilityStatus: "compatible",
     compatibilityLabel: "",
     canPlaceInActiveLayer: true,
-    isRecommendedForActiveLayer,
+    isRecommendedForActiveLayer: false,
   };
 }
 
@@ -1043,6 +1044,7 @@ export function applyAssetQuantityDraftsToProject(
     if (normalizedQuantity <= 0) return;
     const projectAssetId = assetIdForProjectLine(draftBase, line.assetId);
     const layer = layerForAsset(draftBase, projectAssetId);
+    if (!layer) return;
     placedObjects.push(
       createPlacedObject(draftBase, projectAssetId, layer.id, coordinatesForDraftObject(draftBase, layer, index), {
         quantity: normalizedQuantity,

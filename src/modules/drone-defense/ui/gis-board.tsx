@@ -8,7 +8,7 @@ import { Layer, WebMercatorViewport } from "@deck.gl/core";
 import MaplibreMap from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import styles from "./gis-board.module.css";
-import { defenseLayers, type EchelonCatalogGroup } from "@/modules/drone-defense/infra/mock-defense-data";
+import { defenseLayers } from "@/modules/drone-defense/infra/mock-defense-data";
 import {
   buildEchelonMapModel,
   buildLayerFocusViewState,
@@ -17,13 +17,10 @@ import {
   buildProtectedObjectInitialViewState,
   buildProtectedObjectPerimeter,
   type EchelonMapPlacement,
-  type EchelonMapSlot,
   type EchelonZone,
   type LayerFocusViewState,
 } from "@/modules/drone-defense/domain/echelon-map-model";
-import type { BuildAssetIcon } from "@/modules/drone-defense/domain/echelon-build-assets";
 import { MapObjectMarker } from "@/modules/drone-defense/ui/map-object-marker";
-import { withBasePath } from "@/shared/lib/base-path";
 import {
   getAvailableBaseMapSources,
   resolveDefaultBaseMapSourceId,
@@ -35,7 +32,6 @@ import {
   buildSectorPolygon,
   getCoverageShapes,
   getMarkerState,
-  screenPointToSlot,
   type MarkerState,
 } from "@/modules/drone-defense/domain/placement-helpers";
 import type {
@@ -63,7 +59,6 @@ type GisBoardProps = {
   mapLayers: DefenseLayer[];
   previewLayer?: DefenseLayer | null;
   selectedLayerId: string;
-  selectedSlotId: string | null;
   activeToolId: string | null;
   baseMapSourceId: string;
   placementHint: string;
@@ -72,8 +67,6 @@ type GisBoardProps = {
   onSelectBaseMapSource: (sourceId: string) => void;
   onSelectLayer: (layerId: string) => void;
   onHoverLayerChange?: (layerId: string | null) => void;
-  onSelectSlot: (slot: EchelonMapSlot) => void;
-  onSelectTool: (groupId: string) => void;
   onPlaceActiveTool?: (coordinate: { lng: number; lat: number }) => void;
   polygonDraft?: {
     isActive: boolean;
@@ -84,7 +77,7 @@ type GisBoardProps = {
   selectedPlacementId: string | null;
   locateTarget: { lon: number; lat: number; at: number } | null;
   onSelectPlacement: (placementId: string) => void;
-  onDropAsset: (args: { groupId: string; layerId: DefenseLayerId; slotId: string; mapRef: { lon: number; lat: number } }) => void;
+  onDropAsset: (args: { groupId: string; layerId: DefenseLayerId; mapRef: { lon: number; lat: number } }) => void;
 };
 
 function hexCoverageByLayer(layerCoverage: DefenseLayersResponse | null) {
@@ -186,20 +179,6 @@ const markerStateColors: Record<
   inactive: { fill: [148, 163, 184, 140], line: [203, 213, 225, 160], lineWidth: 1 },
 };
 
-type SlotBuildIcon = {
-  slot: EchelonMapSlot;
-  group: EchelonCatalogGroup;
-  asset: BuildAssetIcon;
-  placement: EchelonMapPlacement | null;
-};
-
-type MapToolMarker = SlotBuildIcon & {
-  x: number;
-  y: number;
-};
-
-const EMPTY_MAP_TOOL_MARKERS: MapToolMarker[] = [];
-
 export function GisBoard({
   className = "",
   facilities,
@@ -213,7 +192,6 @@ export function GisBoard({
   mapLayers,
   previewLayer,
   selectedLayerId,
-  selectedSlotId,
   activeToolId,
   baseMapSourceId,
   placementHint,
@@ -222,8 +200,6 @@ export function GisBoard({
   onSelectBaseMapSource,
   onSelectLayer,
   onHoverLayerChange,
-  onSelectSlot,
-  onSelectTool,
   onPlaceActiveTool,
   polygonDraft,
   selectedPlacementId,
@@ -266,7 +242,6 @@ export function GisBoard({
   const [isBaseMapMenuOpen, setIsBaseMapMenuOpen] = useState(false);
   const [baseMapWarning, setBaseMapWarning] = useState<string | null>(null);
   const [boardSize, setBoardSize] = useState({ width: 0, height: 0 });
-  const [dropPreviewSlotId, setDropPreviewSlotId] = useState<string | null>(null);
   const [viewState, setViewState] = useState<LayerFocusViewState>(initialViewState);
   const boardRef = useRef<HTMLElement | null>(null);
   const baseMapMenuRef = useRef<HTMLDivElement | null>(null);
@@ -298,9 +273,8 @@ export function GisBoard({
         configuration,
         catalog,
         selectedLayerId: selectedLayerId as DefenseLayerId,
-        selectedSlotId,
       }),
-    [catalog, configuration, layers, visibleMapLayers, selectedFacility, selectedLayerId, selectedSlotId],
+    [catalog, configuration, layers, visibleMapLayers, selectedFacility, selectedLayerId],
   );
   const filteredHexes = useMemo(
     () => hexCells.filter((cell) => cell.facilityId === selectedFacilityId),
@@ -326,7 +300,7 @@ export function GisBoard({
       selectedFacility
         ? buildProtectedObjectInitialViewState({
             facility: selectedFacility,
-            layers: visibleMapLayers.length ? visibleMapLayers : defenseLayers,
+            layers: visibleMapLayers,
           })
         : fallbackViewState,
     [selectedFacility, visibleMapLayers],
@@ -512,8 +486,6 @@ export function GisBoard({
     });
   }, [boardSize.height, boardSize.width, echelonModel.placements, viewState]);
 
-  const mapToolMarkers = EMPTY_MAP_TOOL_MARKERS;
-
   const placementById = useMemo(
     () => new Map(configuration.placements.map((placement) => [placement.id, placement])),
     [configuration.placements],
@@ -528,18 +500,6 @@ export function GisBoard({
     );
     animateToViewState(nextViewState, placementFocusTransitionDurationMs);
   }, [animateToViewState]);
-  // A slot is in conflict when more than one object competes for it, regardless
-  // of which catalog group they belong to. Keyed on slotId alone so two different
-  // assets dropped on the same slot both render as conflict.
-  const contestedSlotIds = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const placement of configuration.placements) {
-      if (!placement.slotId) continue;
-      counts.set(placement.slotId, (counts.get(placement.slotId) ?? 0) + 1);
-    }
-    return new Set([...counts.entries()].flatMap(([slotId, count]) => (count > 1 ? [slotId] : [])));
-  }, [configuration.placements]);
-
   const resolveMarkerState = useCallback(
     (item: EchelonMapPlacement): MarkerState => {
       const placement = placementById.get(item.id.split(":")[0]);
@@ -548,10 +508,10 @@ export function GisBoard({
         placement,
         selectedPlacementId,
         hoveredPlacementId,
-        isDuplicateInSlot: Boolean(placement.slotId && contestedSlotIds.has(placement.slotId)),
+        isDuplicateInSlot: false,
       });
     },
-    [placementById, selectedPlacementId, hoveredPlacementId, contestedSlotIds],
+    [placementById, selectedPlacementId, hoveredPlacementId],
   );
 
   const coverageLayers = useMemo(() => {
@@ -678,11 +638,6 @@ export function GisBoard({
             onHoverLayerChange?.(null);
             setHoverLabel(null);
           };
-          const handleSlotClick = (object: EchelonMapSlot | null | undefined) => {
-            if (!object) return;
-
-            onSelectSlot(object);
-          };
           return [
             isFilledDiskZone
               ? new ScatterplotLayer<EchelonZone>({
@@ -716,51 +671,6 @@ export function GisBoard({
                   onClick: ({ object }) => handleZoneClick(object),
                   onHover: handleZoneHover,
                 }),
-            new ScatterplotLayer<EchelonMapSlot>({
-              id: `echelon-${layerSlug}-slots`,
-              data: [],
-              getPosition: (item) => item.position,
-              getRadius: (item) => (item.status === "selected" ? 2400 : item.status === "occupied" ? 2100 : 1600),
-              radiusMinPixels: 8,
-              radiusMaxPixels: 18,
-              getFillColor: [255, 255, 255, 0],
-              getLineColor: [255, 255, 255, 0],
-              lineWidthMinPixels: 2,
-              stroked: true,
-              pickable: true,
-              onClick: ({ object }) => handleSlotClick(object),
-              onHover: () => setHoverLabel(null),
-            }),
-            new TextLayer<EchelonMapSlot>({
-              id: `echelon-${layerSlug}-slot-labels`,
-              data: [],
-              getPosition: (item) => item.position,
-              getText: (item) => item.label,
-              getColor: (item) =>
-                item.status === "occupied"
-                  ? [15, 23, 42, 255]
-                  : item.status === "selected"
-                    ? [255, 255, 255, 255]
-                    : isActive
-                      ? [15, 23, 42, 255]
-                      : [71, 85, 105, 170],
-              getSize: (item) => (item.status === "occupied" ? 10 : item.status === "selected" ? 11 : 10),
-              getTextAnchor: "middle",
-              getAlignmentBaseline: "center",
-              background: true,
-              getBackgroundColor: (item) =>
-                item.status === "occupied"
-                  ? [255, 255, 255, 0]
-                  : item.status === "selected"
-                    ? [15, 23, 42, 235]
-                    : isActive
-                      ? [255, 255, 255, 230]
-                      : [255, 255, 255, 175],
-              backgroundPadding: [4, 2],
-              pickable: true,
-              onClick: ({ object }) => handleSlotClick(object),
-              onHover: () => setHoverLabel(null),
-            }),
           ];
         }),
         ...polygonDraftLayers,
@@ -814,16 +724,12 @@ export function GisBoard({
           getLineWidth: (item) => markerStateColors[resolveMarkerState(item)].lineWidth,
           lineWidthUnits: "pixels",
           updateTriggers: {
-            getFillColor: [selectedPlacementId, hoveredPlacementId, contestedSlotIds],
-            getLineColor: [selectedPlacementId, hoveredPlacementId, contestedSlotIds],
-            getLineWidth: [selectedPlacementId, hoveredPlacementId, contestedSlotIds],
+            getFillColor: [selectedPlacementId, hoveredPlacementId],
+            getLineColor: [selectedPlacementId, hoveredPlacementId],
+            getLineWidth: [selectedPlacementId, hoveredPlacementId],
           },
           onClick: ({ object }) => {
             if (!object) return;
-            const slot = object.slotId ? echelonModel.slots.find((item) => item.id === object.slotId) : null;
-            if (slot) {
-              onSelectSlot(slot);
-            }
             onSelectPlacement(object.id.split(":")[0]);
             onSelectLayer(object.layerId);
           },
@@ -896,7 +802,6 @@ export function GisBoard({
     [
       echelonModel,
       coverageLayers,
-      contestedSlotIds,
       filteredHexes,
       filteredRoutes,
       hoveredPlacementId,
@@ -904,7 +809,6 @@ export function GisBoard({
       onSelectFacility,
       onSelectLayer,
       onSelectPlacement,
-      onSelectSlot,
       onHoverLayerChange,
       previewLayer,
       polygonDraftLayers,
@@ -942,49 +846,25 @@ export function GisBoard({
     (event: DragEvent<HTMLElement>) => {
       event.preventDefault();
       event.dataTransfer.dropEffect = "copy";
-      const rect = event.currentTarget.getBoundingClientRect();
-      const coord = unprojectClientPoint(event.clientX, event.clientY, rect);
-      if (!coord) {
-        setDropPreviewSlotId(null);
-        return;
-      }
-      const slot = screenPointToSlot({
-        lon: coord[0],
-        lat: coord[1],
-        activeLayerId: selectedLayerId as DefenseLayerId,
-        slots: echelonModel.slots,
-      });
-      setDropPreviewSlotId(slot?.id ?? null);
     },
-    [unprojectClientPoint, selectedLayerId, echelonModel.slots],
+    [],
   );
-
-  const handleSectionDragLeave = useCallback(() => setDropPreviewSlotId(null), []);
 
   const handleSectionDrop = useCallback(
     (event: DragEvent<HTMLElement>) => {
       event.preventDefault();
       const groupId = event.dataTransfer.getData("application/x-fortis-group");
-      setDropPreviewSlotId(null);
-      if (!groupId) return;
+      if (!groupId || !selectedLayerId) return;
       const rect = event.currentTarget.getBoundingClientRect();
       const coord = unprojectClientPoint(event.clientX, event.clientY, rect);
       if (!coord) return;
-      const slot = screenPointToSlot({
-        lon: coord[0],
-        lat: coord[1],
-        activeLayerId: selectedLayerId as DefenseLayerId,
-        slots: echelonModel.slots,
-      });
-      if (!slot) return;
       onDropAsset({
         groupId,
         layerId: selectedLayerId as DefenseLayerId,
-        slotId: slot.id,
-        mapRef: { lon: slot.position[0], lat: slot.position[1] },
+        mapRef: { lon: coord[0], lat: coord[1] },
       });
     },
-    [unprojectClientPoint, selectedLayerId, echelonModel.slots, onDropAsset],
+    [unprojectClientPoint, selectedLayerId, onDropAsset],
   );
 
   const handleBaseMapSelect = useCallback(
@@ -1023,7 +903,6 @@ export function GisBoard({
       ref={boardRef}
       className={`${styles.board} ${className}`}
       onDragOver={handleSectionDragOver}
-      onDragLeave={handleSectionDragLeave}
       onDrop={handleSectionDrop}
     >
       <DeckGL
@@ -1069,19 +948,11 @@ export function GisBoard({
               layerLabel={layerLabel}
               isHovered={hoveredPlacementId === placement.id}
               onSelect={(nextPlacement) => {
-                const slot = nextPlacement.slotId ? echelonModel.slots.find((item) => item.id === nextPlacement.slotId) : null;
-                if (slot) {
-                  onSelectSlot(slot);
-                }
                 onSelectPlacement(nextPlacement.sourcePlacementId);
                 onSelectLayer(nextPlacement.layerId);
               }}
               onDoubleClick={(nextPlacement) => {
                 skipNextLayerFocusRef.current = true;
-                const slot = nextPlacement.slotId ? echelonModel.slots.find((item) => item.id === nextPlacement.slotId) : null;
-                if (slot) {
-                  onSelectSlot(slot);
-                }
                 onSelectPlacement(nextPlacement.sourcePlacementId);
                 onSelectLayer(nextPlacement.layerId);
                 focusPlacement(nextPlacement);
@@ -1092,46 +963,6 @@ export function GisBoard({
                 setHoverLabel(nextPlacement ? nextPlacement.label : null);
               }}
             />
-          );
-        })}
-
-        {mapToolMarkers.map((marker) => {
-          const isBuilt = Boolean(marker.placement);
-          const isSelected = activeToolId === marker.group.id || selectedSlotId === marker.slot.id;
-          return (
-            <button
-              key={marker.slot.id}
-              type="button"
-              className={styles.slotMarker}
-              data-built={isBuilt}
-              data-selected={isSelected}
-              style={{
-                left: marker.x,
-                top: marker.y,
-                transform: "translate(-50%, -72%)",
-              }}
-              title={`Позиция: ${marker.group.name} · ${isBuilt ? "установлено" : "не добавлено"}`}
-              onClick={() => {
-                onSelectSlot(marker.slot);
-                onSelectTool(marker.group.id);
-              }}
-              onMouseEnter={() =>
-                setHoverLabel(`Позиция: ${marker.group.name} · ${isBuilt ? "установлено" : "не добавлено"}`)
-              }
-              onMouseLeave={() => setHoverLabel(null)}
-            >
-              <span
-                className={styles.slotThumb}
-                data-built={isBuilt}
-                style={{ backgroundImage: `url("${withBasePath(marker.asset.imageUrl)}")` }}
-              />
-              <span
-                className={styles.slotCount}
-                data-built={isBuilt}
-              >
-                {marker.placement?.qty ?? 0}
-              </span>
-            </button>
           );
         })}
       </div>
@@ -1297,6 +1128,12 @@ export function GisBoard({
         </div>
       ) : null}
 
+      {activeToolId ? (
+        <div className={styles.placementBanner}>
+          {placementHint}
+        </div>
+      ) : null}
+
       {hoverLabel ? (
         <div className={styles.hoverLabel}>
           {hoverLabel}
@@ -1308,17 +1145,9 @@ export function GisBoard({
         (not here). The alternative primary variant — an `absolute inset-0 z-20` div that owns the
         handlers — sits above the deck canvas and would swallow pan/zoom pointer events whenever the
         user is NOT dragging. Since drag events bubble to the section regardless, the handlers-on-section
-        variant keeps drag-drop working while guaranteeing the map controller stays usable. This div is
-        purely a visual drop indicator. Needs manual verification in Task 9 (drag from assets panel,
-        confirm snap to nearest slot + that normal map pan/zoom is unaffected).
+        variant keeps drag-drop working while guaranteeing the map controller stays usable.
       */}
-      <div className={styles.dropOverlay}>
-        {dropPreviewSlotId ? (
-          <div className={styles.dropBanner}>
-            Слот: {echelonModel.slots.find((slot) => slot.id === dropPreviewSlotId)?.label ?? dropPreviewSlotId}
-          </div>
-        ) : null}
-      </div>
+      <div className={styles.dropOverlay} />
     </section>
   );
 }

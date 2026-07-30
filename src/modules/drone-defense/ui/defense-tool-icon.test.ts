@@ -7,6 +7,9 @@
 //   2. Constants & type-level invariants expected by the drag-to-map flow.
 
 import {
+  readFileSync,
+} from "node:fs";
+import {
   createDefaultDefenseProject,
   validateObjectPlacement,
   placeObjectInProject,
@@ -44,6 +47,22 @@ console.assert(BORDER_RADIUS === 4, "Icon preview border-radius must be 4px");
 console.assert(DRAG_OFFSET === 16, "Drag image center offset must be 16px");
 
 console.log("[✓] All invariants hold: size=32, radius=4, offset=16\n");
+
+const toolIconSource = readFileSync("src/modules/drone-defense/ui/defense-tool-icon.tsx", "utf8");
+assert(
+  toolIconSource.includes("event.dataTransfer.setDragImage"),
+  "Native drag must use a custom icon preview via dataTransfer.setDragImage",
+);
+assert(
+  !toolIconSource.includes("event.dataTransfer.setDragImage(rootRef.current"),
+  "Native drag preview must not use the full asset card as the drag image",
+);
+assert(
+  toolIconSource.includes("createNativeDragImage"),
+  "Native drag preview must be created as a separate icon-sized element",
+);
+
+console.log("[✓] Native drag preview uses an icon-sized drag image\n");
 
 // ---------------------------------------------------------------------------
 // Domain integration — placeObject called after drag-drop validates correctly
