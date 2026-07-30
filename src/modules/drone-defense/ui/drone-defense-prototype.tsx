@@ -1,25 +1,23 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   AppstoreOutlined,
   CloseOutlined,
   DeleteOutlined,
-  DownOutlined,
   EditOutlined,
-  ExpandAltOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
+  FileTextOutlined,
   LeftOutlined,
-  MoreOutlined,
-  PlusOutlined,
+  MenuFoldOutlined,
   RightOutlined,
-  UpOutlined,
 } from "@ant-design/icons";
-import { Dropdown, Modal } from "antd";
 import { useDefenseStudioStore, studioPreviewData } from "@/modules/drone-defense/domain/use-defense-studio-store";
 import { buildEchelonMapModel } from "@/modules/drone-defense/domain/echelon-map-model";
+import { getBuildAssetForCatalogGroup } from "@/modules/drone-defense/domain/echelon-build-assets";
 import {
   DEFAULT_PROTECTION_TYPE_VISIBILITY,
   isMogVisibleInMap,
@@ -32,7 +30,6 @@ import { GisBoard } from "@/modules/drone-defense/ui/gis-board";
 import { EchelonObjectsList } from "@/modules/drone-defense/ui/echelon-objects-list";
 import { MogCompositionEditor } from "@/modules/drone-defense/ui/mog-composition-editor";
 import { FacilityDrilldown } from "@/modules/drone-defense/ui/facility-drilldown";
-import { VariantStatusButton } from "@/modules/drone-defense/ui/variant-selector";
 import { useDefenseVariantsStore } from "@/modules/drone-defense/domain/use-defense-variants-store";
 import styles from "./drone-defense-prototype.module.css";
 import {
@@ -45,7 +42,6 @@ import {
   validateLayerDraft,
 } from "@/shared/lib/defense-project";
 import { getPolygonCoordinates } from "@/shared/lib/defense-layer-geometry";
-import { prototypeRu } from "@/shared/config/prototype-ru";
 import {
   buildWizardLayer,
   formatDistance,
@@ -60,17 +56,17 @@ import {
 } from "@/modules/drone-defense/domain/prototype-workflow";
 import { MAX_DEFENSE_PROJECT_LAYERS, useDefenseProjectStore } from "@/shared/lib/use-defense-project-store";
 import { useMapViewStore } from "@/shared/lib/use-map-view-store";
+import { withBasePath } from "@/shared/lib/base-path";
 import type { LayerInsertOption } from "@/shared/lib/defense-project";
 import type { DefenseLayer, DefenseLayerId } from "@/shared/types/drone-defense";
 import type {
   Coordinates,
   DefenseProject,
-  EditableDefenseLayer,
-  LayerSummary,
   ProtectedObjectOption,
 } from "@/shared/types/defense-project";
 import type {
   DragEvent as ReactDragEvent,
+  CSSProperties,
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
   SetStateAction,
@@ -83,13 +79,12 @@ type PrototypeUiState = {
   selectedSlotId: string | null;
   catalogQuery: string;
   isCatalogTrayOpen: boolean;
+  leftPanelMode: "structure" | "library";
+  workspaceMode: "configure" | "audit" | "compare";
   activeToolId: string | null;
-  isLayerPanelExpanded: boolean;
-  showAllEchelonObjects: boolean;
+  isMogEditorOpen: boolean;
   layerWizardState: LayerWizardState | null;
-  pendingLayerDeletionId: string | null;
   hoveredLayerId: string | null;
-  layerStripState: { canScrollLeft: boolean; canScrollRight: boolean };
   coordinatePlacementAssetId: string | null;
   coordinatePlacementValidation: CoordinatePlacementValidationState | null;
   pointerDraggedAssetId: string | null;
@@ -97,7 +92,6 @@ type PrototypeUiState = {
   locateTarget: { lon: number; lat: number; at: number } | null;
   isEchelonObjectsPanelOpen: boolean;
   echelonObjectsLayerId: string | null;
-  isEchelonObjectsCollapsed: boolean;
 };
 
 type PrototypeUiAction = {
@@ -112,13 +106,12 @@ const initialPrototypeUiState: PrototypeUiState = {
   selectedSlotId: null,
   catalogQuery: "",
   isCatalogTrayOpen: true,
+  leftPanelMode: "structure",
+  workspaceMode: "configure",
   activeToolId: null,
-  isLayerPanelExpanded: true,
-  showAllEchelonObjects: false,
+  isMogEditorOpen: false,
   layerWizardState: null,
-  pendingLayerDeletionId: null,
   hoveredLayerId: null,
-  layerStripState: { canScrollLeft: false, canScrollRight: false },
   coordinatePlacementAssetId: null,
   coordinatePlacementValidation: null,
   pointerDraggedAssetId: null,
@@ -126,7 +119,6 @@ const initialPrototypeUiState: PrototypeUiState = {
   locateTarget: null,
   isEchelonObjectsPanelOpen: false,
   echelonObjectsLayerId: null,
-  isEchelonObjectsCollapsed: false,
 };
 
 function resolveStateAction<T>(current: T, value: SetStateAction<T>) {
@@ -169,36 +161,8 @@ function formatObjectCountLabel(count: number) {
   return `${count} объектов`;
 }
 
-function formatLayerObjectMeta(objectCount: number, totalMln: number) {
-  return `${formatObjectCountLabel(objectCount)} · ${formatLayerCost(totalMln)}`;
-}
-
-function splitLayerTitle(code: string, name: string) {
-  const trimmedName = name.trim();
-  const [firstWord = trimmedName, ...restWords] = trimmedName.split(/\s+/);
-  return {
-    primary: `${code} · ${firstWord}`,
-    secondary: restWords.join(" "),
-  };
-}
-
-function describeLayerDeletion(totalLayers: number, objectCount: number) {
-  if (totalLayers <= 1) {
-    return {
-      canDelete: false,
-      reason: "Последний эшелон удалить нельзя.",
-    };
-  }
-  if (objectCount > 0) {
-    return {
-      canDelete: false,
-      reason: "Нельзя удалить: в эшелоне есть объекты.",
-    };
-  }
-  return {
-    canDelete: true,
-    reason: "Удаление доступно только после подтверждения.",
-  };
+function formatCoordinatePair(coordinates: Coordinates) {
+  return `${coordinates.lat.toFixed(5)}, ${coordinates.lng.toFixed(5)}`;
 }
 
 function layerWizardStoreDraft(draft: LayerWizardDraft) {
@@ -213,190 +177,6 @@ function layerWizardStoreDraft(draft: LayerWizardDraft) {
   };
 }
 
-type PrototypeLayerStripItemProps = {
-  layer: EditableDefenseLayer;
-  summary: LayerSummary | undefined;
-  totalLayers: number;
-  objectCount: number;
-  isSelected: boolean;
-  isHovered: boolean;
-  onHoverLayer: (layerId: string | null) => void;
-  onSelectLayer: (layerId: string) => void;
-  onOpenObjects: (layerId: string) => void;
-  onEditLayer: (layerId: string) => void;
-  onRequestDelete: (layerId: string) => void;
-  onToggleVisibility: (layerId: string, isVisible: boolean) => void;
-};
-
-function PrototypeLayerStripItem({
-  layer,
-  summary,
-  totalLayers,
-  objectCount,
-  isSelected,
-  isHovered,
-  onHoverLayer,
-  onSelectLayer,
-  onOpenObjects,
-  onEditLayer,
-  onRequestDelete,
-  onToggleVisibility,
-}: PrototypeLayerStripItemProps) {
-  const layerStateLabel = isSelected && layer.isVisible === false
-    ? "Активный · скрыт"
-    : layer.isLocked
-      ? "Базовый"
-      : isSelected
-        ? "Активный"
-        : layer.isVisible === false
-          ? "Скрыт"
-          : null;
-  const layerDeleteState = describeLayerDeletion(totalLayers, objectCount);
-  const titleParts = splitLayerTitle(layer.code, layer.name);
-  const layerMenuItems = [
-    {
-      key: "objects",
-      icon: <AppstoreOutlined />,
-      label: "Открыть объекты эшелона",
-      onClick: () => onOpenObjects(layer.id as DefenseLayerId),
-    },
-    {
-      key: "edit",
-      icon: <EditOutlined />,
-      label: "Настроить эшелон",
-      onClick: () => onEditLayer(layer.id),
-    },
-    {
-      key: "delete",
-      icon: <DeleteOutlined />,
-      danger: true,
-      disabled: !layerDeleteState.canDelete,
-      label: (
-        <div className="py-0.5">
-          <p>Удалить эшелон</p>
-          {!layerDeleteState.canDelete ? (
-            <p className="mt-1 max-w-48 whitespace-normal text-[11px] font-medium text-slate-400">
-              {layerDeleteState.reason}
-            </p>
-          ) : null}
-        </div>
-      ),
-      onClick: () => {
-        if (!layerDeleteState.canDelete) return;
-        onRequestDelete(layer.id);
-      },
-    },
-  ];
-
-  return (
-    <div
-      className={styles.prototypeLayerCard}
-      data-selected={isSelected ? "true" : "false"}
-      data-hovered={isHovered ? "true" : "false"}
-      onMouseEnter={() => onHoverLayer(layer.id)}
-      onMouseLeave={() => onHoverLayer(null)}
-    >
-      <div className={styles.prototypeLayerActions}>
-        <button
-          type="button"
-          className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleVisibility(layer.id, layer.isVisible === false);
-          }}
-          title={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
-          aria-label={layer.isVisible === false ? "Показать эшелон" : "Скрыть эшелон"}
-        >
-          {layer.isVisible === false ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-        </button>
-        <Dropdown
-          trigger={["click"]}
-          placement="bottomRight"
-          arrow
-          menu={{
-            items: layerMenuItems,
-            className: "min-w-[13rem]",
-          }}
-        >
-          <button
-            type="button"
-            className={`${styles.prototypeIconButton} cursor-pointer border-transparent bg-transparent`}
-            onClick={(event) => event.stopPropagation()}
-            aria-label="Открыть меню эшелона"
-          >
-            <MoreOutlined />
-          </button>
-        </Dropdown>
-      </div>
-
-      <button
-        type="button"
-        className={styles.prototypeLayerButton}
-        onClick={() => onSelectLayer(layer.id)}
-      >
-        <PrototypeLayerTitle layer={layer} titleParts={titleParts} />
-        <p className={styles.prototypeLayerRange}>
-          {formatLayerRange(summary?.innerRadiusM ?? 0, summary?.outerRadiusM ?? 0)}
-        </p>
-        <p className={styles.prototypeMeta}>
-          {formatLayerObjectMeta(summary?.objectCount ?? 0, summary?.totalMln ?? 0)}
-        </p>
-      </button>
-
-      {layerStateLabel ? (
-        <span className={styles.prototypeLayerStateBadge}>
-          {layerStateLabel}
-        </span>
-      ) : null}
-      {layer.isLocked ? (
-        <span className={`${styles.prototypeLayerLocked} ${styles.prototypeBadgeMuted}`}>
-          locked
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-function PrototypeLayerTitle({
-  layer,
-  titleParts,
-}: {
-  layer: EditableDefenseLayer;
-  titleParts: ReturnType<typeof splitLayerTitle>;
-}) {
-  return (
-    <div className="flex items-start gap-2.5 pr-[4.4rem]">
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-start gap-2">
-          <span
-            className={styles.prototypeLayerDot}
-            style={{ backgroundColor: layer.color ?? "#2563eb" }}
-            aria-hidden="true"
-          />
-          <div className="min-w-0 min-h-[2.45rem]" title={`${layer.code} · ${layer.name}`}>
-            <p className={`${styles.prototypeLayerName} truncate`}>
-              {titleParts.primary}
-            </p>
-            {titleParts.secondary ? (
-              <p
-                className={styles.prototypeLayerName}
-                style={{
-                  display: "-webkit-box",
-                  WebkitLineClamp: 1,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
-              >
-                {titleParts.secondary}
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function DroneDefensePrototype() {
   const searchParams = useSearchParams();
   const backendProjectId = searchParams.get("projectId") ?? searchParams.get("project");
@@ -408,13 +188,11 @@ export function DroneDefensePrototype() {
     selectedSlotId,
     catalogQuery,
     isCatalogTrayOpen,
+    leftPanelMode,
+    workspaceMode,
     activeToolId,
-    isLayerPanelExpanded,
-    showAllEchelonObjects,
+    isMogEditorOpen,
     layerWizardState,
-    pendingLayerDeletionId,
-    hoveredLayerId,
-    layerStripState,
     coordinatePlacementAssetId,
     coordinatePlacementValidation,
     pointerDraggedAssetId,
@@ -422,7 +200,6 @@ export function DroneDefensePrototype() {
     locateTarget,
     isEchelonObjectsPanelOpen,
     echelonObjectsLayerId,
-    isEchelonObjectsCollapsed,
   } = prototypeUiState;
   const prototypeUiSetters = useMemo(() => {
     const setPrototypeUiField = <Key extends keyof PrototypeUiState>(
@@ -436,17 +213,15 @@ export function DroneDefensePrototype() {
       setSelectedSlotId: (value: SetStateAction<string | null>) => setPrototypeUiField("selectedSlotId", value),
       setCatalogQuery: (value: SetStateAction<string>) => setPrototypeUiField("catalogQuery", value),
       setIsCatalogTrayOpen: (value: SetStateAction<boolean>) => setPrototypeUiField("isCatalogTrayOpen", value),
+      setLeftPanelMode: (value: SetStateAction<PrototypeUiState["leftPanelMode"]>) =>
+        setPrototypeUiField("leftPanelMode", value),
+      setWorkspaceMode: (value: SetStateAction<PrototypeUiState["workspaceMode"]>) =>
+        setPrototypeUiField("workspaceMode", value),
       setActiveToolId: (value: SetStateAction<string | null>) => setPrototypeUiField("activeToolId", value),
-      setIsLayerPanelExpanded: (value: SetStateAction<boolean>) => setPrototypeUiField("isLayerPanelExpanded", value),
-      setShowAllEchelonObjects: (value: SetStateAction<boolean>) =>
-        setPrototypeUiField("showAllEchelonObjects", value),
+      setIsMogEditorOpen: (value: SetStateAction<boolean>) => setPrototypeUiField("isMogEditorOpen", value),
       setLayerWizardState: (value: SetStateAction<LayerWizardState | null>) =>
         setPrototypeUiField("layerWizardState", value),
-      setPendingLayerDeletionId: (value: SetStateAction<string | null>) =>
-        setPrototypeUiField("pendingLayerDeletionId", value),
       setHoveredLayerId: (value: SetStateAction<string | null>) => setPrototypeUiField("hoveredLayerId", value),
-      setLayerStripState: (value: SetStateAction<PrototypeUiState["layerStripState"]>) =>
-        setPrototypeUiField("layerStripState", value),
       setCoordinatePlacementAssetId: (value: SetStateAction<string | null>) =>
         setPrototypeUiField("coordinatePlacementAssetId", value),
       setCoordinatePlacementValidation: (value: SetStateAction<CoordinatePlacementValidationState | null>) =>
@@ -461,21 +236,18 @@ export function DroneDefensePrototype() {
         setPrototypeUiField("isEchelonObjectsPanelOpen", value),
       setEchelonObjectsLayerId: (value: SetStateAction<string | null>) =>
         setPrototypeUiField("echelonObjectsLayerId", value),
-      setIsEchelonObjectsCollapsed: (value: SetStateAction<boolean>) =>
-        setPrototypeUiField("isEchelonObjectsCollapsed", value),
     };
   }, []);
   const {
     setSelectedSlotId,
     setCatalogQuery,
     setIsCatalogTrayOpen,
+    setLeftPanelMode,
+    setWorkspaceMode,
     setActiveToolId,
-    setIsLayerPanelExpanded,
-    setShowAllEchelonObjects,
+    setIsMogEditorOpen,
     setLayerWizardState,
-    setPendingLayerDeletionId,
     setHoveredLayerId,
-    setLayerStripState,
     setCoordinatePlacementAssetId,
     setCoordinatePlacementValidation,
     setPointerDraggedAssetId,
@@ -483,9 +255,7 @@ export function DroneDefensePrototype() {
     setLocateTarget,
     setIsEchelonObjectsPanelOpen,
     setEchelonObjectsLayerId,
-    setIsEchelonObjectsCollapsed,
   } = prototypeUiSetters;
-  const layerStripRef = useRef<HTMLDivElement | null>(null);
   const {
     currentBaseMapSourceId,
     restoreFromLocalStorage: restoreMapViewFromLocalStorage,
@@ -507,11 +277,10 @@ export function DroneDefensePrototype() {
   } = useDefenseStudioStore();
   const {
     project,
+    hydrated: projectHydrated,
     createLayerFromDraft,
-    deleteLayer,
     updateLayerFromDraft,
     selectLayer,
-    setLayerVisibility,
     selectBaseObject,
     selectAsset,
     selectedObjectId,
@@ -538,6 +307,7 @@ export function DroneDefensePrototype() {
   const [backendSaveReady, setBackendSaveReady] = useState(false);
   const bootstrapKeyRef = useRef<string | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
+  const defaultLayerAppliedRef = useRef(false);
 
   useEffect(() => {
     void init();
@@ -629,6 +399,17 @@ export function DroneDefensePrototype() {
     };
   }, [backendSaveReady]);
 
+  useEffect(() => {
+    if (!projectHydrated || defaultLayerAppliedRef.current || project.placedObjects.length > 0) return;
+    const l4Layer = project.layers.find((layer) => layer.code === "L4");
+    if (!l4Layer || project.activeLayerId === l4Layer.id) {
+      defaultLayerAppliedRef.current = true;
+      return;
+    }
+    defaultLayerAppliedRef.current = true;
+    selectLayer(l4Layer.id);
+  }, [project.activeLayerId, project.layers, project.placedObjects.length, projectHydrated, selectLayer]);
+
   const selectedProtectedObject = useMemo(
     () =>
       protectedObjects.find((item) => item.id === project.baseObject.id) ?? {
@@ -694,6 +475,20 @@ export function DroneDefensePrototype() {
       return haystack.includes(query);
     });
   }, [assetCatalogItems, catalogQuery]);
+  const miniCatalogItems = useMemo(
+    () =>
+      filteredCatalogItems.map((assetItem) => {
+        const projectAsset = project.assetLibrary.find((asset) => asset.id === assetItem.assetId);
+        const primaryGroupId = projectAsset?.mapCatalogGroupIds?.[0];
+        const buildAsset = primaryGroupId ? getBuildAssetForCatalogGroup(primaryGroupId) : null;
+        return {
+          ...assetItem,
+          previewImageUrl: buildAsset?.previewImageUrl ?? assetItem.imageUrl,
+          isPlaceholder: buildAsset?.isPlaceholder ?? !primaryGroupId,
+        };
+      }),
+    [filteredCatalogItems, project.assetLibrary],
+  );
   const selectedRadii = selectedLayer ? getLayerRadii(selectedLayer) : { innerRadiusM: 0, widthM: 0, outerRadiusM: 0 };
   const insertOptions = useMemo(() => findLayerInsertOptions(project), [project]);
   const wizardLayer = useMemo(() => {
@@ -754,13 +549,13 @@ export function DroneDefensePrototype() {
             (item) => item.id === groupId || (groupId ? item.mapCatalogGroupIds?.includes(groupId) : false),
           );
           return (
-            (showAllEchelonObjects || placement.layerId === selectedLayerId) &&
+            placement.layerId === selectedLayerId &&
             !hiddenPlacementIds.has(placement.id) &&
             isMogVisibleInMap(placement, asset, DEFAULT_PROTECTION_TYPE_VISIBILITY)
           );
         },
       ),
-    [hiddenPlacementIds, project.assetLibrary, projectCatalogPlacements, selectedLayerId, showAllEchelonObjects],
+    [hiddenPlacementIds, project.assetLibrary, projectCatalogPlacements, selectedLayerId],
   );
   const mapConfiguration = useMemo(
     () => ({
@@ -793,21 +588,9 @@ export function DroneDefensePrototype() {
     () => layerSummaries.find((item) => item.layerId === selectedLayer?.id) ?? null,
     [layerSummaries, selectedLayer?.id],
   );
-  const layerPanelSummaryLabel = `${project.layers.length} из ${MAX_DEFENSE_PROJECT_LAYERS}`;
-  const activeLayerHeaderLabel = `Активный: ${selectedLayer?.code ?? "—"} · ${formatObjectCountLabel(
-    activeLayerSummary?.objectCount ?? 0,
-  )}`;
-  const objectVisibilityToggleLabel = showAllEchelonObjects ? "Только активный" : "Все объекты";
-  const objectVisibilityToggleTitle = showAllEchelonObjects
-    ? "Скрыть объекты других эшелонов на карте"
-    : "Показать объекты всех эшелонов на карте";
   const activeEchelonObjectsLayer = useMemo(
     () => project.layers.find((layer) => layer.id === echelonObjectsLayerId) ?? selectedLayer,
     [echelonObjectsLayerId, project.layers, selectedLayer],
-  );
-  const pendingLayerDeletion = useMemo(
-    () => project.layers.find((layer) => layer.id === pendingLayerDeletionId) ?? null,
-    [pendingLayerDeletionId, project.layers],
   );
   const selectedPlacedObject = useMemo(
     () => project.placedObjects.find((object) => object.id === selectedObjectId) ?? null,
@@ -840,30 +623,34 @@ export function DroneDefensePrototype() {
     [project.assetLibrary, coordinatePlacementAssetId],
   );
   const canCreateLayer = project.layers.length < MAX_DEFENSE_PROJECT_LAYERS;
-  const showCompactLayerPanel = !isLayerPanelExpanded;
-
-  useEffect(() => {
-    const strip = layerStripRef.current;
-    if (!strip || showCompactLayerPanel) {
-      setLayerStripState({ canScrollLeft: false, canScrollRight: false });
-      return;
-    }
-
-    const syncLayerStripState = () => {
-      setLayerStripState({
-        canScrollLeft: strip.scrollLeft > 8,
-        canScrollRight: strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 8,
-      });
-    };
-
-    syncLayerStripState();
-    strip.addEventListener("scroll", syncLayerStripState, { passive: true });
-    window.addEventListener("resize", syncLayerStripState);
-    return () => {
-      strip.removeEventListener("scroll", syncLayerStripState);
-      window.removeEventListener("resize", syncLayerStripState);
-    };
-  }, [orderedProjectLayers, setLayerStripState, showCompactLayerPanel]);
+  const totalProjectCostMln = useMemo(
+    () => layerSummaries.reduce((total, item) => total + item.totalMln, 0),
+    [layerSummaries],
+  );
+  const hiddenObjectCount = hiddenPlacementIds.size;
+  const warningCount = useMemo(
+    () =>
+      project.placedObjects.filter(
+        (object) => object.hasCoverageConflict || object.hasGeometryConflict || object.hasTerrainConflict,
+      ).length + hiddenObjectCount,
+    [hiddenObjectCount, project.placedObjects],
+  );
+  const hasConfiguredObjects = project.placedObjects.length > 0;
+  const projectCostLabel = hasConfiguredObjects ? formatLayerCost(totalProjectCostMln) : "0 ₽";
+  const budgetLabel = "Не задан";
+  const auditLabel = hasConfiguredObjects
+    ? warningCount > 0
+      ? `${warningCount} предупрежд.`
+      : "Не запускался"
+    : "Не запускался";
+  const sidebarAuditLabel = hasConfiguredObjects ? auditLabel : "Нет данных для проверки";
+  const addAssetCtaLabel = selectedLayer ? `Добавить средство в ${selectedLayer.code}` : "Открыть библиотеку";
+  const isInspectorOpen = activeView === "gis" && (Boolean(selectedPlacedObject) || isEchelonObjectsPanelOpen);
+  const inspectorLayer = selectedPlacedObject ? selectedPlacedLayer : activeEchelonObjectsLayer;
+  const selectedObjectCostMln =
+    selectedPlacedObject && selectedPlacedAsset?.pricePerUnitMln
+      ? selectedPlacedAsset.pricePerUnitMln * selectedPlacedObject.quantity
+      : null;
 
   const draftForInsertOption = (option: LayerInsertOption | undefined): Pick<LayerWizardState, "draft" | "insertPosition"> => {
     const innerRadiusM = option?.minInnerRadiusM ?? 0;
@@ -983,42 +770,13 @@ export function DroneDefensePrototype() {
     );
   };
 
-  const confirmLayerDeletion = () => {
-    if (!pendingLayerDeletion) return;
-    const result = deleteLayer(pendingLayerDeletion.id);
-    setPendingLayerDeletionId(null);
-    setLastPlacementMessage(result.ok ? "Эшелон удалён" : result.message);
-  };
-
-  const toggleLayerVisibility = (layerId: string, isVisible: boolean) => {
-    setLayerVisibility(layerId, isVisible);
-    const isHidingSelectedLayer = !isVisible && layerId === selectedLayer?.id;
-    if (isHidingSelectedLayer) {
-      setLastPlacementMessage("Активный эшелон скрыт. Покажите его перед размещением новых объектов.");
-    }
-  };
-
-  const toggleObjectVisibilityMode = () => {
-    const next = !showAllEchelonObjects;
-
-    setShowAllEchelonObjects(next);
-    setLastPlacementMessage(
-      next ? "Объекты: все эшелоны" : `Объекты: ${selectedLayer?.code ?? "активный эшелон"}`,
-    );
-  };
-
-  const scrollLayerStrip = (direction: "left" | "right") => {
-    const strip = layerStripRef.current;
-    if (!strip) return;
-    strip.scrollBy({ left: direction === "left" ? -260 : 260, behavior: "smooth" });
-  };
-
   const selectPlacedObject = (objectId: string) => {
     const object = project.placedObjects.find((item) => item.id === objectId);
     if (!object) return;
     selectObject(objectId);
     setSelectedSlotId(null);
     setIsEchelonObjectsPanelOpen(true);
+    setIsMogEditorOpen(false);
     const asset = project.assetLibrary.find((item) => item.id === object.assetId);
     setLastPlacementMessage(`${asset?.name ?? object.name ?? "Объект"} выбран на карте`);
   };
@@ -1030,6 +788,7 @@ export function DroneDefensePrototype() {
     }
     const nextId = activeToolId === asset.assetId ? null : asset.assetId;
     setActiveToolId(nextId);
+    setIsMogEditorOpen(false);
     selectAsset(asset.assetId);
     setCoordinatePlacementAssetId(null);
     setCoordinatePlacementValidation(null);
@@ -1111,6 +870,7 @@ export function DroneDefensePrototype() {
     if (!object) return;
     const messageAsset = project.assetLibrary.find((item) => item.id === object.assetId);
     deletePlacedObject(objectId);
+    setIsMogEditorOpen(false);
     setLastPlacementMessage(`${messageAsset?.name ?? "Объект"} удалён из общей конфигурации`);
   };
 
@@ -1257,6 +1017,7 @@ export function DroneDefensePrototype() {
       setActiveToolId(null);
       setCoordinatePlacementAssetId(null);
       setCoordinatePlacementValidation(null);
+      setIsMogEditorOpen(false);
       setLastPlacementMessage(null);
     };
 
@@ -1265,99 +1026,434 @@ export function DroneDefensePrototype() {
   });
 
   return (
-    <div className="flex h-full min-h-0 flex-col lg:flex-row">
-      {activeView === "gis" ? (
-        <section
-          data-sidebar-state={isCatalogTrayOpen ? "open" : "closed"}
-          className={styles.prototypeSidebar}
-          aria-hidden={!isCatalogTrayOpen}
-        >
-          <div className={styles.prototypeSidebarHeader}>
-            <div className={styles.prototypeBrandRow}>
-              <div className={styles.prototypeBrandIcon}>
-                <AppstoreOutlined />
-              </div>
-              <div className="min-w-0">
-                <h1 className={`${styles.prototypeTitleLarge} truncate`}>{prototypeRu.workspace.mapTitle}</h1>
-                <p className={`${styles.prototypeMeta} truncate`}>{prototypeRu.workspace.studioName}</p>
-              </div>
+    <div
+      className={styles.prototypeAppShell}
+      data-inspector={isInspectorOpen ? "open" : "closed"}
+      data-sidebar={isCatalogTrayOpen ? "open" : "collapsed"}
+      data-workspace-mode={workspaceMode}
+    >
+      <header className={styles.prototypeAppBar}>
+        <div className={styles.prototypeAppBarLeft}>
+          <div className={styles.prototypeBrandMark}>FT</div>
+          <div className="min-w-0">
+            <div className={styles.prototypeProjectTitleRow}>
+              <strong>FORTIS / {selectedFacility.name} / {project.projectName} · v{project.version ?? 1}</strong>
             </div>
-            <div className="mt-3 hidden lg:block">
-              <VariantStatusButton fullWidth />
-            </div>
+            <p className={styles.prototypeMeta}>
+              {backendSaveReady ? "Сохранение активно" : "Инициализация сохранения"}
+            </p>
           </div>
+        </div>
 
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <div className={styles.prototypeSection}>
-              <div className="flex items-start justify-between gap-2">
+        <nav className={styles.prototypeModeSwitch} aria-label="Режим рабочей области">
+          {[
+            ["configure", "Конфигурация"],
+            ["audit", "Аудит"],
+            ["compare", "Сравнение"],
+          ].map(([mode, label]) => (
+            <button
+              key={mode}
+              type="button"
+              aria-pressed={workspaceMode === mode}
+              onClick={() => {
+                setWorkspaceMode(mode as PrototypeUiState["workspaceMode"]);
+                setLeftPanelMode(mode === "configure" ? leftPanelMode : "structure");
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        <div className={styles.prototypeAppBarRight}>
+          <div className={styles.prototypeHeaderMetric}>
+            <span>Стоимость</span>
+            <strong>{projectCostLabel}</strong>
+          </div>
+          <div className={styles.prototypeHeaderMetric}>
+            <span>Бюджет</span>
+            <strong>{budgetLabel}</strong>
+          </div>
+          <div className={styles.prototypeHeaderMetric}>
+            <span>Аудит</span>
+            <strong>{auditLabel}</strong>
+          </div>
+          <button type="button" className={styles.prototypeIconButton} title="Отменить" aria-label="Отменить" disabled>
+            <LeftOutlined />
+          </button>
+          <button type="button" className={styles.prototypeIconButton} title="Повторить" aria-label="Повторить" disabled>
+            <RightOutlined />
+          </button>
+          <button
+            type="button"
+            className={`${styles.prototypeButtonPrimary} px-3`}
+            onClick={() => setLastPlacementMessage("Отчёт будет сформирован из текущей конфигурации")}
+            disabled={!hasConfiguredObjects}
+            title={hasConfiguredObjects ? "Сформировать отчёт" : "Добавьте средство, чтобы сформировать отчёт"}
+          >
+            <FileTextOutlined />
+            <span className={styles.prototypeReportText}>Сформировать отчёт</span>
+          </button>
+        </div>
+      </header>
+
+      <div className={styles.prototypeWorkspaceShell}>
+        {activeView === "gis" ? (
+          <aside
+            data-sidebar-state={isCatalogTrayOpen ? "open" : "collapsed"}
+            className={styles.prototypeSidebar}
+            aria-label="Рабочая панель проекта"
+          >
+            <div className={styles.prototypeSidebarRail} aria-label="Мини-панель проекта">
+              <button
+                type="button"
+                className={`${styles.prototypeRailButton} ${styles.prototypeRailButtonPrimary}`}
+                onClick={() => setIsCatalogTrayOpen(true)}
+                title="Развернуть рабочую панель"
+                aria-label="Развернуть рабочую панель"
+                aria-expanded={isCatalogTrayOpen}
+              >
+                <AppstoreOutlined />
+              </button>
+              <button
+                type="button"
+                className={styles.prototypeRailButton}
+                onClick={() => {
+                  setIsCatalogTrayOpen(true);
+                  setLeftPanelMode("structure");
+                }}
+                title="Структура проекта"
+                aria-label="Структура проекта"
+              >
+                <FileTextOutlined />
+              </button>
+              <div className={styles.prototypeRailList}>
+                {miniCatalogItems.slice(0, 6).map((asset) => (
+                  <button
+                    key={asset.assetId}
+                    type="button"
+                    className={styles.prototypeRailAsset}
+                    data-selected={activeToolId === asset.assetId ? "true" : "false"}
+                    onClick={() => handleSelectTool(asset)}
+                    title={asset.title}
+                    aria-label={`Выбрать ${asset.title}`}
+                    aria-pressed={activeToolId === asset.assetId}
+                  >
+                    <Image
+                      src={withBasePath(asset.previewImageUrl)}
+                      alt=""
+                      width={48}
+                      height={48}
+                      unoptimized
+                      className={asset.isPlaceholder ? styles.prototypeRailAssetImagePlaceholder : styles.prototypeRailAssetImage}
+                      draggable={false}
+                    />
+                    {asset.placedCount > 0 ? (
+                      <span className={styles.prototypeRailCount} aria-label={`На карте: ${asset.placedCount}`}>
+                        {asset.placedCount}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.prototypeSidebarContent} aria-hidden={!isCatalogTrayOpen}>
+              <div className={styles.prototypeSidebarHeader}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className={styles.prototypeEyebrow}>
+                      {workspaceMode === "configure" ? "Структура проекта" : workspaceMode === "audit" ? "Аудит" : "Сравнение"}
+                    </p>
+                    <h1 className={`${styles.prototypeTitleLarge} truncate`}>Проект защиты</h1>
+                    <p className={`${styles.prototypeMeta} truncate`}>
+                      {project.layers.length} эшелонов · {formatObjectCountLabel(project.placedObjects.length)} · {sidebarAuditLabel}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className={`${styles.prototypeIconButton} shrink-0 cursor-pointer`}
+                    onClick={() => setIsCatalogTrayOpen(false)}
+                    title="Свернуть рабочую панель"
+                    aria-label="Свернуть рабочую панель"
+                  >
+                    <MenuFoldOutlined />
+                  </button>
+                </div>
+              </div>
+
+              {workspaceMode === "configure" ? (
+                <div className={styles.prototypeLeftTabs} role="tablist" aria-label="Содержание конфигурации">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={leftPanelMode === "structure"}
+                    onClick={() => setLeftPanelMode("structure")}
+                  >
+                    Структура
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={leftPanelMode === "library"}
+                    onClick={() => setLeftPanelMode("library")}
+                  >
+                    Библиотека
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="min-h-0 flex-1 overflow-hidden">
+                {workspaceMode === "configure" && leftPanelMode === "structure" ? (
+                  <div className={styles.prototypeScrollArea}>
+                    {!hasConfiguredObjects ? (
+                      <section className={styles.prototypeEmptyOnboarding} aria-label="Начало конфигурации">
+                        <strong>Начните с размещения средств</strong>
+                        <ol>
+                          <li>Выберите эшелон.</li>
+                          <li>Откройте библиотеку.</li>
+                          <li>Разместите средство на карте.</li>
+                        </ol>
+                        <button
+                          type="button"
+                          className={styles.prototypeButtonPrimary}
+                          onClick={() => setLeftPanelMode("library")}
+                        >
+                          <AppstoreOutlined />
+                          {addAssetCtaLabel}
+                        </button>
+                      </section>
+                    ) : null}
+
+                    <div className={styles.prototypeTreeSectionTitle}>
+                      <span>Эшелоны защиты</span>
+                      <span>L1-L{project.layers.length}</span>
+                    </div>
+                    <div className={styles.prototypeTree}>
+                      {orderedProjectLayers.map((layer) => {
+                        const summary = layerSummaries.find((item) => item.layerId === layer.id);
+                        const objectCount = objectCountByLayer.get(layer.id) ?? 0;
+                        return (
+                          <button
+                            key={layer.id}
+                            type="button"
+                            className={styles.prototypeTreeRow}
+                            data-selected={layer.id === selectedLayer?.id}
+                            onClick={() => {
+                              selectLayerWithDefaultSlot(layer.id);
+                              setEchelonObjectsLayerId(layer.id);
+                            }}
+                          >
+                            <span className={styles.prototypeTreeTag} style={{ "--tree-color": layer.color ?? "#2563eb" } as CSSProperties}>
+                              {layer.code}
+                            </span>
+                            <span className={styles.prototypeTreeCopy}>
+                              <strong>{layer.name}</strong>
+                              <span>{formatLayerRange(summary?.innerRadiusM ?? 0, summary?.outerRadiusM ?? 0)}</span>
+                            </span>
+                            <span className={objectCount > 0 ? styles.prototypeCountBadge : styles.prototypeCountBadgeMuted}>
+                              {objectCount}
+                            </span>
+                            <span className={styles.prototypeVisibilityButton} aria-hidden="true">
+                              {layer.isVisible === false ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className={styles.prototypeTreeSectionTitle}>
+                      <span>Критические зоны</span>
+                      <span>демо</span>
+                    </div>
+                    <div className={styles.prototypeTree}>
+                      {["Производственная установка", "Энергетический узел", "Резервуарный парк"].map((name, index) => (
+                        <button
+                          key={name}
+                          type="button"
+                          className={styles.prototypeTreeRow}
+                          onClick={() => setLastPlacementMessage(`${name}: зона показана на карте`)}
+                        >
+                          <span className={styles.prototypeTreeTag} style={{ "--tree-color": index === 1 ? "#059669" : "#b45309" } as CSSProperties}>
+                            {index === 1 ? "E1" : `P${index + 1}`}
+                          </span>
+                          <span className={styles.prototypeTreeCopy}>
+                            <strong>{name}</strong>
+                            <span>{index === 1 ? "Высокий приоритет" : "Критический приоритет"}</span>
+                          </span>
+                          <span className={index === 1 ? styles.prototypeCountBadgeMuted : styles.prototypeCountBadgeWarning}>
+                            {index === 1 ? "ok" : "!"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className={styles.prototypeTreeSectionTitle}>
+                      <span>Маршруты</span>
+                      <span>2</span>
+                    </div>
+                    <div className={styles.prototypeTree}>
+                      {["Контрольный маршрут", "Маршрут служебного БПЛА"].map((name, index) => (
+                        <button
+                          key={name}
+                          type="button"
+                          className={styles.prototypeTreeRow}
+                          onClick={() => setLastPlacementMessage(`${name}: маршрут выбран`)}
+                        >
+                          <span className={styles.prototypeTreeTag} style={{ "--tree-color": index === 0 ? "#e11d48" : "#059669" } as CSSProperties}>
+                            R{index + 1}
+                          </span>
+                          <span className={styles.prototypeTreeCopy}>
+                            <strong>{name}</strong>
+                            <span>{index === 0 ? "7,4 км · требуется проверка" : "согласован"}</span>
+                          </span>
+                          <span className={index === 0 ? styles.prototypeCountBadgeWarning : styles.prototypeCountBadgeMuted}>
+                            {index === 0 ? "!" : "ok"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {workspaceMode === "configure" && leftPanelMode === "library" ? (
+                  <>
+                    <div className={styles.prototypeSection}>
+                      <div className="min-w-0">
+                        <p className={styles.prototypeEyebrow}>Библиотека СЗ</p>
+                        <h2 className={`${styles.prototypeTitle} truncate`}>
+                          {selectedLayer?.code ?? "—"} · {selectedLayer?.name ?? "Эшелон не выбран"}
+                        </h2>
+                        <p className={styles.prototypeMeta}>
+                          {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)}
+                        </p>
+                      </div>
+                      <input
+                        className={`${styles.prototypeField} mt-3`}
+                        value={catalogQuery}
+                        onChange={(event) => setCatalogQuery(event.target.value)}
+                        placeholder="Найти средство..."
+                      />
+                    </div>
+                    <AssetLibraryManager
+                      assets={project.assetLibrary}
+                      placedObjects={project.placedObjects}
+                      selectedAssetId={activeToolId ?? selectedPlacedObject?.assetId}
+                      loading={assetLibraryLoading}
+                      error={assetLibraryError}
+                      onRefresh={() => refreshAssetLibrary({ isPublic: true, limit: 100 })}
+                      onSelectAsset={(assetId) => {
+                        setActiveToolId(assetId);
+                        selectAsset(assetId);
+                      }}
+                      onAssetSaved={(asset) => {
+                        upsertAssetInLibrary(asset);
+                        setActiveToolId(asset.id);
+                      }}
+                      onAssetDeleted={(assetId) => {
+                        const result = removeAssetFromLibrary(assetId);
+                        if (result.ok) {
+                          setActiveToolId((current) => (current === assetId ? null : current));
+                        }
+                        return result;
+                      }}
+                      onMessage={setLastPlacementMessage}
+                    />
+                    <div className={styles.prototypeScrollArea}>
+                      <DefenseToolsPanel
+                        assets={filteredCatalogItems}
+                        projectAssets={project.assetLibrary}
+                        selectedToolId={activeToolId}
+                        selectedObjectAssetId={selectedPlacedObject?.assetId}
+                        onSelectTool={handleSelectTool}
+                        onOpenCoordinates={openCoordinatePlacement}
+                        onDragAsset={startAssetDrag}
+                        onPointerDragAsset={startAssetPointerDrag}
+                        onMouseDragAsset={startAssetMouseDrag}
+                        onRemoveTool={(asset) => removeCatalogAsset(asset.assetId)}
+                      />
+                    </div>
+                  </>
+                ) : null}
+
+                {workspaceMode === "audit" ? (
+                  <div className={styles.prototypeScrollArea}>
+                    <div className={styles.prototypeAuditSummary}>
+                      <span>Выполнение требований</span>
+                      <strong>{hasConfiguredObjects ? (warningCount > 0 ? "73%" : "Не запускался") : "Не запускался"}</strong>
+                      <div><span style={{ width: hasConfiguredObjects && warningCount > 0 ? "73%" : "0%" }} /></div>
+                    </div>
+                    <div className={styles.prototypeTreeSectionTitle}>
+                      <span>{hasConfiguredObjects ? "Требуют внимания" : "Проверка"}</span>
+                      <span>{hasConfiguredObjects ? warningCount : "нет данных"}</span>
+                    </div>
+                    <div className={styles.prototypeFindingList}>
+                      {(!hasConfiguredObjects ? ["Нет данных для проверки"] : warningCount > 0 ? ["Скрытые или конфликтные объекты", "Проверить резервирование критических зон", "Маршрут требует контрольного покрытия"] : ["Аудит не запускался"]).map((title, index) => (
+                        <button
+                          key={title}
+                          type="button"
+                          className={styles.prototypeFindingCard}
+                          data-critical={index === 0 && warningCount > 0}
+                          onClick={() => setLastPlacementMessage(title)}
+                        >
+                          <strong>{title}</strong>
+                          <span>{hasConfiguredObjects ? (index === 0 ? "Связано с текущей конфигурацией карты" : "Демо-проверка GIS UX") : "Добавьте средство перед запуском аудита"}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {workspaceMode === "compare" ? (
+                  <div className={styles.prototypeScrollArea}>
+                    <div className={styles.prototypeVariantCard}>
+                      <strong>A · Текущее состояние</strong>
+                      <span>{formatLayerCost(totalProjectCostMln)}</span>
+                    </div>
+                    <div className={styles.prototypeVariantCard} data-selected="true">
+                      <strong>B · Сбалансированный</strong>
+                      <span>{formatLayerCost(totalProjectCostMln + 21.5)}</span>
+                    </div>
+                    <div className={styles.prototypeCompareSwitch}>
+                      <button type="button">A</button>
+                      <button type="button" aria-pressed="true">Разница</button>
+                      <button type="button">B</button>
+                    </div>
+                    <div className={styles.prototypeTreeSectionTitle}><span>Что изменилось</span><span>+21,5 млн ₽</span></div>
+                    <div className={styles.prototypeFindingList}>
+                      {["Добавлено резервирование", "Закрыт разрыв маршрута", "Покрытие критической зоны усилено"].map((title) => (
+                        <div key={title} className={styles.prototypeDeltaRow}>
+                          <strong>{title}</strong>
+                          <span>Отражается на карте как аналитический слой</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <footer className={styles.prototypeLeftFooter}>
                 <div className="min-w-0">
-                  <p className={styles.prototypeEyebrow}>Библиотека СЗ</p>
-                  <h2 className={`${styles.prototypeTitle} truncate`}>
-                    {selectedLayer?.code ?? "—"} · {selectedLayer?.name ?? "Эшелон не выбран"}
-                  </h2>
-                  <p className={styles.prototypeMeta}>
-                    {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)}
-                  </p>
+                  <span>Активный эшелон</span>
+                  <strong>{selectedLayer ? `${selectedLayer.code} · ${selectedLayer.name}` : "не выбран"}</strong>
                 </div>
                 <button
                   type="button"
-                  className={`${styles.prototypeButton} shrink-0 cursor-pointer px-2`}
-                  onClick={() => setIsCatalogTrayOpen(false)}
-                  title="Свернуть библиотеку в угол карты"
+                  className={styles.prototypeButton}
+                  onClick={() => {
+                    setWorkspaceMode("configure");
+                    setLeftPanelMode("library");
+                  }}
                 >
-                  Свернуть
+                  <AppstoreOutlined />
+                  {addAssetCtaLabel}
                 </button>
-              </div>
-              <input
-                className={`${styles.prototypeField} mt-3`}
-                value={catalogQuery}
-                onChange={(event) => setCatalogQuery(event.target.value)}
-                placeholder="Найти средство..."
-              />
+              </footer>
             </div>
-            <AssetLibraryManager
-              assets={project.assetLibrary}
-              placedObjects={project.placedObjects}
-              selectedAssetId={activeToolId ?? selectedPlacedObject?.assetId}
-              loading={assetLibraryLoading}
-              error={assetLibraryError}
-              onRefresh={() => refreshAssetLibrary({ isPublic: true, limit: 100 })}
-              onSelectAsset={(assetId) => {
-                setActiveToolId(assetId);
-                selectAsset(assetId);
-              }}
-              onAssetSaved={(asset) => {
-                upsertAssetInLibrary(asset);
-                setActiveToolId(asset.id);
-              }}
-              onAssetDeleted={(assetId) => {
-                const result = removeAssetFromLibrary(assetId);
-                if (result.ok) {
-                  setActiveToolId((current) => (current === assetId ? null : current));
-                }
-                return result;
-              }}
-              onMessage={setLastPlacementMessage}
-            />
-            <div className={styles.prototypeScrollArea}>
-              <DefenseToolsPanel
-                assets={filteredCatalogItems}
-                projectAssets={project.assetLibrary}
-                selectedToolId={activeToolId}
-                selectedObjectAssetId={selectedPlacedObject?.assetId}
-                onSelectTool={handleSelectTool}
-                onOpenCoordinates={openCoordinatePlacement}
-                onDragAsset={startAssetDrag}
-                onPointerDragAsset={startAssetPointerDrag}
-                onMouseDragAsset={startAssetMouseDrag}
-                onRemoveTool={(asset) => removeCatalogAsset(asset.assetId)}
-              />
-            </div>
-          </div>
-        </section>
-      ) : null}
+          </aside>
+        ) : null}
 
-      <main className={styles.prototypeMain}>
+        <main className={styles.prototypeMain}>
         {topError ? (
           <div className={`${styles.prototypeNoticeDanger} absolute left-4 top-4 z-30 shadow`}>
             {topError}
@@ -1367,53 +1463,6 @@ export function DroneDefensePrototype() {
           <div className={`${styles.prototypeNotice} absolute left-4 top-4 z-30 shadow`}>
             Загрузка данных…
           </div>
-        ) : null}
-
-        {activeView === "gis" && isEchelonObjectsPanelOpen && activeEchelonObjectsLayer ? (
-          <aside className={`${styles.prototypeFloatingPanel} ${styles.prototypeObjectsPanel}`}>
-            <div className={styles.prototypeFloatingHeader}>
-              <div>
-                <p className={styles.prototypeEyebrow}>Объекты эшелона</p>
-                <h3 className={styles.prototypeTitle}>{activeEchelonObjectsLayer.code} · {activeEchelonObjectsLayer.name}</h3>
-                <p className={styles.prototypeMeta}>Открывается отдельно, чтобы не перегружать основную панель.</p>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  className={`${styles.prototypeIconButton} px-2`}
-                  onClick={() => setIsEchelonObjectsCollapsed((current) => !current)}
-                  title={isEchelonObjectsCollapsed ? "Развернуть карточку" : "Свернуть карточку"}
-                >
-                  {isEchelonObjectsCollapsed ? <UpOutlined /> : <DownOutlined />}
-                </button>
-                <button
-                  type="button"
-                  className={styles.prototypeIconButton}
-                  onClick={() => setIsEchelonObjectsPanelOpen(false)}
-                  title="Закрыть карточку"
-                  aria-label="Закрыть карточку"
-                >
-                  <CloseOutlined />
-                </button>
-              </div>
-            </div>
-            {!isEchelonObjectsCollapsed ? (
-              <div className={styles.prototypeFloatingBody}>
-                <EchelonObjectsList
-                  layerId={activeEchelonObjectsLayer.id as DefenseLayerId}
-                  placements={projectCatalogPlacements}
-                  catalog={catalog}
-                  layers={allProjectMapLayers}
-                  hiddenPlacementIds={hiddenPlacementIds}
-                  selectedPlacementId={selectedPlacementId}
-                  onSelect={(id) => selectPlacedObject(id)}
-                  onLocate={handleLocatePlacement}
-                  onToggleVisibility={(id) => toggleProjectPlacementVisibility(id)}
-                  onRemove={(id) => deleteProjectPlacement(id)}
-                />
-              </div>
-            ) : null}
-          </aside>
         ) : null}
 
         {activeView === "gis" ? (
@@ -1440,6 +1489,7 @@ export function DroneDefensePrototype() {
               activeToolId={activeToolId}
               baseMapSourceId={currentBaseMapSourceId}
               placementHint={placementHint}
+              showProjectPanel={false}
               onSelectBaseMapSource={setBaseMapSource}
               onSelectLayer={selectLayerWithDefaultSlot}
               onHoverLayerChange={setHoveredLayerId}
@@ -1447,6 +1497,7 @@ export function DroneDefensePrototype() {
                 selectLayer(slot.layerId);
                 setSelectedSlotId(slot.id);
                 setIsEchelonObjectsPanelOpen(true);
+                setIsMogEditorOpen(false);
               }}
               onSelectTool={(groupId) => {
                 const asset =
@@ -1490,7 +1541,15 @@ export function DroneDefensePrototype() {
               />
             ) : null}
 
-            {selectedMogObject && selectedPlacedAsset ? (
+            <div className={styles.prototypeMapToolbar} role="toolbar" aria-label="Инструменты карты">
+              <button type="button" aria-pressed="true">Выбор</button>
+              <button type="button" onClick={() => setLastPlacementMessage("Режим панорамирования активен")}>Карта</button>
+              <button type="button" onClick={createProjectLayer}>Зона</button>
+              <button type="button" onClick={() => setLastPlacementMessage("Маршрут: выберите стартовую точку")}>Маршрут</button>
+              <button type="button" onClick={() => setLastPlacementMessage("Измерение расстояния: выберите две точки")}>Измерить</button>
+            </div>
+
+            {selectedMogObject && selectedPlacedAsset && isMogEditorOpen ? (
               <MogCompositionEditor
                 objectId={selectedMogObject.id}
                 asset={selectedPlacedAsset}
@@ -1501,163 +1560,34 @@ export function DroneDefensePrototype() {
                 onPreviewChange={(patch) => updatePlacedObject(selectedMogObject.id, patch)}
                 onSave={(patch) => {
                   updatePlacedObject(selectedMogObject.id, patch);
+                  setIsMogEditorOpen(false);
                   selectObject(null);
                 }}
                 onCancel={(patch) => {
                   updatePlacedObject(selectedMogObject.id, patch);
+                  setIsMogEditorOpen(false);
                   selectObject(null);
                 }}
               />
             ) : null}
 
-            {selectedLayer ? (
-              <div
-                className={styles.prototypeLayerPanelWrap}
-                data-compact={showCompactLayerPanel ? "true" : "false"}
-              >
-                <div
-                  className={styles.prototypeLayerPanel}
-                  data-compact={showCompactLayerPanel ? "true" : "false"}
-                >
-                  {showCompactLayerPanel ? (
-                    <div className={styles.prototypeLayerCompactCard}>
-                      <div className="min-w-0 flex-1">
-                        <p className={styles.prototypeEyebrow}>
-                          Эшелоны проекта · {layerPanelSummaryLabel}
-                        </p>
-                        <p
-                          className={`${styles.prototypeTitle} mt-1 truncate`}
-                          title={`Активный: ${selectedLayer.code} · ${selectedLayer.name}`}
-                        >
-                          Активный: {selectedLayer.code} · {selectedLayer.name}
-                        </p>
-                        <p className={styles.prototypeMeta}>
-                          {formatLayerRange(selectedRadii.innerRadiusM, selectedRadii.outerRadiusM)} ·{" "}
-                          {formatLayerObjectMeta(activeLayerSummary?.objectCount ?? 0, activeLayerSummary?.totalMln ?? 0)}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className={`${styles.prototypeButtonPrimary} h-9 w-9 shrink-0 cursor-pointer`}
-                        onClick={() => {
-                          setIsCatalogTrayOpen(false);
-                          setIsLayerPanelExpanded(true);
-                        }}
-                        title="Развернуть панель эшелонов"
-                        aria-label="Развернуть панель эшелонов"
-                      >
-                        <ExpandAltOutlined />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                  <div className={styles.prototypeLayerHeader}>
-                    <div>
-                      <p className={styles.prototypeEyebrow}>Эшелоны проекта</p>
-                      <p className={styles.prototypeTitle}>
-                        Эшелоны проекта · {layerPanelSummaryLabel}
-                      </p>
-                      <p className={styles.prototypeMeta}>{activeLayerHeaderLabel}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className={`${showAllEchelonObjects ? styles.prototypeButtonPrimary : styles.prototypeButton} cursor-pointer px-3`}
-                        onClick={toggleObjectVisibilityMode}
-                        aria-pressed={showAllEchelonObjects}
-                        title={objectVisibilityToggleTitle}
-                      >
-                        {showAllEchelonObjects ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                        {objectVisibilityToggleLabel}
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.prototypeButtonPrimary} w-9 cursor-pointer`}
-                        onClick={createProjectLayer}
-                        disabled={!canCreateLayer}
-                        title={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
-                        aria-label={canCreateLayer ? "Добавить эшелон" : `Максимум ${MAX_DEFENSE_PROJECT_LAYERS} эшелонов`}
-                      >
-                        <PlusOutlined />
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.prototypeButton} cursor-pointer px-3`}
-                        onClick={() => setIsLayerPanelExpanded(false)}
-                      >
-                        Свернуть
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className={styles.prototypeLayerScrollRow}>
-                    <button
-                      type="button"
-                      className={`${styles.prototypeIconButton} shrink-0 cursor-pointer`}
-                      onClick={() => scrollLayerStrip("left")}
-                      disabled={!layerStripState.canScrollLeft}
-                      aria-label="Прокрутить эшелоны влево"
-                    >
-                      <LeftOutlined />
-                    </button>
-                    <div className="relative min-w-0 flex-1">
-                      {layerStripState.canScrollLeft ? <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white via-white/80 to-transparent" /> : null}
-                      {layerStripState.canScrollRight ? <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white via-white/80 to-transparent" /> : null}
-                  <div ref={layerStripRef} className={styles.prototypeLayerStrip}>
-                    {orderedProjectLayers.map((layer) => (
-                      <PrototypeLayerStripItem
-                        key={layer.id}
-                        layer={layer}
-                        summary={layerSummaries.find((item) => item.layerId === layer.id)}
-                        totalLayers={project.layers.length}
-                        objectCount={objectCountByLayer.get(layer.id) ?? 0}
-                        isSelected={layer.id === selectedLayer.id}
-                        isHovered={layer.id === hoveredLayerId}
-                        onHoverLayer={setHoveredLayerId}
-                        onSelectLayer={selectLayerWithDefaultSlot}
-                        onOpenObjects={(layerId) => {
-                          selectLayerWithDefaultSlot(layerId);
-                          setEchelonObjectsLayerId(layerId);
-                        }}
-                        onEditLayer={(layerId) => {
-                          selectLayerWithDefaultSlot(layerId);
-                          editSelectedLayer();
-                        }}
-                        onRequestDelete={setPendingLayerDeletionId}
-                        onToggleVisibility={toggleLayerVisibility}
-                      />
-                    ))}
-                  </div>
-                    </div>
-                    <button
-                      type="button"
-                      className={`${styles.prototypeIconButton} shrink-0 cursor-pointer`}
-                      onClick={() => scrollLayerStrip("right")}
-                      disabled={!layerStripState.canScrollRight}
-                      aria-label="Прокрутить эшелоны вправо"
-                    >
-                      <RightOutlined />
-                    </button>
-                  </div>
-
-                    </>
-                  )}
+            {workspaceMode !== "configure" ? (
+              <section className={styles.prototypeResultTray} data-mode={workspaceMode} aria-label="Результаты анализа">
+                <div>
+                  <strong>
+                    {workspaceMode === "audit"
+                      ? hasConfiguredObjects
+                        ? `Аудит конфигурации · ${warningCount} проблем требуют внимания`
+                        : "Аудит конфигурации · не запускался"
+                      : "Сравнение вариантов · демо-разница"}
+                  </strong>
+                  <span>{workspaceMode === "audit" ? (hasConfiguredObjects ? "Зоны, маршруты и резервирование" : "Нет данных для проверки") : "+21,5 млн ₽ к CAPEX"}</span>
                 </div>
-              </div>
+                <div><span>Объекты</span><strong>{project.placedObjects.length}</strong></div>
+                <div><span>Стоимость</span><strong>{projectCostLabel}</strong></div>
+                <div><span>Резерв</span><strong>{hasConfiguredObjects ? (warningCount > 0 ? "проверить" : "не проверялся") : "нет данных"}</strong></div>
+              </section>
             ) : null}
-
-            <button
-              type="button"
-              data-sidebar-toggle-state={isCatalogTrayOpen ? "hidden" : "visible"}
-              className={`${styles.prototypeToggleLauncher} ${styles.prototypeButtonPrimary} cursor-pointer transition duration-300 ease-in-out`}
-              onClick={() => setIsCatalogTrayOpen(true)}
-              title="Открыть библиотеку средств защиты"
-              aria-label="Открыть библиотеку средств защиты"
-              aria-hidden={isCatalogTrayOpen}
-              tabIndex={isCatalogTrayOpen ? -1 : 0}
-            >
-              <AppstoreOutlined />
-            </button>
           </>
         ) : null}
 
@@ -1695,21 +1625,149 @@ export function DroneDefensePrototype() {
             onSubmit={saveLayerWizard}
           />
         ) : null}
-        <Modal
-          open={Boolean(pendingLayerDeletion)}
-          title="Удалить эшелон?"
-          onCancel={() => setPendingLayerDeletionId(null)}
-          onOk={confirmLayerDeletion}
-          okText="Удалить"
-          cancelText="Отмена"
-          okButtonProps={{ danger: true }}
-          destroyOnHidden
-        >
-          <p className="text-sm text-slate-600">
-            {pendingLayerDeletion ? `${pendingLayerDeletion.code} · ${pendingLayerDeletion.name}` : "Выбранный эшелон"} будет удалён без возможности восстановления.
-          </p>
-        </Modal>
       </main>
+
+      {isInspectorOpen ? (
+        <aside className={styles.prototypeInspector} aria-label="Свойства выбранного элемента">
+          <header className={styles.prototypeInspectorHeader}>
+            <div className="min-w-0">
+              <p className={styles.prototypeEyebrow}>
+                {selectedPlacedObject ? "Размещённое средство" : "Эшелон защиты"}
+              </p>
+              <h2 className={`${styles.prototypeTitleLarge} truncate`}>
+                {selectedPlacedObject
+                  ? selectedPlacedObject.name ?? selectedPlacedAsset?.name ?? "Объект защиты"
+                  : inspectorLayer
+                    ? `${inspectorLayer.code} · ${inspectorLayer.name}`
+                    : "Свойства"}
+              </h2>
+              <p className={styles.prototypeMeta}>
+                {selectedPlacedObject
+                  ? `${selectedPlacedLayer?.code ?? "—"} · ${formatCoordinatePair(selectedPlacedObject.coordinates)}`
+                  : inspectorLayer
+                    ? formatLayerRange(
+                        layerSummaries.find((item) => item.layerId === inspectorLayer.id)?.innerRadiusM ?? 0,
+                        layerSummaries.find((item) => item.layerId === inspectorLayer.id)?.outerRadiusM ?? 0,
+                      )
+                    : "Выберите объект на карте или в структуре"}
+              </p>
+            </div>
+            <button
+              type="button"
+              className={styles.prototypeIconButton}
+              onClick={() => {
+                selectObject(null);
+                setIsEchelonObjectsPanelOpen(false);
+                setIsMogEditorOpen(false);
+              }}
+              title="Закрыть инспектор"
+              aria-label="Закрыть инспектор"
+            >
+              <CloseOutlined />
+            </button>
+          </header>
+
+          <div className={styles.prototypeInspectorSummary}>
+            <div>
+              <span>Дальность</span>
+              <strong>{selectedPlacedAsset?.coverageRadius ? formatDistance(selectedPlacedAsset.coverageRadius) : "—"}</strong>
+            </div>
+            <div>
+              <span>Покрытие</span>
+              <strong>{selectedPlacedAsset?.coverageAngle ? `${selectedPlacedAsset.coverageAngle}°` : selectedPlacedAsset?.coverageType ?? "—"}</strong>
+            </div>
+            <div>
+              <span>Стоимость</span>
+              <strong>{selectedObjectCostMln === null ? formatLayerCost(activeLayerSummary?.totalMln ?? 0) : formatLayerCost(selectedObjectCostMln)}</strong>
+            </div>
+          </div>
+
+          <div className={styles.prototypeInspectorTabs} role="tablist" aria-label="Разделы инспектора">
+            <button type="button" role="tab" aria-selected="true">Обзор</button>
+            <button type="button" role="tab" aria-selected="false">Покрытие</button>
+            <button type="button" role="tab" aria-selected="false">Документы</button>
+          </div>
+
+          <div className={styles.prototypeInspectorBody}>
+            {selectedPlacedObject ? (
+              <>
+                <section className={styles.prototypeInspectorSection}>
+                  <h3>Параметры объекта</h3>
+                  <dl className={styles.prototypeDefinitionList}>
+                    <div><dt>Тип</dt><dd>{selectedPlacedAsset?.category ?? "—"}</dd></div>
+                    <div><dt>Количество</dt><dd>{selectedPlacedObject.quantity}</dd></div>
+                    <div><dt>Статус</dt><dd>{selectedPlacedObject.status}</dd></div>
+                    <div><dt>Видимость</dt><dd>{selectedPlacedObject.isVisibleOnMap === false ? "скрыт" : "на карте"}</dd></div>
+                  </dl>
+                </section>
+                {selectedPlacedObject.notes ? (
+                  <section className={styles.prototypeInspectorSection}>
+                    <h3>Примечание</h3>
+                    <p>{selectedPlacedObject.notes}</p>
+                  </section>
+                ) : null}
+              </>
+            ) : inspectorLayer ? (
+              <EchelonObjectsList
+                layerId={inspectorLayer.id as DefenseLayerId}
+                placements={projectCatalogPlacements}
+                catalog={catalog}
+                layers={allProjectMapLayers}
+                hiddenPlacementIds={hiddenPlacementIds}
+                selectedPlacementId={selectedPlacementId}
+                onSelect={(id) => selectPlacedObject(id)}
+                onLocate={handleLocatePlacement}
+                onToggleVisibility={(id) => toggleProjectPlacementVisibility(id)}
+                onRemove={(id) => deleteProjectPlacement(id)}
+              />
+            ) : null}
+          </div>
+
+          <footer className={styles.prototypeInspectorFooter}>
+            {selectedPlacedObject ? (
+              <>
+                {selectedMogObject ? (
+                  <button
+                    type="button"
+                    className={styles.prototypeButtonPrimary}
+                    onClick={() => setIsMogEditorOpen(true)}
+                  >
+                    <EditOutlined />
+                    Редактировать
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.prototypeButton}
+                    onClick={() => setLastPlacementMessage("Редактор объекта будет подключён следующим шагом")}
+                  >
+                    <EditOutlined />
+                    Редактировать
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={styles.prototypeButtonDanger}
+                  onClick={() => deleteProjectPlacement(selectedPlacedObject.id)}
+                >
+                  <DeleteOutlined />
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className={styles.prototypeButtonPrimary} onClick={() => setLeftPanelMode("library")}>
+                  <AppstoreOutlined />
+                  Разместить средство
+                </button>
+                <button type="button" className={styles.prototypeButton} onClick={editSelectedLayer}>
+                  <EditOutlined />
+                </button>
+              </>
+            )}
+          </footer>
+        </aside>
+      ) : null}
+      </div>
     </div>
   );
 }

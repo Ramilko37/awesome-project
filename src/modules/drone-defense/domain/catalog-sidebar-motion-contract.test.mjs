@@ -6,12 +6,10 @@ const styles = readFileSync(
   "src/modules/drone-defense/ui/drone-defense-prototype.module.css",
   "utf8",
 );
-const globalStyles = readFileSync("src/app/globals.css", "utf8");
-const mapSource = readFileSync("src/modules/drone-defense/ui/gis-board.tsx", "utf8");
 
 assert(
-  source.includes('data-sidebar-state={isCatalogTrayOpen ? "open" : "closed"}'),
-  "Catalog sidebar must stay mounted and expose open/closed state for smooth transitions",
+  source.includes('data-sidebar-state={isCatalogTrayOpen ? "open" : "collapsed"}'),
+  "Catalog sidebar must stay mounted and expose open/collapsed state for smooth transitions",
 );
 assert(
   styles.includes(
@@ -20,34 +18,25 @@ assert(
   "Catalog sidebar must animate open/closed size and opacity",
 );
 assert(
-  styles.includes('@media (min-width: 768px)') &&
-    styles.includes(
-      '.prototypeSidebar[data-sidebar-state="open"] {\n    width: clamp(17.5rem, 25vw, 20rem);',
-    ) &&
-    styles.includes('.prototypeSidebar[data-sidebar-state="closed"] {\n    width: 0;'),
-  "Catalog sidebar must animate a fluid desktop width instead of unmounting",
+  styles.includes('@media (min-width: 1024px)') &&
+    styles.includes('.prototypeSidebar[data-sidebar-state="open"] {\n    width: var(--prototype-left-w);') &&
+    styles.includes('.prototypeSidebar[data-sidebar-state="collapsed"] {\n    width: 4.25rem;'),
+  "Workspace sidebar must collapse to a narrow desktop rail instead of disappearing",
 );
 assert(
-  styles.includes("pointer-events: none;") && styles.includes("opacity: 0;"),
-  "Closed catalog sidebar must not capture pointer events while hidden",
+  source.includes("prototypeSidebarRail") &&
+    source.includes("miniCatalogItems.slice(0, 6).map") &&
+    source.includes("prototypeRailAsset") &&
+    source.includes("withBasePath(asset.previewImageUrl)"),
+  "Collapsed workspace sidebar must render a vertical rail of library asset thumbnails",
 );
 assert(
-  styles.includes("border-bottom-width: 0;") && styles.includes("border-right-width: 0;"),
-  "Closed catalog sidebar must remove borders so it collapses without a 1px remainder",
-);
-assert(
-  source.includes("leadingControl={") &&
-    source.includes('aria-controls="fortis-gis-library-panel"') &&
-    source.includes("prototypeLibraryBoundaryControl") &&
-    mapSource.includes('<div className="fortis-map-object-toolbar">') &&
-    mapSource.includes("{leadingControl}") &&
-    globalStyles.includes("width: min(23rem, calc(100% - 6rem));") &&
-    globalStyles.includes("grid-template-columns: auto minmax(0, 1fr);"),
-  "Catalog toggle must live in the fluid map toolbar without covering catalog content",
+  !source.includes("prototypeToggleLauncher"),
+  "Collapsed library rail replaces the old floating launcher button",
 );
 assert(
   !source.includes("{isCatalogTrayOpen ? (\n        <section"),
   "Catalog sidebar must not be conditionally mounted because that prevents smooth closing",
 );
 
-console.log("catalog-sidebar-motion-contract.test.mjs: catalog sidebar animates open and closed");
+console.log("catalog-sidebar-motion-contract.test.mjs: catalog sidebar animates open and collapsed");

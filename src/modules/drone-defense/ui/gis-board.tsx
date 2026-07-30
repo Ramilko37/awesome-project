@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import DeckGL, { type DeckGLRef } from "@deck.gl/react";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
@@ -66,6 +66,8 @@ type GisBoardProps = {
   activeToolId: string | null;
   baseMapSourceId: string;
   placementHint: string;
+  projectControls?: ReactNode;
+  showProjectPanel?: boolean;
   onSelectBaseMapSource: (sourceId: string) => void;
   onSelectLayer: (layerId: string) => void;
   onHoverLayerChange?: (layerId: string | null) => void;
@@ -214,6 +216,8 @@ export function GisBoard({
   activeToolId,
   baseMapSourceId,
   placementHint,
+  projectControls,
+  showProjectPanel = true,
   onSelectBaseMapSource,
   onSelectLayer,
   onHoverLayerChange,
@@ -654,16 +658,16 @@ export function GisBoard({
           const isFilledDiskZone = zone.geometryType !== "polygon" && (zoneLayer?.distanceBandM.min ?? 0) <= 0;
           const zoneFillColor = (item: EchelonZone) =>
             isPreview
-              ? ([14, 165, 233, 54] as [number, number, number, number])
+              ? ([14, 165, 233, 32] as [number, number, number, number])
               : isActive
-                ? ([item.fillColor[0], item.fillColor[1], item.fillColor[2], Math.max(item.fillColor[3], 132)] as [number, number, number, number])
+                ? ([item.fillColor[0], item.fillColor[1], item.fillColor[2], 20] as [number, number, number, number])
                 : ([item.fillColor[0], item.fillColor[1], item.fillColor[2], 0] as [number, number, number, number]);
-          const zoneLineColor = () =>
+          const zoneLineColor = (item: EchelonZone) =>
             isPreview
-              ? ([2, 132, 199, 245] as [number, number, number, number])
+              ? ([2, 132, 199, 190] as [number, number, number, number])
               : isActive
-                ? ([15, 23, 42, 255] as [number, number, number, number])
-                : ([100, 116, 139, 95] as [number, number, number, number]);
+                ? ([item.lineColor[0], item.lineColor[1], item.lineColor[2], 145] as [number, number, number, number])
+                : ([100, 116, 139, 58] as [number, number, number, number]);
           const handleZoneClick = (object: EchelonZone | null | undefined) => {
             if (!object) return;
             if (previewLayer?.id === object.layerId) return;
@@ -691,7 +695,7 @@ export function GisBoard({
                   radiusUnits: "meters",
                   getFillColor: zoneFillColor,
                   getLineColor: zoneLineColor,
-                  getLineWidth: () => (isPreview ? 3 : isActive ? 4 : 1.5),
+                  getLineWidth: () => (isPreview ? 2 : isActive ? 1.6 : 1),
                   lineWidthUnits: "pixels",
                   onClick: ({ object }) => handleZoneClick(object),
                   onHover: handleZoneHover,
@@ -706,7 +710,7 @@ export function GisBoard({
                   getPolygon: (item) => item.polygon,
                   getFillColor: zoneFillColor,
                   getLineColor: zoneLineColor,
-                  getLineWidth: () => (isPreview ? 3 : isActive ? 4 : 1.5),
+                  getLineWidth: () => (isPreview ? 2 : isActive ? 1.6 : 1),
                   lineWidthUnits: "pixels",
                   onClick: ({ object }) => handleZoneClick(object),
                   onHover: handleZoneHover,
@@ -1139,6 +1143,7 @@ export function GisBoard({
         })}
       </div>
 
+      {showProjectPanel ? (
       <div className="absolute left-4 top-4 z-10 flex max-w-[min(42rem,calc(100%-2rem))] flex-wrap items-center gap-2">
         <div className="min-w-[min(23rem,calc(100vw-6rem))] rounded-lg border border-white/60 bg-white/95 px-3 py-2 text-xs shadow-md shadow-slate-900/10 backdrop-blur">
           <select
@@ -1158,8 +1163,18 @@ export function GisBoard({
           <p className="text-slate-500">
             {placementHint}
           </p>
+          {projectControls ? (
+            <div
+              className="mt-2 flex items-center gap-2"
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              {projectControls}
+            </div>
+          ) : null}
         </div>
       </div>
+      ) : null}
 
       <div ref={baseMapMenuRef} className="absolute right-4 top-4 z-10 flex items-start gap-2">
         <div className="relative">

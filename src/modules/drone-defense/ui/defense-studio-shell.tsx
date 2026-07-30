@@ -52,6 +52,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
   return (
     <div className="h-screen overflow-hidden bg-[#eef3f8] text-slate-900">
       <div className="flex h-full min-h-0 flex-col lg:flex-row">
+        {!isPrototype ? (
         <aside className="hidden w-[76px] shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm lg:flex">
           <div className="flex h-[74px] items-center justify-center border-b border-slate-100">
             <Link
@@ -95,8 +96,10 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
             </button>
           </div>
         </aside>
+        ) : null}
 
         <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+          {!isPrototype ? (
           <div className="border-b border-slate-200 bg-white px-3 py-2 shadow-sm lg:hidden">
             <div className="flex items-center gap-3">
               <Link
@@ -137,6 +140,7 @@ export function DefenseStudioShell({ children }: DefenseStudioShellProps) {
               </Link>
             </nav>
           </div>
+          ) : null}
 
           <main className="min-h-0 min-w-0 flex-1 overflow-auto">{children}</main>
         </div>

@@ -132,8 +132,8 @@ const targetLayerDiameterPx = 640;
 const targetProtectedObjectDiameterPx = 640;
 const minLayerFocusZoom = 6;
 const maxLayerFocusZoom = 18;
-const protectedObjectContextMinRadiusM = 4_500;
-const protectedObjectContextMaxRadiusM = 6_000;
+const protectedObjectContextMinRadiusM = 1_200;
+const protectedObjectContextMaxRadiusM = 2_200;
 const placementFocusMinZoom = 12.8;
 const placementFocusZoomStep = 2.4;
 

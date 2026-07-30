@@ -14,6 +14,7 @@ import {
 } from "@ant-design/icons";
 import { useCallback, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import type { EchelonMapPlacement } from "@/modules/drone-defense/domain/echelon-map-model";
+import { withBasePath } from "@/shared/lib/base-path";
 
 type MapMarkerState = "default" | "hover" | "selected" | "disabled" | "warning" | "conflict" | "inactive";
 
@@ -134,6 +135,8 @@ export function MapObjectMarker({
   const showLabel = shouldShowLabel({ zoom, isSelected: Boolean(placement.isSelected), isHovered });
   const markerSize = placement.isSelected ? 46 : isHovered ? 40 : 36;
   const markerBadge = placement.qty > 1 ? placement.qty : null;
+  const markerImageUrl = placement.iconUrl ? withBasePath(placement.iconUrl) : null;
+  const hasImageMarker = Boolean(markerImageUrl);
   const markerStyle = {
     "--marker-color": categoryColor,
     left: x,
@@ -153,9 +156,11 @@ export function MapObjectMarker({
   return (
     <button
       type="button"
-      className={`pointer-events-auto absolute z-20 grid place-items-center rounded-[11px] border-2 bg-slate-950/90 text-[17px] text-white shadow-lg shadow-slate-950/30 outline-none transition duration-150 hover:scale-[1.08] focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
-        placement.isSelected ? "ring-2 ring-white/90" : ""
-      } border-[var(--marker-color)]`}
+      className={`pointer-events-auto absolute z-20 grid place-items-center rounded-[11px] text-[17px] outline-none transition duration-150 hover:scale-[1.08] focus-visible:ring-2 ${
+        hasImageMarker
+          ? "border-0 bg-transparent p-0 text-slate-950 shadow-none focus-visible:ring-blue-500"
+          : "border-2 border-[var(--marker-color)] bg-slate-950/90 text-white shadow-lg shadow-slate-950/30 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+      } ${placement.isSelected && !hasImageMarker ? "ring-2 ring-white/90" : ""}`}
       style={markerStyle}
       aria-label={`${placement.label}, ${layerLabel ?? placement.layerId}, ${placement.qty} ед.`}
       title={`${placement.label}${layerLabel ? ` · ${layerLabel}` : ""}`}
@@ -184,11 +189,36 @@ export function MapObjectMarker({
       onMouseEnter={() => onHover(placement)}
       onMouseLeave={() => onHover(null)}
     >
-      <span className="grid place-items-center" aria-hidden="true">
-        {getAssetMarkerIcon(placement)}
+      <span
+        className={`relative grid h-full w-full place-items-center overflow-hidden ${
+          hasImageMarker
+            ? `rounded-[10px] border-2 bg-white/95 shadow-md shadow-slate-950/20 ${
+                placement.isSelected
+                  ? "border-blue-500"
+                  : isHovered
+                    ? "border-blue-300"
+                    : "border-white/95"
+              }`
+            : "rounded-[9px]"
+        }`}
+        aria-hidden="true"
+      >
+        <span className={`grid place-items-center ${hasImageMarker ? "opacity-0" : ""}`}>{getAssetMarkerIcon(placement)}</span>
+        {markerImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- Asset icons can come from backend URLs outside next/image domains.
+          <img
+            src={markerImageUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-contain p-0.5"
+            draggable={false}
+            onError={(event) => {
+              event.currentTarget.style.display = "none";
+            }}
+          />
+        ) : null}
       </span>
       <span
-        className="absolute -bottom-0.5 -left-0.5 h-2 w-2 rounded-full border border-slate-950 bg-[var(--marker-color)]"
+        className="absolute -bottom-0.5 -left-0.5 h-2 w-2 rounded-full border border-white/80 bg-[var(--marker-color)]"
         aria-hidden="true"
       />
       {markerBadge ? (

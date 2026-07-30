@@ -163,6 +163,20 @@ async function main() {
       prototypeSource.includes("overwriteActiveVariant"),
     "prototype autosave must subscribe to project/variant store changes and call overwriteActiveVariant",
   );
+  assert(
+    prototypeSource.includes("showProjectPanel={false}") &&
+      !prototypeSource.includes("projectControls={") &&
+      !prototypeSource.includes("mt-3 hidden lg:block"),
+    "prototype must suppress the duplicate map project card in the map-first shell",
+  );
+  const gisBoardSource = readFileSync("src/modules/drone-defense/ui/gis-board.tsx", "utf8");
+  assert(
+    gisBoardSource.includes("projectControls?: ReactNode") &&
+      gisBoardSource.includes("showProjectPanel?: boolean") &&
+      gisBoardSource.includes("{projectControls}") &&
+      gisBoardSource.includes("onPointerDown={(event) => event.stopPropagation()}"),
+    "GIS board project card must remain available for non-prototype contexts",
+  );
 
   console.log("backend-integration-contract.test.ts: contracts passed");
 }

@@ -1,4 +1,5 @@
 import { getDefenseItemById } from "@/shared/config/defense-catalog";
+import { getBuildAssetForCatalogGroup } from "@/modules/drone-defense/domain/echelon-build-assets";
 import type { DefenseProject } from "@/shared/types/defense-project";
 import type { DefenseLayerId, DefenseScenarioId, Placement } from "@/shared/types/drone-defense";
 
@@ -17,6 +18,7 @@ export function placedObjectsToMapPlacements({
     const projectAsset = project.assetLibrary.find((asset) => asset.id === object.assetId);
     const catalogItem = getDefenseItemById(object.assetId);
     const groupId = projectAsset?.mapCatalogGroupIds?.[0] ?? catalogItem?.mapCatalogGroupIds[0];
+    const buildAsset = groupId ? getBuildAssetForCatalogGroup(groupId) : null;
     const label = object.name ?? projectAsset?.name ?? catalogItem?.title ?? object.assetId;
 
     return [
@@ -28,7 +30,7 @@ export function placedObjectsToMapPlacements({
         layerId: object.layerId as DefenseLayerId,
         catalogGroupId: groupId,
         catalogGroupName: label,
-        iconUrl: projectAsset?.iconUrl,
+        iconUrl: buildAsset?.imageUrl ?? projectAsset?.iconUrl,
         markerCategory: projectAsset?.category,
         mapRef: {
           lat: object.coordinates.lat,
